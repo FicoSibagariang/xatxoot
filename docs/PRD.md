@@ -623,86 +623,14 @@ flowchart LR
 
 ---
 
-## Lampiran A — Daftar Tabel Database Chatwoot (104)
+## Lampiran & Dokumen Pendukung Terkait
 
-`access_tokens, account_saml_settings, account_users, accounts, action_mailbox_inbound_emails, active_storage_*, agent_bot_inboxes, agent_bots, agent_capacity_policies, agent_sessions, applied_slas, article_embeddings, articles, assignment_policies, attachments, audits, automation_rule_pending_executions, automation_rules, calls, campaign_recipients, campaigns, canned_responses, captain_assistant_responses, captain_assistants, captain_custom_tools, captain_documents, captain_faq_observations, captain_faq_suggestions, captain_inboxes, captain_message_reports, captain_scenarios, categories, channel_api, channel_email, channel_facebook_pages, channel_instagram, channel_line, channel_sms, channel_telegram, channel_tiktok, channel_twilio_sms, channel_twitter_profiles, channel_web_widgets, channel_whatsapp, companies, contact_inboxes, contacts, conversation_monitor_*, conversation_monitors, conversation_outcomes, conversation_participants, conversations, copilot_messages, copilot_threads, csat_survey_responses, custom_attribute_definitions, custom_filters, custom_roles, dashboard_apps, data_import_errors, data_import_items, data_import_mappings, data_imports, email_templates, folders, inbox_assignment_policies, inbox_capacity_limits, inbox_members, inboxes, installation_configs, integrations_hooks, labels, leaves, macros, mentions, messages, notes, notification_settings, notification_subscriptions, notifications, platform_app_permissibles, platform_apps, platform_banners, portals, portals_members, related_categories, reporting_events, reporting_events_rollups, sla_events, sla_policies, taggings, tags, team_members, teams, user_sessions, users, webhooks, working_hours`
-
-## Lampiran B — Sumber Analisis
-
-| Area | Lokasi di Chatwoot |
-|------|--------------------|
-| Feature flags | `config/features.yml` |
-| Domain models | `app/models/`, `app/models/channel/`, `enterprise/app/models/` |
-| API surface | `app/controllers/api/`, `app/controllers/platform/`, `app/controllers/public/`, `config/routes.rb` |
-| Integrations | `config/integration/apps.yml` |
-| Dashboard UI | `app/javascript/dashboard/routes/dashboard/` |
-| Widget / SDK | `app/javascript/widget/`, `app/javascript/sdk/` |
-| Schema | `db/schema.rb` |
-
----
-
-## Lampiran C — Rancangan Skema Database Xatxoot (PostgreSQL + Raw Bun SQL)
-
-Karena menganut arsitektur **Single Organization** (D6), seluruh tabel di bawah terbebas dari kolom `account_id`, menggunakan raw SQL murni dengan tipe bawaan PostgreSQL (UUID, JSONB, TIMESTAMPTZ).
-
-```mermaid
-erDiagram
-    ORGANIZATIONS ||--o{ USERS : has
-    USERS ||--o{ INBOX_MEMBERS : joins
-    INBOXES ||--o{ INBOX_MEMBERS : has
-    INBOXES ||--|| CHANNELS_WHATSAPP : embeds
-    INBOXES ||--|| CHANNELS_WEB_WIDGET : embeds
-    INBOXES ||--|| CHANNELS_API : embeds
-    CONTACTS ||--o{ CONTACT_INBOXES : has
-    INBOXES ||--o{ CONTACT_INBOXES : receives
-    CONTACT_INBOXES ||--o{ CONVERSATIONS : opens
-    CONVERSATIONS ||--o{ TICKETS : has
-    CONVERSATIONS ||--o{ MESSAGES : contains
-    MESSAGES }o--o| TICKETS : "belongs to"
-    MESSAGES ||--o{ ATTACHMENTS : attaches
-    TICKETS }o--o| USERS : assignee
-    TICKETS }o--o| TEAMS : assigned_team
-    TEAMS ||--o{ TEAM_MEMBERS : has
-    USERS ||--o{ TEAM_MEMBERS : joins
-    TICKETS ||--o{ TICKET_PARTICIPANTS : watches
-```
-
-### C.1 Tabel Fase 0 & 1 (Fondasi & MVP WhatsApp)
-
-| Tabel | Kolom Kunci | Keterangan |
-|-------|-------------|------------|
-| `organizations` | `id, name, logo_url, default_locale, timezone, settings (jsonb), created_at` | Singleton (selalu 1 row) |
-| `instance_configs` | `key (PK), value, is_secret (boolean)` | Pengaturan instance (SMTP, S3, invite-only, TLS) |
-| `users` | `id, email (unique), password_hash (nullable jika SSO), google_id (unique, nullable), display_name, role (owner/admin/agent), custom_role_id, availability (online/offline/busy), avatar_url, ui_settings (jsonb), mfa_secret, active` | User operator & agent |
-| `user_sessions` | `id, user_id, refresh_token_hash, user_agent, ip_address, expires_at` | Refresh token & session tracking |
-| `teams` | `id, name, description, allow_auto_assign` | Grup tim agent |
-| `team_members` | `id, team_id, user_id` | Relasi tim-agent |
-| `inboxes` | `id, name, channel_type (whatsapp/web_widget/api), channel_id, enable_auto_assign, greeting_enabled, greeting_message, working_hours_enabled, working_hours (jsonb), out_of_office_message, lock_to_single_conv, sender_name_type` | Titik masuk percakapan |
-| `inbox_members` | `id, inbox_id, user_id` | Akses agent ke inbox |
-| `channels_whatsapp` | `id, provider (cloud_api/unofficial), phone_number, waba_id, phone_number_id, access_token_enc, app_secret_enc, webhook_verify_token, session_data_enc, connection_status, quality_rating, messaging_tier` | Konfigurasi WA (resmi & Baileys) |
-| `channels_web_widget` | `id, website_token (unique), website_url, widget_color, reply_time, pre_chat_form_enabled, hmac_secret` | Konfigurasi Live Chat |
-| `channels_api` | `id, webhook_url, auth_token` | Konfigurasi API channel |
-| `companies` | `id, name, domain, description, custom_attributes (jsonb)` | Entitas perusahaan kontak |
-| `contacts` | `id, company_id, name, email, phone_number, identifier, contact_type (visitor/lead/customer), custom_attributes (jsonb), additional_attributes (jsonb), blocked` | Data pelanggan |
-| `contact_inboxes` | `id, contact_id, inbox_id, source_id, hmac_verified` | Identitas kontak di inbox tertentu (mis. nomor WA atau cookie ID) |
-| `conversations` | `id, inbox_id, contact_inbox_id, active_ticket_id, last_message_at, created_at, updated_at` | Wadah ruang chat abadi per contact di inbox |
-| `tickets` | `id, display_id (auto-increment per inbox), conversation_id, assignee_id, team_id, status (open/pending/snoozed/resolved), priority (low/medium/high/urgent), snoozed_until, waiting_since, deadline_at, first_reply_created_at, opened_at, resolved_at, internal_note, internal_note_updated_by, internal_note_updated_at, custom_attributes (jsonb)` | Unit kerja operasional siklus penanganan isu |
-| `ticket_participants` | `id, ticket_id, user_id` | Watcher / @mention partisipan tiket |
-| `messages` | `id, conversation_id, ticket_id, sender_type (user/contact/bot/system), sender_id, message_type (incoming/outgoing/activity/template), content, content_type, status (sent/delivered/read/failed), source_id, content_attributes (jsonb)` | Pesan chat |
-| `attachments` | `id, message_id, file_type, file_url, thumb_url, file_size, file_name, metadata (jsonb)` | Berkas pesan |
-| `labels` | `id, name (unique), color, description, show_on_sidebar` | Tag tiket & kontak |
-| `ticket_labels` | `id, ticket_id, label_id` | Relasi tag tiket |
-| `contact_labels` | `id, contact_id, label_id` | Relasi tag kontak |
-| `canned_responses` | `id, short_code (unique), content` | Template balasan cepat |
-| `notifications` | `id, user_id, notification_type, primary_actor_type, primary_actor_id, read_at` | Notifikasi in-app |
-| `notification_settings` | `id, user_id, selected_email_flags, selected_push_flags` | Preferensi notifikasi |
-| `custom_attribute_definitions` | `id, attribute_key (unique), attribute_model (ticket/contact/company), display_name, display_type, default_value, regex_pattern, required` | Atribut dinamis kustom |
-| `webhooks` | `id, url, subscriptions (text[]), secret, active` | Webhook keluar |
-| `audit_logs` | `id, user_id, action, auditable_type, auditable_id, changes (jsonb), ip_address, created_at` | Jejak audit keamanan |
-
-### C.2 Tabel Tambahan Fase 2–5
-
-- **Fase 2 (Produktivitas & Otomasi Alur)**: `macros`, `custom_filters`, `whatsapp_templates_cache`, `slash_commands`, `bot_flows`, `bot_flow_steps`, `bot_flow_sessions`
-- **Fase 3 (Omnichannel & CSAT)**: `channels_email`, `channels_telegram`, `channels_facebook`, `channels_instagram`, `channels_sms`, `csat_survey_responses`, `working_hours_schedules`
-- **Fase 4 (Insight & Self-service)**: `automation_rules`, `delayed_automations`, `portals`, `portal_categories`, `portal_articles`, `campaigns`, `campaign_recipients`, `reporting_events`, `reporting_daily_rollups`
-- **Fase 5 (AI & SLA)**: `sla_policies`, `applied_slas`, `sla_events`, `custom_roles`, `ai_assistants`, `ai_documents` (dengan kolom `embedding vector(1536)` via pgvector), `ai_faq_responses`, `ai_custom_tools`, `ai_conversation_monitors`
+1. 📄 **[`docs/DATABASE_SCHEMA.md`](DATABASE_SCHEMA.md)**: Rancangan Skema Database Xatxoot lengkap (ERD, data types PostgreSQL 16, tabel Fase 0–1, dan tabel Fase 2–5 tanpa `account_id`).
+2. 📄 **[`docs/research/CHATWOOT_REFERENCE.md`](research/CHATWOOT_REFERENCE.md)**: Referensi riset audit codebase Chatwoot v4.18.0 (104 tabel, lokasi file, dan perbandingan desain).
+3. 📄 **Checklist Implementasi Teknis per Fase**:
+   - [Fase 0: Fondasi & Auth](PHASE_0_CHECKLIST.md)
+   - [Fase 1: MVP Inbox + WhatsApp](PHASE_1_CHECKLIST.md)
+   - [Fase 2: Produktivitas & Bot Engine](PHASE_2_CHECKLIST.md)
+   - [Fase 3: Omnichannel & CSAT](PHASE_3_CHECKLIST.md)
+   - [Fase 4: Insights & Help Center](PHASE_4_CHECKLIST.md)
+   - [Fase 5: AI Copilot & Advanced](PHASE_5_CHECKLIST.md)

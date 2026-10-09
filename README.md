@@ -33,14 +33,15 @@
 
 Seluruh spesifikasi teknis dan aturan operasional tercatat di direktori [`docs/`](docs/):
 
-1. 📄 **[`docs/PRD.md`](docs/PRD.md)**: Product Requirements Document lengkap (arsitektur, perbandingan Chatwoot, roadmap 6 fase, dan skema database PostgreSQL 16 di Lampiran C).
-2. 📄 **[`docs/TERMINOLOGY.md`](docs/TERMINOLOGY.md)**: Kamus domain & ubiquitous language resmi (mencegah ambiguitas istilah domain).
-3. 📄 **[`docs/TDD_GUIDELINES.md`](docs/TDD_GUIDELINES.md)**: Panduan standar penulisan test suite berbasis `bun test` di 4 tingkatan pengujian.
-4. 📄 **[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)**: Spesifikasi topologi arsitektur sistem, pemisahan runtime, alur pesan, dan pemetaan port.
-5. 📄 **[`docs/EVENTS.md`](docs/EVENTS.md)**: Kontrak event bus Redis Pub/Sub, antrean BullMQ, dan Server-Sent Events (SSE).
-6. 📄 **[`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md)**: Panduan setup lingkungan lokal, Docker Compose, dan perintah monorepo.
-7. 📄 **[`docs/PHASE_0_CHECKLIST.md`](docs/PHASE_0_CHECKLIST.md)**: Checklist rencana eksekusi teknis langkah-demi-langkah Fase 0.
-8. 📄 **[`AGENTS.md`](AGENTS.md)**: Hukum kerja wajib untuk semua AI coding agent (Antigravity, Cursor, Claude, subagents).
+1. 📄 **[`docs/PRD.md`](docs/PRD.md)**: Product Requirements Document lengkap (arsitektur, perbandingan Chatwoot, dan roadmap 6 fase).
+2. 📄 **[`docs/DATABASE_SCHEMA.md`](docs/DATABASE_SCHEMA.md)**: Rancangan skema database PostgreSQL 16 (ERD, data types, dan definisi seluruh tabel tanpa `account_id`).
+3. 📄 **[`docs/TERMINOLOGY.md`](docs/TERMINOLOGY.md)**: Kamus domain & ubiquitous language resmi (mencegah ambiguitas istilah domain).
+4. 📄 **[`docs/TDD_GUIDELINES.md`](docs/TDD_GUIDELINES.md)**: Panduan standar penulisan test suite berbasis `bun test` di 4 tingkatan pengujian.
+5. 📄 **[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)**: Spesifikasi topologi arsitektur sistem, pemisahan runtime, alur pesan, dan pemetaan port.
+6. 📄 **[`docs/EVENTS.md`](docs/EVENTS.md)**: Kontrak event bus Redis Pub/Sub, antrean BullMQ, dan Server-Sent Events (SSE).
+7. 📄 **[`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md)**: Panduan setup lingkungan lokal, Docker Compose, dan perintah monorepo.
+8. 📄 **[`docs/research/CHATWOOT_REFERENCE.md`](docs/research/CHATWOOT_REFERENCE.md)**: Referensi riset audit codebase Chatwoot v4.18.0 (104 tabel dan perbandingan desain).
+9. 📄 **[`AGENTS.md`](AGENTS.md)**: Hukum kerja wajib untuk semua AI coding agent (Antigravity, Cursor, Claude, subagents).
 
 ---
 

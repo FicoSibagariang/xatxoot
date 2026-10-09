@@ -7,10 +7,12 @@
 
 ## 1. Dokumen Acuan Wajib (Single Source of Truth)
 
-Sebelum menulis kode atau merancang skema, Anda **wajib merujuk pada 3 dokumen resmi** di direktori `docs/`:
-1. 📄 **[`docs/PRD.md`](file:///home/anangmaruf/agy-explore/xatxoot/xatxoot/docs/PRD.md)**: Product Requirements Document lengkap (fitur, scope per fase, arsitektur, dan skema database).
-2. 📄 **[`docs/TERMINOLOGY.md`](file:///home/anangmaruf/agy-explore/xatxoot/xatxoot/docs/TERMINOLOGY.md)**: Kamus domain & ubiquitous language. DILARANG menggunakan istilah di luar kamus ini (misal: dilarang menggunakan `account_id`, dilarang membuat `tickets` sebagai pengganti `conversations` kecuali sesuai model domain yang disepakati).
-3. 📄 **[`docs/TDD_GUIDELINES.md`](file:///home/anangmaruf/agy-explore/xatxoot/xatxoot/docs/TDD_GUIDELINES.md)**: Panduan standar penulisan test suite dan pengujian berbasis Test-Driven Development.
+Sebelum menulis kode atau merancang skema, Anda **wajib merujuk pada dokumen resmi** di direktori `docs/`:
+1. 📄 **[`docs/PRD.md`](docs/PRD.md)**: Product Requirements Document lengkap (fitur, scope per fase, dan arsitektur).
+2. 📄 **[`docs/DATABASE_SCHEMA.md`](docs/DATABASE_SCHEMA.md)**: Skema resmi database PostgreSQL 16 (tabel, kolom, indeks, dan relasi tanpa `account_id`).
+3. 📄 **[`docs/TERMINOLOGY.md`](docs/TERMINOLOGY.md)**: Kamus domain & ubiquitous language. DILARANG menggunakan istilah di luar kamus ini (misal: dilarang menggunakan `account_id`, dilarang membuat `tickets` sebagai pengganti `conversations` kecuali sesuai model domain yang disepakati).
+4. 📄 **[`docs/TDD_GUIDELINES.md`](docs/TDD_GUIDELINES.md)**: Panduan standar penulisan test suite dan pengujian berbasis Test-Driven Development.
+5. 📄 **[`docs/PHASE_X_CHECKLIST.md`](docs/)**: Checklist teknis spesifik untuk fase yang sedang dikerjakan.
 
 ---
 
