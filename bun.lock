@@ -11,6 +11,9 @@
     "packages/shared": {
       "name": "@xatxoot/shared",
       "version": "0.1.0",
+      "dependencies": {
+        "zod": "^4.6.5",
+      },
     },
   },
   "packages": {
@@ -33,5 +36,7 @@
     "@biomejs/cli-win32-x64": ["@biomejs/cli-win32-x64@1.9.4", "", { "os": "win32", "cpu": "x64" }, "sha512-8Y5wMhVIPaWe6jw2H+KlEm4wP/f7EW3810ZLmDlrEEy5KvBsb9ECEfu/kMWD484ijfQ8+nIi0giMgu9g1UAuuA=="],
 
     "@xatxoot/shared": ["@xatxoot/shared@workspace:packages/shared"],
+
+    "zod": ["zod@4.6.5", "", {}, "sha512-v5l/aFXZQeai4awLbOpSoHecE9UiMrnfx75tEXLjNonXVARxQ5mOeipTjROUchszUNCqnE+hqAMujRsRHsut2Q=="],
   }
 }

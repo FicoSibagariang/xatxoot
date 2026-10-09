@@ -38,7 +38,7 @@
 
 ### Bagian 2: Paket Bersama (`packages/shared`)
 - [x] **Task 0.6**: Inisialisasi `packages/shared/package.json` dan `tsconfig.json`.
-- [ ] **Task 0.7**: Buat skema validasi Zod & tipe data TypeScript:
+- [x] **Task 0.7**: Buat skema validasi Zod & tipe data TypeScript:
   - Skema setup organisasi (`OrganizationSetupInput`).
   - Skema login kredensial (`LoginInput`).
   - Skema user & role (`User`, `Role`, `UserRole`).
