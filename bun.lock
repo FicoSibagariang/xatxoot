@@ -8,6 +8,16 @@
         "@biomejs/biome": "^1.9.4",
       },
     },
+    "apps/api": {
+      "name": "@xatxoot/api",
+      "version": "0.1.0",
+      "dependencies": {
+        "@hono/node-server": "^1.13.7",
+        "@xatxoot/shared": "workspace:*",
+        "hono": "^4.6.14",
+        "zod": "^4.6.5",
+      },
+    },
     "packages/shared": {
       "name": "@xatxoot/shared",
       "version": "0.1.0",
@@ -35,7 +45,13 @@
 
     "@biomejs/cli-win32-x64": ["@biomejs/cli-win32-x64@1.9.4", "", { "os": "win32", "cpu": "x64" }, "sha512-8Y5wMhVIPaWe6jw2H+KlEm4wP/f7EW3810ZLmDlrEEy5KvBsb9ECEfu/kMWD484ijfQ8+nIi0giMgu9g1UAuuA=="],
 
+    "@hono/node-server": ["@hono/node-server@1.19.17", "", { "peerDependencies": { "hono": "^4" } }, "sha512-dSneS5qhiauZWGDCeK4o695Xd9nUNjviSZCMQrj10eetr8Uln1ucn6bbphOM6UynAMMtNIzZNSpL9vnASJwrPQ=="],
+
+    "@xatxoot/api": ["@xatxoot/api@workspace:apps/api"],
+
     "@xatxoot/shared": ["@xatxoot/shared@workspace:packages/shared"],
+
+    "hono": ["hono@4.13.13", "", {}, "sha512-CQ46U0ZkAGmbT/4UxdzzGJpacP2IeKgY4a5/tOI9AABbpOMfK739wfDXmv1usCk+3RkKj1hQy4/fjhiwa2xlrA=="],
 
     "zod": ["zod@4.6.5", "", {}, "sha512-v5l/aFXZQeai4awLbOpSoHecE9UiMrnfx75tEXLjNonXVARxQ5mOeipTjROUchszUNCqnE+hqAMujRsRHsut2Q=="],
   }
