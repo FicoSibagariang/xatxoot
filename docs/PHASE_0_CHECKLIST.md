@@ -30,7 +30,7 @@
   - `semicolons`: `"asNeeded"`
   - `indentStyle`: `"space"`, `indentWidth`: `2`
   - `lineWidth`: `100`
-- [ ] **Task 0.3**: Buat `tsconfig.base.json` untuk shared compiler options TypeScript (ESNext, Bun/DOM types, strict mode).
+- [x] **Task 0.3**: Buat `tsconfig.base.json` untuk shared compiler options TypeScript (ESNext, Bun/DOM types, strict mode).
 - [ ] **Task 0.4**: Siapkan `docker-compose.dev.yml` yang menjalankan PostgreSQL 16 (port 5432) dan Redis 7 (port 6379) dengan volume persisten.
 - [ ] **Task 0.5**: Buat file `.env.example` master yang mendokumentasikan seluruh variabel lingkungan (DB, Redis, JWT secret, Google SSO).
 
