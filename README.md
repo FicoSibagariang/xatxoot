@@ -44,12 +44,21 @@ Seluruh spesifikasi teknis dan aturan operasional tercatat di direktori [`docs/`
 
 ---
 
-## 🗺️ Roadmap Pengembangan
+## 🗺️ Roadmap & Checklist Pengembangan
 
 ```mermaid
 flowchart LR
     M0["Fase 0: Fondasi & Auth"] --> M1["Fase 1: MVP Inbox + WhatsApp"] --> M2["Fase 2: Produktivitas & Bot"] --> M3["Fase 3: Omnichannel"] --> M4["Fase 4: Insights & Portal"] --> M5["Fase 5: AI Copilot"]
 ```
+
+| Fase | Fokus Pengembangan | Checklist Eksekusi |
+|---|---|---|
+| **Fase 0** | Fondasi Monorepo, Database, & Autentikasi | [📄 `docs/PHASE_0_CHECKLIST.md`](docs/PHASE_0_CHECKLIST.md) |
+| **Fase 1** | MVP Inbox + WhatsApp (Cloud API & Baileys) | [📄 `docs/PHASE_1_CHECKLIST.md`](docs/PHASE_1_CHECKLIST.md) |
+| **Fase 2** | Produktivitas Agent, Bot Engine, & Tim | [📄 `docs/PHASE_2_CHECKLIST.md`](docs/PHASE_2_CHECKLIST.md) |
+| **Fase 3** | Omnichannel (Email, Telegram, IG, SMS) & CSAT | [📄 `docs/PHASE_3_CHECKLIST.md`](docs/PHASE_3_CHECKLIST.md) |
+| **Fase 4** | Insights, Portal Help Center, & Broadcast Anti-Ban | [📄 `docs/PHASE_4_CHECKLIST.md`](docs/PHASE_4_CHECKLIST.md) |
+| **Fase 5** | AI Copilot, SLA, & Enterprise Security | [📄 `docs/PHASE_5_CHECKLIST.md`](docs/PHASE_5_CHECKLIST.md) |
 
 ---
 
