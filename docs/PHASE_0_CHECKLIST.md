@@ -23,7 +23,7 @@
 ## 📋 Daftar Tugas Atomik (Step-by-Step)
 
 ### Bagian 1: Inisialisasi Monorepo & Tooling
-- [ ] **Task 0.1**: Buat root `package.json` dengan konfigurasi Bun Workspaces (`apps/*`, `packages/*`) dan skrip global (`dev`, `build`, `test`, `check`, `lint`).
+- [x] **Task 0.1**: Buat root `package.json` dengan konfigurasi Bun Workspaces (`apps/*`, `packages/*`) dan skrip global (`dev`, `build`, `test`, `check`, `lint`).
 - [ ] **Task 0.2**: Buat `biome.json` di root dengan aturan ketat sesuai `AGENTS.md`:
   - `quoteStyle`: `'single'`
   - `jsxQuoteStyle`: `"double"`
