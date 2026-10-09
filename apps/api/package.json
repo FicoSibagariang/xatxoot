@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "bun --watch src/index.ts",
     "start": "bun run src/index.ts",
-    "test": "bun test"
+    "test": "bun test",
+    "db:migrate": "bun run src/db/migrate.ts"
   },
   "dependencies": {
     "@hono/node-server": "^1.13.7",

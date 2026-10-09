@@ -9,7 +9,8 @@
     "test": "bun test",
     "check": "biome check .",
     "lint": "biome lint .",
-    "format": "biome check --write ."
+    "format": "biome check --write .",
+    "db:migrate": "bun --filter '@xatxoot/api' db:migrate"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4"
