@@ -26,7 +26,13 @@ export interface WidgetUser {
   identifierHash?: string
 }
 
-export type WidgetEventType = 'open' | 'close' | 'unread' | 'message.sent' | 'message.received'
+export type WidgetEventType =
+  | 'open'
+  | 'close'
+  | 'unread'
+  | 'message.sent'
+  | 'message.received'
+  | 'config.updated'
 export type WidgetEventHandler = (data?: unknown) => void
 
 export interface WidgetMessageResponse {

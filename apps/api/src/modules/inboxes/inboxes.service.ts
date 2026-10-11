@@ -461,6 +461,45 @@ export class InboxService {
       // Fallback
     }
 
+    if (updates.channel && existing.inbox.channelType === 'web_widget') {
+      const channelData = existing.channel as WebWidgetChannelData
+      const updatedChannel: WebWidgetChannelData = {
+        ...channelData,
+        widgetColor: updates.channel.widgetColor || channelData.widgetColor,
+        websiteUrl:
+          updates.channel.websiteUrl !== undefined
+            ? updates.channel.websiteUrl
+            : channelData.websiteUrl,
+        allowedDomains: updates.channel.allowedDomains || channelData.allowedDomains,
+        replyTime: updates.channel.replyTime || channelData.replyTime,
+        preChatFormEnabled:
+          updates.channel.preChatFormEnabled !== undefined
+            ? updates.channel.preChatFormEnabled
+            : channelData.preChatFormEnabled,
+        updatedAt: now,
+      }
+
+      try {
+        await sql`
+          UPDATE channels_web_widget
+          SET widget_color = ${updatedChannel.widgetColor},
+              website_url = ${updatedChannel.websiteUrl},
+              allowed_domains = ${updatedChannel.allowedDomains},
+              reply_time = ${updatedChannel.replyTime},
+              pre_chat_form_enabled = ${updatedChannel.preChatFormEnabled},
+              updated_at = ${now}
+          WHERE id = ${existing.inbox.channelId}
+        `
+      } catch {
+        // Fallback
+      }
+
+      memoryStore.channels.set(existing.inbox.channelId, {
+        type: 'web_widget',
+        data: updatedChannel,
+      })
+    }
+
     memoryStore.inboxes.set(id, updated)
     return updated
   }
