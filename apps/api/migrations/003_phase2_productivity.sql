@@ -36,3 +36,17 @@ CREATE TABLE IF NOT EXISTS canned_responses (
 );
 
 CREATE INDEX IF NOT EXISTS idx_canned_responses_short_code ON canned_responses(short_code);
+
+-- Task 2.3: Slash Commands
+-- 4. slash_commands (External slash commands invoked via /command)
+CREATE TABLE IF NOT EXISTS slash_commands (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(100) NOT NULL UNIQUE,
+    description TEXT,
+    endpoint_url TEXT NOT NULL,
+    auth_header TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_slash_commands_name ON slash_commands(name);
