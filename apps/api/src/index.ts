@@ -10,6 +10,7 @@ import { slashCommandRoutes } from './modules/slash-commands/slash-commands.rout
 import { teamRoutes } from './modules/teams/teams.routes'
 import { ticketRoutes } from './modules/tickets/tickets.routes'
 import { whatsappCloudWebhookRoutes } from './modules/webhooks/whatsapp-cloud.webhook.routes'
+import { whatsappTemplateRoutes } from './modules/whatsapp-templates/whatsapp-templates.routes'
 import { widgetRoutes } from './modules/widget/widget.routes'
 
 const app = new Hono()
@@ -28,6 +29,7 @@ app.route('/api/v1/slash-commands', slashCommandRoutes)
 app.route('/api/v1/assignment', assignmentRoutes)
 app.route('/api/v1/bot-flows', botFlowRoutes)
 app.route('/api/v1/bot-sessions', botSessionRoutes)
+app.route('/api/v1/whatsapp-templates', whatsappTemplateRoutes)
 app.route('/api/v1/realtime', realtimeRoutes)
 app.route('/api/v1/webhooks/whatsapp-cloud', whatsappCloudWebhookRoutes)
 app.route('/api/v1/widget', widgetRoutes)
