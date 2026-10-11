@@ -9,6 +9,7 @@ import { inboxRoutes } from './modules/inboxes/inboxes.routes'
 import { realtimeRoutes } from './modules/realtime/realtime.routes'
 import { slashCommandRoutes } from './modules/slash-commands/slash-commands.routes'
 import { teamRoutes } from './modules/teams/teams.routes'
+import { telegramRoutes } from './modules/telegram/telegram.routes'
 import { ticketRoutes } from './modules/tickets/tickets.routes'
 import { whatsappCloudWebhookRoutes } from './modules/webhooks/whatsapp-cloud.webhook.routes'
 import { whatsappTemplateRoutes } from './modules/whatsapp-templates/whatsapp-templates.routes'
@@ -35,5 +36,6 @@ app.route('/api/v1/realtime', realtimeRoutes)
 app.route('/api/v1/webhooks/whatsapp-cloud', whatsappCloudWebhookRoutes)
 app.route('/api/v1/widget', widgetRoutes)
 app.route('/api/v1/email', emailRoutes)
+app.route('/api/v1/telegram', telegramRoutes)
 
 export default app
