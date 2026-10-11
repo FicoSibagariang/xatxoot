@@ -80,3 +80,29 @@ CREATE INDEX IF NOT EXISTS idx_bot_flows_active ON bot_flows(active);
 CREATE INDEX IF NOT EXISTS idx_bot_flows_trigger_type ON bot_flows(trigger_type);
 CREATE INDEX IF NOT EXISTS idx_bot_sessions_conversation_id ON bot_sessions(conversation_id);
 CREATE INDEX IF NOT EXISTS idx_bot_sessions_flow_id ON bot_sessions(flow_id);
+
+-- Task 2.5: Macros & Macro Actions
+-- 7. macros (Configured multi-action shortcuts)
+CREATE TABLE IF NOT EXISTS macros (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(255) NOT NULL,
+    visibility VARCHAR(50) NOT NULL DEFAULT 'personal',
+    created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- 8. macro_actions (Individual action steps belonging to a macro)
+CREATE TABLE IF NOT EXISTS macro_actions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    macro_id UUID NOT NULL REFERENCES macros(id) ON DELETE CASCADE,
+    action_type VARCHAR(100) NOT NULL,
+    action_payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+    position INT NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Performance indexes for macros
+CREATE INDEX IF NOT EXISTS idx_macros_created_by ON macros(created_by);
+CREATE INDEX IF NOT EXISTS idx_macros_visibility ON macros(visibility);
+CREATE INDEX IF NOT EXISTS idx_macro_actions_macro_id ON macro_actions(macro_id);

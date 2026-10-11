@@ -32,7 +32,7 @@
 - [x] **Task 2.4**: Buat tabel chatbot engine:
   - `bot_flows` (name, trigger_type, active, flow_definition JSONB).
   - `bot_sessions` (conversation_id, flow_id, current_node_id, context_data JSONB).
-- [ ] **Task 2.5**: Buat tabel `macros` & `macro_actions`.
+- [x] **Task 2.5**: Buat tabel `macros` & `macro_actions`.
 - [ ] **Task 2.6**: Buat tabel `whatsapp_templates` (waba_template_id, name, language, category, status, components JSONB).
 - [ ] **Task 2.7**: Buat tabel `outgoing_webhooks` & riwayat log delivery.
 
