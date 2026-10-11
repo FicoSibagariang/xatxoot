@@ -52,7 +52,7 @@
   - Pengiriman pesan outbound & upload attachment file ke Telegram Bot API.
 - [x] **Task 3.9 (TDD - Meta Social: FB & IG)**:
   - Receiver webhook pesan masuk & pengiriman balasan ke Graph API.
-- [ ] **Task 3.10 (TDD - SMS)**:
+- [x] **Task 3.10 (TDD - SMS)**:
   - Integrasi Twilio webhook & outbound SMS sender.
 - [ ] **Task 3.11 (TDD - Business Hours Engine)**:
   - Evaluasi waktu saat pesan masuk terhadap jam operasional inbox.
