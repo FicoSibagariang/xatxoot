@@ -24,3 +24,15 @@ CREATE TABLE IF NOT EXISTS team_members (
 CREATE INDEX IF NOT EXISTS idx_teams_name ON teams(name);
 CREATE INDEX IF NOT EXISTS idx_team_members_team_id ON team_members(team_id);
 CREATE INDEX IF NOT EXISTS idx_team_members_user_id ON team_members(user_id);
+
+-- Task 2.2: Canned Responses
+-- 3. canned_responses (Canned quick replies invoked via /shortcut)
+CREATE TABLE IF NOT EXISTS canned_responses (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    short_code VARCHAR(100) NOT NULL UNIQUE,
+    content TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_canned_responses_short_code ON canned_responses(short_code);
