@@ -77,3 +77,21 @@ CREATE TABLE IF NOT EXISTS business_hours (
 -- Performance index for business_hours inbox lookup
 CREATE INDEX IF NOT EXISTS idx_business_hours_inbox_id ON business_hours(inbox_id);
 
+-- 7. csat_surveys (Customer Satisfaction Surveys & Rating Responses) (Task 3.3)
+CREATE TABLE IF NOT EXISTS csat_surveys (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    ticket_id UUID NOT NULL REFERENCES tickets(id) ON DELETE CASCADE UNIQUE,
+    contact_id UUID NOT NULL REFERENCES contacts(id) ON DELETE CASCADE,
+    rating INT NOT NULL CHECK (rating >= 1 AND rating <= 5),
+    feedback_text TEXT,
+    submitted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Performance indexes for csat_surveys query lookups and aggregation
+CREATE INDEX IF NOT EXISTS idx_csat_surveys_ticket_id ON csat_surveys(ticket_id);
+CREATE INDEX IF NOT EXISTS idx_csat_surveys_contact_id ON csat_surveys(contact_id);
+CREATE INDEX IF NOT EXISTS idx_csat_surveys_rating ON csat_surveys(rating);
+
+

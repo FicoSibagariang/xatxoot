@@ -31,7 +31,7 @@
   - `channels_sms` (provider_name, account_sid, auth_token_encrypted, from_phone_number).
 - [x] **Task 3.2**: Buat tabel konfigurasi jam kerja:
   - `business_hours` (inbox_id, timezone, weekly_schedule JSONB, out_of_office_message).
-- [ ] **Task 3.3**: Buat tabel survei kepuasan pelanggan:
+- [x] **Task 3.3**: Buat tabel survei kepuasan pelanggan:
   - `csat_surveys` (ticket_id, contact_id, rating: 1-5, feedback_text, submitted_at).
 
 ---
