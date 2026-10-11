@@ -34,7 +34,7 @@
   - `bot_sessions` (conversation_id, flow_id, current_node_id, context_data JSONB).
 - [x] **Task 2.5**: Buat tabel `macros` & `macro_actions`.
 - [x] **Task 2.6**: Buat tabel `whatsapp_templates` (waba_template_id, name, language, category, status, components JSONB).
-- [ ] **Task 2.7**: Buat tabel `outgoing_webhooks` & riwayat log delivery.
+- [x] **Task 2.7**: Buat tabel `outgoing_webhooks` & riwayat log delivery.
 
 ---
 
