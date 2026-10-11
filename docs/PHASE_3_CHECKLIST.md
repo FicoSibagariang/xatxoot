@@ -38,7 +38,7 @@
 
 ### Bagian 2: Shared Types & Zod Schemas (`packages/shared`)
 - [x] **Task 3.4**: Skema validasi konfigurasi masing-masing channel (Email, Telegram, FB, IG, SMS).
-- [ ] **Task 3.5**: Skema validasi struktur jam kerja mingguan (*day of week, open time, close time*).
+- [x] **Task 3.5**: Skema validasi struktur jam kerja mingguan (*day of week, open time, close time*).
 - [ ] **Task 3.6**: Skema validasi input tanggapan CSAT survey.
 
 ---
