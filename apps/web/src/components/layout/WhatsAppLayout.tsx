@@ -5,6 +5,7 @@ import {
   type CannedItem,
   ChatTimeline,
   type CommandItem,
+  DeadlineTimerBadge,
   SlashAutocompletePopup,
   type TimelineMessage,
   applyAutocompleteSelection,
@@ -248,6 +249,7 @@ export interface ChatListPanelProps {
   selectedConversationId?: string | null
   activeFilter: ChatFilter
   searchQuery: string
+  now?: Date
   onSelectConversation: (id: string) => void
   onFilterChange: (filter: ChatFilter) => void
   onSearchChange: (query: string) => void
@@ -259,6 +261,7 @@ export function ChatListPanel({
   selectedConversationId,
   activeFilter,
   searchQuery,
+  now,
   onSelectConversation,
   onFilterChange,
   onSearchChange,
@@ -416,9 +419,16 @@ export function ChatListPanel({
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-1.5 truncate">
                       {conv.ticket && (
-                        <span className="text-[11px] font-semibold text-[#008069] shrink-0">
-                          #{conv.ticket.ticketNumber} [{formatTicketStatus(conv.ticket.status)}]
-                        </span>
+                        <>
+                          <span className="text-[11px] font-semibold text-[#008069] shrink-0">
+                            #{conv.ticket.ticketNumber} [{formatTicketStatus(conv.ticket.status)}]
+                          </span>
+                          <DeadlineTimerBadge
+                            deadlineAt={conv.ticket.deadlineAt}
+                            status={conv.ticket.status}
+                            now={now}
+                          />
+                        </>
                       )}
                       <p className="text-xs text-[#667781] truncate">
                         {conv.lastMessage || 'Tidak ada pesan'}
@@ -501,6 +511,7 @@ export interface ConversationThreadProps {
   messages?: TimelineMessage[]
   cannedResponses?: CannedItem[]
   slashCommands?: CommandItem[]
+  now?: Date
   onToggleDrawer: () => void
   onSendMessage: (message: string) => void
   onAssignTicket: () => void
@@ -515,6 +526,7 @@ export function ConversationThread({
   messages,
   cannedResponses,
   slashCommands,
+  now,
   onToggleDrawer,
   onSendMessage,
   onAssignTicket,
@@ -658,9 +670,17 @@ export function ConversationThread({
         {/* Quick Ticket Actions */}
         <div className="flex items-center gap-2">
           {conversation.ticket && (
-            <span className="text-xs font-semibold px-2 py-1 rounded bg-[#e7fce3] text-[#008069] border border-[#c1f7b7]">
-              #{conversation.ticket.ticketNumber}
-            </span>
+            <>
+              <span className="text-xs font-semibold px-2 py-1 rounded bg-[#e7fce3] text-[#008069] border border-[#c1f7b7]">
+                #{conversation.ticket.ticketNumber}
+              </span>
+              <DeadlineTimerBadge
+                deadlineAt={conversation.ticket.deadlineAt}
+                status={conversation.ticket.status}
+                now={now}
+                size="md"
+              />
+            </>
           )}
 
           <Button
@@ -856,6 +876,7 @@ export interface WhatsAppLayoutProps {
   cannedResponses?: CannedItem[]
   slashCommands?: CommandItem[]
   messages?: TimelineMessage[]
+  now?: Date
   onRetryMessage?: (message: TimelineMessage) => void
   onOpenSettings?: () => void
   children?: ReactNode
@@ -874,6 +895,7 @@ export function WhatsAppLayout({
   cannedResponses,
   slashCommands,
   messages,
+  now,
   onTabChange = () => {},
   onChannelFilterChange = () => {},
   onPresenceChange = () => {},
@@ -912,6 +934,7 @@ export function WhatsAppLayout({
         selectedConversationId={selectedConversationId}
         activeFilter={activeFilter}
         searchQuery={searchQuery}
+        now={now}
         onSelectConversation={onSelectConversation}
         onFilterChange={onFilterChange}
         onSearchChange={onSearchChange}
@@ -925,6 +948,7 @@ export function WhatsAppLayout({
         messages={messages}
         cannedResponses={cannedResponses}
         slashCommands={slashCommands}
+        now={now}
         onToggleDrawer={onToggleDrawer}
         onSendMessage={onSendMessage}
         onAssignTicket={onAssignTicket}
