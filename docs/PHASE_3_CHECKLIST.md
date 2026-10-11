@@ -64,7 +64,7 @@
 ---
 
 ### Bagian 4: Antarmuka Web Dashboard & Portal (`apps/web`)
-- [ ] **Task 3.13**: Halaman konfigurasi penambahan channel baru (Wizard Email, Telegram, FB/IG, Twilio).
+- [x] **Task 3.13**: Halaman konfigurasi penambahan channel baru (Wizard Email, Telegram, FB/IG, Twilio).
 - [ ] **Task 3.14**: UI pemilih jadwal Jam Kerja per Inbox (picker hari & jam, input pesan di luar jam kantor).
 - [ ] **Task 3.15**: Widget / Halaman responsif publik pengisian rating CSAT untuk pelanggan.
 - [ ] **Task 3.16**: Widget tampilan rating kepuasan CSAT di drawer detail tiket.
