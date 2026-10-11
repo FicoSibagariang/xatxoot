@@ -67,6 +67,13 @@
         "zod": "^4.6.5",
       },
     },
+    "packages/widget": {
+      "name": "@xatxoot/widget",
+      "version": "0.1.0",
+      "devDependencies": {
+        "vite": "^6.0.7",
+      },
+    },
   },
   "packages": {
     "@adiwajshing/keyed-db": ["@adiwajshing/keyed-db@0.2.4", "", {}, "sha512-yprSnAtj80/VKuDqRcFFLDYltoNV8tChNwFfIgcf6PGD4sjzWIBgs08pRuTqGH5mk5wgL6PBRSsMCZqtZwzFEw=="],
@@ -438,6 +445,8 @@
     "@xatxoot/wa-simulator": ["@xatxoot/wa-simulator@workspace:apps/wa-simulator"],
 
     "@xatxoot/web": ["@xatxoot/web@workspace:apps/web"],
+
+    "@xatxoot/widget": ["@xatxoot/widget@workspace:packages/widget"],
 
     "abort-controller": ["abort-controller@3.0.0", "", { "dependencies": { "event-target-shim": "^5.0.0" } }, "sha512-h8lQ8tacZYnR3vNQTgibj+tODHI5/+l06Au2Pcriv/Gmet0eaj4TwWH41sO9wnHDiQsEj19q0drzdWdeAHtweg=="],
 
