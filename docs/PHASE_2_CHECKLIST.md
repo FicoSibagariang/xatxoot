@@ -48,7 +48,7 @@
 ### Bagian 3: Backend Services & API (`apps/api`) — Siklus TDD
 - [x] **Task 2.11 (TDD)**: Test suite & implementasi CRUD `teams` dan keanggotaan agent.
 - [x] **Task 2.12 (TDD)**: Test suite & implementasi `canned_responses` (pencarian instan berdasarkan prefix shortcut).
-- [ ] **Task 2.13 (TDD)**: Test suite & implementasi `slash_commands`:
+- [x] **Task 2.13 (TDD)**: Test suite & implementasi `slash_commands`:
   - Worker yang memanggil webhook eksternal dengan timeout ketat (3 detik).
   - Sanitasi respons sebelum dimasukkan ke antarmuka agent.
 - [ ] **Task 2.14 (TDD)**: Test suite & implementasi **Round-Robin Assignment Engine**:
