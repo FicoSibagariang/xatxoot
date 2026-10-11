@@ -10,6 +10,12 @@ import type {
   PresenceStatus,
 } from './components/layout/types'
 import { BaileysPairingDialog, type BaileysPairingState } from './components/pairing'
+import {
+  applyRealtimeMessage,
+  applyRealtimeMessageStatus,
+  applyRealtimeTicket,
+  useRealtimeStream,
+} from './hooks'
 
 const INITIAL_USER: LayoutUser = {
   id: 'usr_default_agent',
@@ -169,6 +175,40 @@ export function App() {
   const [pairingState, setPairingState] = useState<BaileysPairingState>({
     status: 'qr_ready',
     qrData: '2@fK7x8Y1...xatxoot-baileys-live-session-qr',
+  })
+
+  // Real-time SSE updates without page refresh
+  const { status: _realtimeStatus } = useRealtimeStream({
+    token: 'mock-agent-jwt',
+    onMessageCreated: (event) => {
+      setMessagesMap((prev) => applyRealtimeMessage(prev, event))
+      setConversations((prev) =>
+        prev.map((c) =>
+          c.id === event.conversationId
+            ? {
+                ...c,
+                lastMessage: event.content,
+                lastMessageTimestamp: 'Baru saja',
+                unreadCount:
+                  selectedConversationId === event.conversationId ? 0 : (c.unreadCount || 0) + 1,
+              }
+            : c,
+        ),
+      )
+    },
+    onMessageStatusUpdated: (event) => {
+      setMessagesMap((prev) => applyRealtimeMessageStatus(prev, event))
+    },
+    onTicketUpdated: (event) => {
+      setConversations((prev) => applyRealtimeTicket(prev, event))
+      if (
+        selectedConversationId &&
+        event.internalNote !== undefined &&
+        event.internalNote !== null
+      ) {
+        setInternalNote(event.internalNote)
+      }
+    },
   })
 
   // Filter conversations

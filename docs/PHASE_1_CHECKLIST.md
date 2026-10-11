@@ -90,7 +90,7 @@
 - [x] **Task 1.25**: Komponen Chat Timeline: bubble bertail, penanda pesan masuk vs keluar, double check delivery status.
 - [x] **Task 1.26**: Panel Samping Kanan (Drawer): profil kontak, riwayat tiket, dan kartu edit *1:1 Sticky Internal Note*.
 - [x] **Task 1.27**: Dialog pairing WhatsApp Baileys via live QR code generator.
-- [ ] **Task 1.28**: Integrasi custom hook SSE untuk real-time update tanpa refresh halaman.
+- [x] **Task 1.28**: Integrasi custom hook SSE untuk real-time update tanpa refresh halaman.
 
 ---
 

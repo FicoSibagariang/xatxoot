@@ -1,0 +1,51 @@
+export type RealtimeStatus = 'idle' | 'connecting' | 'connected' | 'disconnected' | 'error'
+
+export interface MessageCreatedEvent {
+  id: string
+  conversationId: string
+  content: string
+  messageType: 'incoming' | 'outgoing' | 'activity'
+  contentType: 'text' | 'image' | 'document' | 'audio' | 'video'
+  senderId?: string
+  senderType?: 'contact' | 'user' | 'system'
+  senderName?: string
+  timestamp?: string
+  createdAt?: string
+}
+
+export interface MessageStatusUpdatedEvent {
+  id: string
+  conversationId: string
+  status: 'sent' | 'delivered' | 'read' | 'failed'
+  updatedAt?: string
+}
+
+export interface TicketUpdatedEvent {
+  id: string
+  ticketNumber: string
+  status: 'open' | 'pending' | 'resolved' | 'snoozed'
+  priority?: 'urgent' | 'high' | 'medium' | 'low'
+  assignedTo?: string | null
+  internalNote?: string | null
+  updatedAt?: string
+}
+
+export type RealtimeEventHandler<T = unknown> = (data: T) => void
+
+export interface RealtimeStreamOptions {
+  baseUrl?: string
+  token?: string
+  autoConnect?: boolean
+  reconnectInterval?: number
+  maxReconnectAttempts?: number
+  onConnected?: (data: unknown) => void
+  onMessageCreated?: (event: MessageCreatedEvent) => void
+  onMessageStatusUpdated?: (event: MessageStatusUpdatedEvent) => void
+  onTicketUpdated?: (event: TicketUpdatedEvent) => void
+  onError?: (error: unknown) => void
+  onStatusChange?: (status: RealtimeStatus) => void
+}
+
+export interface RealtimeStreamHookOptions extends RealtimeStreamOptions {
+  enabled?: boolean
+}
