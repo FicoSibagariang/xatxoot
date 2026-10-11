@@ -1,5 +1,6 @@
 import type { BotFlowDefinition, WhatsAppTemplate } from '@xatxoot/shared'
 import { useState } from 'react'
+import { ChannelWizard } from './components/channels'
 import type { TimelineMessage } from './components/chat'
 import { VisualFlowBuilder } from './components/flow-builder'
 import { WhatsAppLayout } from './components/layout/WhatsAppLayout'
@@ -338,6 +339,7 @@ export function App() {
   const [isBotFlowBuilderOpen, setIsBotFlowBuilderOpen] = useState(false)
   const [isTeamManagementOpen, setIsTeamManagementOpen] = useState(false)
   const [isTemplateDialogOpen, setIsTemplateDialogOpen] = useState(false)
+  const [isChannelWizardOpen, setIsChannelWizardOpen] = useState(false)
   const [teams, setTeams] = useState<TeamWithMembers[]>(INITIAL_TEAMS)
   const [templates] = useState<WhatsAppTemplate[]>(INITIAL_TEMPLATES)
   const [botFlow, setBotFlow] = useState<BotFlowDefinition>(INITIAL_BOT_FLOW)
@@ -667,6 +669,15 @@ export function App() {
               [selectedConversationId]: [...(prev[selectedConversationId] || []), newMsg],
             }))
             setIsTemplateDialogOpen(false)
+          }}
+        />
+      )}
+
+      {isChannelWizardOpen && (
+        <ChannelWizard
+          onClose={() => setIsChannelWizardOpen(false)}
+          onSaveChannel={(_payload) => {
+            setIsChannelWizardOpen(false)
           }}
         />
       )}
