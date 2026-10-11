@@ -125,3 +125,34 @@ CREATE TABLE IF NOT EXISTS whatsapp_templates (
 CREATE INDEX IF NOT EXISTS idx_whatsapp_templates_waba_template_id ON whatsapp_templates(waba_template_id);
 CREATE INDEX IF NOT EXISTS idx_whatsapp_templates_status ON whatsapp_templates(status);
 CREATE INDEX IF NOT EXISTS idx_whatsapp_templates_name ON whatsapp_templates(name);
+
+-- Task 2.7: Outgoing Webhooks & Delivery Logs
+-- 10. outgoing_webhooks (Outgoing webhook event subscriptions)
+CREATE TABLE IF NOT EXISTS outgoing_webhooks (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    url TEXT NOT NULL,
+    subscriptions TEXT[] NOT NULL DEFAULT '{}',
+    secret VARCHAR(255),
+    active BOOLEAN NOT NULL DEFAULT true,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- 11. outgoing_webhook_deliveries (Historical delivery execution logs)
+CREATE TABLE IF NOT EXISTS outgoing_webhook_deliveries (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    webhook_id UUID NOT NULL REFERENCES outgoing_webhooks(id) ON DELETE CASCADE,
+    event_name VARCHAR(100) NOT NULL,
+    payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+    response_status_code INT,
+    response_body TEXT,
+    attempt_count INT NOT NULL DEFAULT 1,
+    status VARCHAR(50) NOT NULL DEFAULT 'delivered',
+    error_message TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Performance indexes for outgoing webhooks and delivery logs
+CREATE INDEX IF NOT EXISTS idx_outgoing_webhooks_active ON outgoing_webhooks(active);
+CREATE INDEX IF NOT EXISTS idx_outgoing_webhook_deliveries_webhook_id ON outgoing_webhook_deliveries(webhook_id);
+CREATE INDEX IF NOT EXISTS idx_outgoing_webhook_deliveries_status ON outgoing_webhook_deliveries(status);
