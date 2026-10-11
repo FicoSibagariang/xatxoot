@@ -103,4 +103,4 @@
 
 ### Bagian 8: Verifikasi & Quality Gate
 - [x] **Task 1.32**: Jalankan seluruh unit & integration test (`bun test`) — pastikan 100% PASS.
-- [ ] **Task 1.33**: Jalankan `bun run check` (Biome) — pastikan 0 error dan 0 warning.
+- [x] **Task 1.33**: Jalankan `bun run check` (Biome) — pastikan 0 error dan 0 warning.
