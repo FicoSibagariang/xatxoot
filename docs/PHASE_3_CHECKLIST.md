@@ -57,7 +57,7 @@
 - [x] **Task 3.11 (TDD - Business Hours Engine)**:
   - Evaluasi waktu saat pesan masuk terhadap jam operasional inbox.
   - Pengiriman otomatis *out-of-office reply* (hanya sekali per percakapan dalam jeda 24 jam).
-- [ ] **Task 3.12 (TDD - CSAT Engine)**:
+- [x] **Task 3.12 (TDD - CSAT Engine)**:
   - Trigger pembuatan CSAT invite saat tiket diubah statusnya menjadi `resolved`.
   - Endpoint publik penerimaan submit rating CSAT (`POST /api/v1/csat/:ticket_token`).
 

@@ -8,6 +8,7 @@ import {
 } from './modules/business-hours/business-hours.routes'
 import { cannedResponseRoutes } from './modules/canned-responses/canned-responses.routes'
 import { conversationRoutes } from './modules/conversations/conversations.routes'
+import { csatRoutes } from './modules/csat/csat.routes'
 import { emailRoutes } from './modules/email/email.routes'
 import { inboxRoutes } from './modules/inboxes/inboxes.routes'
 import { metaSocialRoutes } from './modules/meta-social/meta-social.routes'
@@ -47,5 +48,6 @@ app.route('/api/v1/telegram', telegramRoutes)
 app.route('/api/v1/meta-social', metaSocialRoutes)
 app.route('/api/v1/sms', smsRoutes)
 app.route('/api/v1/business-hours', businessHoursRoutes)
+app.route('/api/v1/csat', csatRoutes)
 
 export default app
