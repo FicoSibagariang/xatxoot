@@ -4,6 +4,7 @@ import { authRoutes } from './modules/auth/auth.routes'
 import { botFlowRoutes, botSessionRoutes } from './modules/bots/bots.routes'
 import { cannedResponseRoutes } from './modules/canned-responses/canned-responses.routes'
 import { conversationRoutes } from './modules/conversations/conversations.routes'
+import { emailRoutes } from './modules/email/email.routes'
 import { inboxRoutes } from './modules/inboxes/inboxes.routes'
 import { realtimeRoutes } from './modules/realtime/realtime.routes'
 import { slashCommandRoutes } from './modules/slash-commands/slash-commands.routes'
@@ -33,5 +34,6 @@ app.route('/api/v1/whatsapp-templates', whatsappTemplateRoutes)
 app.route('/api/v1/realtime', realtimeRoutes)
 app.route('/api/v1/webhooks/whatsapp-cloud', whatsappCloudWebhookRoutes)
 app.route('/api/v1/widget', widgetRoutes)
+app.route('/api/v1/email', emailRoutes)
 
 export default app
