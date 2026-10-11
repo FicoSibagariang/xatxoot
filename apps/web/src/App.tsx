@@ -1,4 +1,4 @@
-import type { BotFlowDefinition } from '@xatxoot/shared'
+import type { BotFlowDefinition, WhatsAppTemplate } from '@xatxoot/shared'
 import { useState } from 'react'
 import type { TimelineMessage } from './components/chat'
 import { VisualFlowBuilder } from './components/flow-builder'
@@ -13,6 +13,7 @@ import type {
 } from './components/layout/types'
 import { BaileysPairingDialog, type BaileysPairingState } from './components/pairing'
 import { type AgentUser, TeamManagement, type TeamWithMembers } from './components/teams'
+import { WhatsAppTemplateDialog } from './components/templates'
 import {
   applyRealtimeMessage,
   applyRealtimeMessageStatus,
@@ -246,6 +247,79 @@ const INITIAL_TEAMS: TeamWithMembers[] = [
   },
 ]
 
+const INITIAL_TEMPLATES: WhatsAppTemplate[] = [
+  {
+    id: 'tpl-order-confirm',
+    wabaTemplateId: 'waba-order-confirm',
+    name: 'order_confirmation',
+    language: 'id',
+    category: 'UTILITY',
+    status: 'APPROVED',
+    components: [
+      {
+        type: 'HEADER',
+        format: 'TEXT',
+        text: 'Konfirmasi Pesanan #{{1}}',
+      },
+      {
+        type: 'BODY',
+        text: 'Halo {{1}}, terima kasih telah berbelanja di {{2}}. Pesanan Anda senilai {{3}} sedang diproses.',
+      },
+      {
+        type: 'FOOTER',
+        text: 'Balas STOP untuk berhenti berlangganan.',
+      },
+      {
+        type: 'BUTTONS',
+        buttons: [
+          {
+            type: 'QUICK_REPLY',
+            text: 'Lacak Status Pesanan',
+          },
+        ],
+      },
+    ],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: 'tpl-shipping-update',
+    wabaTemplateId: 'waba-shipping-update',
+    name: 'shipping_receipt_media',
+    language: 'id',
+    category: 'UTILITY',
+    status: 'APPROVED',
+    components: [
+      {
+        type: 'HEADER',
+        format: 'IMAGE',
+      },
+      {
+        type: 'BODY',
+        text: 'Paket nomor resi {{1}} telah dikirim melalui kurir {{2}}.',
+      },
+    ],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: 'tpl-promo-flash',
+    wabaTemplateId: 'waba-promo-flash',
+    name: 'promo_flash_sale',
+    language: 'id',
+    category: 'MARKETING',
+    status: 'APPROVED',
+    components: [
+      {
+        type: 'BODY',
+        text: 'Promo spesial diskon {{1}}% berlaku hingga {{2}}! Jangan lewatkan kesempatan ini.',
+      },
+    ],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+]
+
 export function App() {
   const [user, setUser] = useState<LayoutUser>(INITIAL_USER)
   const [conversations, setConversations] = useState<ConversationItem[]>(INITIAL_CONVERSATIONS)
@@ -263,7 +337,9 @@ export function App() {
   const [isPairingDialogOpen, setIsPairingDialogOpen] = useState(false)
   const [isBotFlowBuilderOpen, setIsBotFlowBuilderOpen] = useState(false)
   const [isTeamManagementOpen, setIsTeamManagementOpen] = useState(false)
+  const [isTemplateDialogOpen, setIsTemplateDialogOpen] = useState(false)
   const [teams, setTeams] = useState<TeamWithMembers[]>(INITIAL_TEAMS)
+  const [templates] = useState<WhatsAppTemplate[]>(INITIAL_TEMPLATES)
   const [botFlow, setBotFlow] = useState<BotFlowDefinition>(INITIAL_BOT_FLOW)
   const [pairingState, setPairingState] = useState<BaileysPairingState>({
     status: 'qr_ready',
@@ -448,6 +524,7 @@ export function App() {
             setIsPairingDialogOpen(true)
           }
         }}
+        onOpenTemplateDialog={() => setIsTemplateDialogOpen(true)}
       />
 
       <BaileysPairingDialog
@@ -561,6 +638,36 @@ export function App() {
             )
           }}
           onClose={() => setIsTeamManagementOpen(false)}
+        />
+      )}
+
+      {isTemplateDialogOpen && (
+        <WhatsAppTemplateDialog
+          isOpen={isTemplateDialogOpen}
+          conversationId={selectedConversationId || 'conv-1'}
+          templates={templates}
+          onClose={() => setIsTemplateDialogOpen(false)}
+          onSendTemplate={(payload) => {
+            if (!selectedConversationId) return
+            const newMsg: TimelineMessage = {
+              id: `msg-${Date.now()}`,
+              conversationId: selectedConversationId,
+              senderId: user.id,
+              senderType: 'user',
+              senderName: user.name,
+              messageType: 'template',
+              contentType: 'text',
+              content: `[Template: ${payload.templateName}] Pesan template terkirim.`,
+              timestamp: 'Baru saja',
+              dateGroup: 'HARI INI',
+              status: 'sent',
+            }
+            setMessagesMap((prev) => ({
+              ...prev,
+              [selectedConversationId]: [...(prev[selectedConversationId] || []), newMsg],
+            }))
+            setIsTemplateDialogOpen(false)
+          }}
         />
       )}
     </>
