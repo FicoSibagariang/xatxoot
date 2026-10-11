@@ -106,3 +106,22 @@ CREATE TABLE IF NOT EXISTS macro_actions (
 CREATE INDEX IF NOT EXISTS idx_macros_created_by ON macros(created_by);
 CREATE INDEX IF NOT EXISTS idx_macros_visibility ON macros(visibility);
 CREATE INDEX IF NOT EXISTS idx_macro_actions_macro_id ON macro_actions(macro_id);
+
+-- Task 2.6: WhatsApp Message Templates
+-- 9. whatsapp_templates (Meta Cloud API Approved Message Templates)
+CREATE TABLE IF NOT EXISTS whatsapp_templates (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    waba_template_id VARCHAR(100),
+    name VARCHAR(255) NOT NULL,
+    language VARCHAR(20) NOT NULL DEFAULT 'id',
+    category VARCHAR(50) NOT NULL,
+    status VARCHAR(50) NOT NULL DEFAULT 'APPROVED',
+    components JSONB NOT NULL DEFAULT '[]'::jsonb,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Performance indexes for whatsapp_templates
+CREATE INDEX IF NOT EXISTS idx_whatsapp_templates_waba_template_id ON whatsapp_templates(waba_template_id);
+CREATE INDEX IF NOT EXISTS idx_whatsapp_templates_status ON whatsapp_templates(status);
+CREATE INDEX IF NOT EXISTS idx_whatsapp_templates_name ON whatsapp_templates(name);
