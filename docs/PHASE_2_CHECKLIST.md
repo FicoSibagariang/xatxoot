@@ -51,7 +51,7 @@
 - [x] **Task 2.13 (TDD)**: Test suite & implementasi `slash_commands`:
   - Worker yang memanggil webhook eksternal dengan timeout ketat (3 detik).
   - Sanitasi respons sebelum dimasukkan ke antarmuka agent.
-- [ ] **Task 2.14 (TDD)**: Test suite & implementasi **Round-Robin Assignment Engine**:
+- [x] **Task 2.14 (TDD)**: Test suite & implementasi **Round-Robin Assignment Engine**:
   - Penugasan tiket baru secara bergilir ke agent berstatus `online` di inbox/team yang sesuai.
 - [ ] **Task 2.15 (TDD)**: Test suite & implementasi **Flow Bot Execution Engine**:
   - State machine yang mengevaluasi input kontak terhadap node pertanyaan/pilihan.

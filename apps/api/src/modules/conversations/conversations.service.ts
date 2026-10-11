@@ -7,6 +7,7 @@ import type {
   TicketStatus,
 } from '@xatxoot/shared'
 import { sql } from '../../db'
+import { assignmentService } from '../assignment/assignment.service'
 import { messageStore, resetMessageStore, saveMessageToStore } from '../messages/message-store'
 import { realtimeService } from '../realtime/realtime.service'
 import { resetTicketStore, ticketService } from '../tickets/tickets.service'
@@ -296,6 +297,17 @@ export class ConversationService {
         priority: 'medium',
       })
       isNewTicket = true
+
+      try {
+        const assignResult = await assignmentService.assignTicketRoundRobin(ticket.id, {
+          inboxId: conversation.inboxId,
+        })
+        if (assignResult.success && assignResult.assignedAgentId) {
+          ticket = assignResult.ticket
+        }
+      } catch {
+        // Fallback gracefully
+      }
     } else if (activeTicket.status === 'pending' || activeTicket.status === 'snoozed') {
       // Customer replied: automatically reopen ticket back to 'open'
       ticket = await ticketService.updateTicketStatus(activeTicket.id, 'open')
