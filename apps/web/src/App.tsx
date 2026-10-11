@@ -1,5 +1,7 @@
+import type { BotFlowDefinition } from '@xatxoot/shared'
 import { useState } from 'react'
 import type { TimelineMessage } from './components/chat'
+import { VisualFlowBuilder } from './components/flow-builder'
 import { WhatsAppLayout } from './components/layout/WhatsAppLayout'
 import type {
   ChatFilter,
@@ -157,6 +159,47 @@ const INITIAL_MESSAGES_MAP: Record<string, TimelineMessage[]> = {
   ],
 }
 
+const INITIAL_BOT_FLOW: BotFlowDefinition = {
+  startNodeId: 'node-msg-start',
+  nodes: [
+    {
+      id: 'node-msg-start',
+      type: 'message',
+      name: 'Sambutan Pelanggan',
+      data: {
+        text: 'Halo! Selamat datang di layanan asisten virtual kami. Ada yang bisa kami bantu hari ini?',
+      },
+    },
+    {
+      id: 'node-q-menu',
+      type: 'question',
+      name: 'Pilihan Menu Layanan',
+      data: {
+        question: 'Pilih jenis pertanyaan Anda:',
+        questionType: 'choice',
+        variableName: 'menu_pilihan',
+        options: [
+          { id: 'opt-1', label: '1. Cek Status Pengiriman', value: 'ongkir' },
+          { id: 'opt-2', label: '2. Hubungkan ke Agent CS', value: 'cs_agent' },
+        ],
+      },
+    },
+    {
+      id: 'node-handoff-agent',
+      type: 'handoff',
+      name: 'Handoff ke Agent Manusia',
+      data: {
+        priority: 'high',
+        handoffMessage: 'Pelanggan memilih bantuan agent CS manusia.',
+      },
+    },
+  ],
+  edges: [
+    { id: 'edge-1', source: 'node-msg-start', target: 'node-q-menu' },
+    { id: 'edge-2', source: 'node-q-menu', target: 'node-handoff-agent' },
+  ],
+}
+
 export function App() {
   const [user, setUser] = useState<LayoutUser>(INITIAL_USER)
   const [conversations, setConversations] = useState<ConversationItem[]>(INITIAL_CONVERSATIONS)
@@ -172,6 +215,8 @@ export function App() {
     'Pelanggan VIP. Sering melakukan pemesanan rutin setiap awal bulan.',
   )
   const [isPairingDialogOpen, setIsPairingDialogOpen] = useState(false)
+  const [isBotFlowBuilderOpen, setIsBotFlowBuilderOpen] = useState(false)
+  const [botFlow, setBotFlow] = useState<BotFlowDefinition>(INITIAL_BOT_FLOW)
   const [pairingState, setPairingState] = useState<BaileysPairingState>({
     status: 'qr_ready',
     qrData: '2@fK7x8Y1...xatxoot-baileys-live-session-qr',
@@ -347,7 +392,14 @@ export function App() {
         onAssignTicket={handleAssignTicket}
         onResolveTicket={handleResolveTicket}
         onSaveInternalNote={setInternalNote}
-        onOpenSettings={() => setIsPairingDialogOpen(true)}
+        onOpenSettings={() => {
+          // Open Bot Flow Builder if active tab is settings or toggle
+          if (activeTab === 'settings') {
+            setIsBotFlowBuilderOpen(true)
+          } else {
+            setIsPairingDialogOpen(true)
+          }
+        }}
       />
 
       <BaileysPairingDialog
@@ -374,6 +426,24 @@ export function App() {
           }, 500)
         }}
       />
+
+      {isBotFlowBuilderOpen && (
+        <div
+          data-testid="bot-flow-builder-modal"
+          className="fixed inset-0 z-50 flex flex-col bg-black/60 backdrop-blur-xs p-4 md:p-8"
+        >
+          <div className="flex-1 rounded-2xl overflow-hidden shadow-2xl border border-slate-300 bg-white flex flex-col">
+            <VisualFlowBuilder
+              initialFlow={botFlow}
+              onSave={(saved) => {
+                setBotFlow(saved)
+                setIsBotFlowBuilderOpen(false)
+              }}
+              onCancel={() => setIsBotFlowBuilderOpen(false)}
+            />
+          </div>
+        </div>
+      )}
     </>
   )
 }
