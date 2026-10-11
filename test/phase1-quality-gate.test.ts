@@ -113,4 +113,18 @@ describe('Phase 1 Quality Gate & Test Suite Verification (Task 1.32)', () => {
       '- [x] **Task 1.32**: Jalankan seluruh unit & integration test (`bun test`) — pastikan 100% PASS.',
     )
   })
+
+  it('should pass biome check across entire monorepo with 0 errors and 0 warnings (Task 1.33)', () => {
+    const proc = Bun.spawnSync(['bunx', '@biomejs/biome', 'check', '.'], {
+      cwd: rootDir,
+    })
+    expect(proc.exitCode).toBe(0)
+  })
+
+  it('should verify Phase 1 checklist marks Task 1.33 as completed', () => {
+    const checklistContent = readFileSync(join(rootDir, 'docs', 'PHASE_1_CHECKLIST.md'), 'utf-8')
+    expect(checklistContent).toContain(
+      '- [x] **Task 1.33**: Jalankan `bun run check` (Biome) — pastikan 0 error dan 0 warning.',
+    )
+  })
 })
