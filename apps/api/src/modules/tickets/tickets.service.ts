@@ -6,6 +6,7 @@ import {
   TicketStatusSchema,
 } from '@xatxoot/shared'
 import { sql } from '../../db'
+import { csatService } from '../csat/csat.service'
 import { realtimeService } from '../realtime/realtime.service'
 
 export type { Ticket, TicketStatus, TicketPriority, CreateTicketInput }
@@ -88,6 +89,10 @@ export class TicketService {
       `
     } catch {
       // Memory fallback for tests/offline
+    }
+
+    if (ticket.status === 'resolved') {
+      csatService.onTicketResolved(ticket).catch(() => {})
     }
 
     return ticket
@@ -235,6 +240,10 @@ export class TicketService {
       event: 'ticket.updated',
       data: { ticket: updated },
     })
+
+    if (validatedStatus === 'resolved') {
+      csatService.onTicketResolved(updated).catch(() => {})
+    }
 
     return updated
   }
