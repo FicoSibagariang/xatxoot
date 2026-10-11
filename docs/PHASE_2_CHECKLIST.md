@@ -53,7 +53,7 @@
   - Sanitasi respons sebelum dimasukkan ke antarmuka agent.
 - [x] **Task 2.14 (TDD)**: Test suite & implementasi **Round-Robin Assignment Engine**:
   - Penugasan tiket baru secara bergilir ke agent berstatus `online` di inbox/team yang sesuai.
-- [ ] **Task 2.15 (TDD)**: Test suite & implementasi **Flow Bot Execution Engine**:
+- [x] **Task 2.15 (TDD)**: Test suite & implementasi **Flow Bot Execution Engine**:
   - State machine yang mengevaluasi input kontak terhadap node pertanyaan/pilihan.
   - Eksekusi node HTTP Request secara asinkron.
   - Node Handoff: mengubah status tiket menjadi `open` dan memicu notifikasi ke agent manusia.
