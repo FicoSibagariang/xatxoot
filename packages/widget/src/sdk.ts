@@ -48,6 +48,54 @@ export class WidgetSDK {
     return { ...this.config }
   }
 
+  applyConfig(newConfig: Partial<WidgetConfig>): ResolvedWidgetConfig {
+    this.config = {
+      ...this.config,
+      title: newConfig.title !== undefined ? newConfig.title.trim() : this.config.title,
+      primaryColor:
+        newConfig.primaryColor !== undefined
+          ? newConfig.primaryColor.trim()
+          : this.config.primaryColor,
+      position: newConfig.position !== undefined ? newConfig.position : this.config.position,
+      welcomeMessage:
+        newConfig.welcomeMessage !== undefined
+          ? newConfig.welcomeMessage.trim()
+          : this.config.welcomeMessage,
+      baseUrl: newConfig.baseUrl !== undefined ? newConfig.baseUrl.trim() : this.config.baseUrl,
+    }
+
+    const currentConfig = this.getConfig()
+    this.emit('config.updated', currentConfig)
+    return currentConfig
+  }
+
+  async fetchRemoteConfig(): Promise<ResolvedWidgetConfig> {
+    const cleanBase = this.config.baseUrl ? this.config.baseUrl.replace(/\/+$/, '') : ''
+    const path = '/api/v1/widget/config'
+    const fullPath = cleanBase ? `${cleanBase}${path}` : path
+    const url = `${fullPath}?website_token=${encodeURIComponent(this.config.websiteToken)}`
+
+    const response = await fetch(url)
+    if (!response.ok) {
+      const err = await response
+        .json()
+        .catch(() => ({ error: 'Gagal mengambil konfigurasi widget' }))
+      throw new Error((err as { error?: string }).error || 'Gagal mengambil konfigurasi widget')
+    }
+
+    const remote = (await response.json()) as {
+      name?: string
+      widgetColor?: string
+      greetingMessage?: string
+    }
+
+    return this.applyConfig({
+      title: remote.name,
+      primaryColor: remote.widgetColor,
+      welcomeMessage: remote.greetingMessage,
+    })
+  }
+
   isOpen(): boolean {
     return this.opened
   }
