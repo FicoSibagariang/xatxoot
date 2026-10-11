@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Avatar, Badge, Button } from '../astryx'
+import { TicketCsatCard } from './TicketCsatCard'
 import type { ActiveTicketData, ContactDrawerData, TicketHistoryItem } from './types'
 
 // ==========================================
@@ -366,6 +367,9 @@ export function ContactDrawer({
             </div>
           </div>
         )}
+
+        {/* Section: Rating Kepuasan CSAT Tiket */}
+        {data.activeTicket && <TicketCsatCard csat={data.activeTicket.csat} />}
 
         {/* Section 4: Riwayat Tiket */}
         <TicketHistorySection

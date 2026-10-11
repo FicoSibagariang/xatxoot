@@ -1,3 +1,13 @@
+export interface TicketCsatData {
+  id?: string
+  ticketId: string
+  rating?: number
+  feedbackText?: string | null
+  submittedAt?: string
+  inviteToken?: string
+  status?: 'pending' | 'submitted' | 'expired'
+}
+
 export interface TicketHistoryItem {
   id: string
   ticketNumber: string
@@ -7,6 +17,7 @@ export interface TicketHistoryItem {
   createdAt: string
   resolvedAt?: string
   assignedTo?: string
+  csat?: TicketCsatData | null
 }
 
 export interface ActiveTicketData {
@@ -17,6 +28,7 @@ export interface ActiveTicketData {
   internalNote?: string
   internalNoteUpdatedAt?: string
   internalNoteUpdatedBy?: string
+  csat?: TicketCsatData | null
 }
 
 export interface ContactDrawerData {
