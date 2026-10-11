@@ -1229,3 +1229,68 @@ export const BusinessHoursSchema = z.object({
   updatedAt: z.string().or(z.date()),
 })
 export type BusinessHours = z.infer<typeof BusinessHoursSchema>
+
+// ==========================================
+// Phase 3: Customer Satisfaction (CSAT) Surveys (Task 3.6)
+// ==========================================
+
+export const CsatRatingSchema = z
+  .number()
+  .int('Rating harus berupa bilangan bulat')
+  .min(1, 'Rating minimal 1')
+  .max(5, 'Rating maksimal 5')
+export type CsatRating = z.infer<typeof CsatRatingSchema>
+
+export const SubmitCsatSurveyInputSchema = z.object({
+  ticketId: z.string().uuid('Ticket ID harus berformat UUID yang valid'),
+  rating: CsatRatingSchema,
+  feedbackText: z
+    .string()
+    .max(2000, 'Teks umpan balik maksimal 2000 karakter')
+    .nullable()
+    .optional(),
+})
+export type SubmitCsatSurveyInput = z.infer<typeof SubmitCsatSurveyInputSchema>
+
+export const CreateCsatSurveyInputSchema = z.object({
+  ticketId: z.string().uuid('Ticket ID harus berformat UUID yang valid'),
+  contactId: z.string().uuid('Contact ID harus berformat UUID yang valid'),
+  rating: CsatRatingSchema,
+  feedbackText: z
+    .string()
+    .max(2000, 'Teks umpan balik maksimal 2000 karakter')
+    .nullable()
+    .optional(),
+  submittedAt: z.string().or(z.date()).optional(),
+})
+export type CreateCsatSurveyInput = z.infer<typeof CreateCsatSurveyInputSchema>
+
+export const UpdateCsatSurveyInputSchema = z.object({
+  rating: CsatRatingSchema.optional(),
+  feedbackText: z
+    .string()
+    .max(2000, 'Teks umpan balik maksimal 2000 karakter')
+    .nullable()
+    .optional(),
+})
+export type UpdateCsatSurveyInput = z.infer<typeof UpdateCsatSurveyInputSchema>
+
+export const CsatSurveySchema = z.object({
+  id: z.string().uuid(),
+  ticketId: z.string().uuid(),
+  contactId: z.string().uuid(),
+  rating: CsatRatingSchema,
+  feedbackText: z.string().nullable().optional(),
+  submittedAt: z.string().or(z.date()),
+  createdAt: z.string().or(z.date()),
+  updatedAt: z.string().or(z.date()),
+})
+export type CsatSurvey = z.infer<typeof CsatSurveySchema>
+
+export const CsatSurveyMetricsSchema = z.object({
+  totalSurveys: z.number().int().nonnegative(),
+  averageRating: z.number().min(0).max(5),
+  csatScorePercentage: z.number().min(0).max(100),
+  ratingDistribution: z.record(z.string(), z.number().int()),
+})
+export type CsatSurveyMetrics = z.infer<typeof CsatSurveyMetricsSchema>
