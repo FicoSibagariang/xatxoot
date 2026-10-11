@@ -47,7 +47,7 @@
 - [x] **Task 3.7 (TDD - Email)**:
   - Parser email inbound: ekstraksi plain text/HTML dan pembuangan reply quote header.
   - Pengiriman outbound via Nodemailer/SMTP dengan *In-Reply-To* dan *References* header demi menjaga email thread.
-- [ ] **Task 3.8 (TDD - Telegram)**:
+- [x] **Task 3.8 (TDD - Telegram)**:
   - Webhook receiver update Telegram (`message`, `callback_query`).
   - Pengiriman pesan outbound & upload attachment file ke Telegram Bot API.
 - [ ] **Task 3.9 (TDD - Meta Social: FB & IG)**:
