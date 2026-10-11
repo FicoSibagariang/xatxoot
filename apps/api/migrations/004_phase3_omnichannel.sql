@@ -61,3 +61,19 @@ CREATE INDEX IF NOT EXISTS idx_channels_telegram_bot_username ON channels_telegr
 CREATE INDEX IF NOT EXISTS idx_channels_facebook_page_id ON channels_facebook(page_id);
 CREATE INDEX IF NOT EXISTS idx_channels_instagram_ig_user_id ON channels_instagram(ig_user_id);
 CREATE INDEX IF NOT EXISTS idx_channels_sms_from_phone_number ON channels_sms(from_phone_number);
+
+-- 6. business_hours (Inbox Operational Schedule & Out-of-Office Auto Reply) (Task 3.2)
+CREATE TABLE IF NOT EXISTS business_hours (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    inbox_id UUID NOT NULL REFERENCES inboxes(id) ON DELETE CASCADE UNIQUE,
+    timezone VARCHAR(100) NOT NULL DEFAULT 'Asia/Jakarta',
+    weekly_schedule JSONB NOT NULL DEFAULT '[]'::jsonb,
+    out_of_office_message TEXT NOT NULL DEFAULT 'Halo, terima kasih telah menghubungi kami. Saat ini kami sedang di luar jam operasional kerja.',
+    enabled BOOLEAN NOT NULL DEFAULT true,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Performance index for business_hours inbox lookup
+CREATE INDEX IF NOT EXISTS idx_business_hours_inbox_id ON business_hours(inbox_id);
+
