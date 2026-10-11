@@ -9,6 +9,7 @@ import { inboxRoutes } from './modules/inboxes/inboxes.routes'
 import { metaSocialRoutes } from './modules/meta-social/meta-social.routes'
 import { realtimeRoutes } from './modules/realtime/realtime.routes'
 import { slashCommandRoutes } from './modules/slash-commands/slash-commands.routes'
+import { smsRoutes } from './modules/sms/sms.routes'
 import { teamRoutes } from './modules/teams/teams.routes'
 import { telegramRoutes } from './modules/telegram/telegram.routes'
 import { ticketRoutes } from './modules/tickets/tickets.routes'
@@ -39,5 +40,6 @@ app.route('/api/v1/widget', widgetRoutes)
 app.route('/api/v1/email', emailRoutes)
 app.route('/api/v1/telegram', telegramRoutes)
 app.route('/api/v1/meta-social', metaSocialRoutes)
+app.route('/api/v1/sms', smsRoutes)
 
 export default app
