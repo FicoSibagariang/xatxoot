@@ -6,6 +6,7 @@ import { cannedResponseRoutes } from './modules/canned-responses/canned-response
 import { conversationRoutes } from './modules/conversations/conversations.routes'
 import { emailRoutes } from './modules/email/email.routes'
 import { inboxRoutes } from './modules/inboxes/inboxes.routes'
+import { metaSocialRoutes } from './modules/meta-social/meta-social.routes'
 import { realtimeRoutes } from './modules/realtime/realtime.routes'
 import { slashCommandRoutes } from './modules/slash-commands/slash-commands.routes'
 import { teamRoutes } from './modules/teams/teams.routes'
@@ -37,5 +38,6 @@ app.route('/api/v1/webhooks/whatsapp-cloud', whatsappCloudWebhookRoutes)
 app.route('/api/v1/widget', widgetRoutes)
 app.route('/api/v1/email', emailRoutes)
 app.route('/api/v1/telegram', telegramRoutes)
+app.route('/api/v1/meta-social', metaSocialRoutes)
 
 export default app

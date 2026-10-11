@@ -50,7 +50,7 @@
 - [x] **Task 3.8 (TDD - Telegram)**:
   - Webhook receiver update Telegram (`message`, `callback_query`).
   - Pengiriman pesan outbound & upload attachment file ke Telegram Bot API.
-- [ ] **Task 3.9 (TDD - Meta Social: FB & IG)**:
+- [x] **Task 3.9 (TDD - Meta Social: FB & IG)**:
   - Receiver webhook pesan masuk & pengiriman balasan ke Graph API.
 - [ ] **Task 3.10 (TDD - SMS)**:
   - Integrasi Twilio webhook & outbound SMS sender.
