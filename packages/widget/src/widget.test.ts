@@ -182,6 +182,51 @@ describe('Website Live Chat Widget Scaffold (Task 1.29 - packages/widget)', () =
     })
   })
 
+  describe('Widget Communication API Client (Task 1.30)', () => {
+    it('should build proper widget SSE stream URL', () => {
+      const sdk = new WidgetSDK({
+        websiteToken: 'tok-web-88',
+        baseUrl: 'https://api.xatxoot.com',
+      })
+
+      const streamUrl = sdk.buildStreamUrl('session-xyz')
+      expect(streamUrl).toBe(
+        'https://api.xatxoot.com/api/v1/widget/stream?website_token=tok-web-88&session_id=session-xyz',
+      )
+    })
+
+    it('should send visitor message and emit message.sent event', async () => {
+      const sdk = new WidgetSDK({
+        websiteToken: 'tok-web-88',
+        baseUrl: 'http://localhost:3000',
+      })
+
+      const onMessageSent = mock()
+      sdk.on('message.sent', onMessageSent)
+
+      // Mock global fetch
+      const originalFetch = globalThis.fetch
+      globalThis.fetch = mock(async () => {
+        return new Response(
+          JSON.stringify({
+            success: true,
+            session_id: 'session-xyz',
+            conversation_id: 'conv-101',
+            message: { id: 'msg-1', content: 'Halo kak' },
+          }),
+          { status: 201, headers: { 'Content-Type': 'application/json' } },
+        )
+      }) as unknown as typeof fetch
+
+      const res = await sdk.sendMessage('Halo kak', 'session-xyz')
+      expect(res.success).toBe(true)
+      expect(res.conversation_id).toBe('conv-101')
+      expect(onMessageSent).toHaveBeenCalledWith(res)
+
+      globalThis.fetch = originalFetch
+    })
+  })
+
   describe('Bundle Constraints & Overhead Guard', () => {
     it('should enforce maximum bundle budget of 80 KB gzipped', () => {
       expect(MAX_WIDGET_BUNDLE_GZIP_BYTES).toBe(80 * 1024)
