@@ -54,7 +54,7 @@
   - Receiver webhook pesan masuk & pengiriman balasan ke Graph API.
 - [x] **Task 3.10 (TDD - SMS)**:
   - Integrasi Twilio webhook & outbound SMS sender.
-- [ ] **Task 3.11 (TDD - Business Hours Engine)**:
+- [x] **Task 3.11 (TDD - Business Hours Engine)**:
   - Evaluasi waktu saat pesan masuk terhadap jam operasional inbox.
   - Pengiriman otomatis *out-of-office reply* (hanya sekali per percakapan dalam jeda 24 jam).
 - [ ] **Task 3.12 (TDD - CSAT Engine)**:

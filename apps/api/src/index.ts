@@ -2,6 +2,10 @@ import { Hono } from 'hono'
 import { assignmentRoutes } from './modules/assignment/assignment.routes'
 import { authRoutes } from './modules/auth/auth.routes'
 import { botFlowRoutes, botSessionRoutes } from './modules/bots/bots.routes'
+import {
+  businessHoursRoutes,
+  inboxBusinessHoursRoutes,
+} from './modules/business-hours/business-hours.routes'
 import { cannedResponseRoutes } from './modules/canned-responses/canned-responses.routes'
 import { conversationRoutes } from './modules/conversations/conversations.routes'
 import { emailRoutes } from './modules/email/email.routes'
@@ -24,6 +28,7 @@ app.get('/health', (c) => {
 })
 
 app.route('/api/v1/auth', authRoutes)
+app.route('/api/v1/inboxes', inboxBusinessHoursRoutes)
 app.route('/api/v1/inboxes', inboxRoutes)
 app.route('/api/v1/conversations', conversationRoutes)
 app.route('/api/v1/tickets', ticketRoutes)
@@ -41,5 +46,6 @@ app.route('/api/v1/email', emailRoutes)
 app.route('/api/v1/telegram', telegramRoutes)
 app.route('/api/v1/meta-social', metaSocialRoutes)
 app.route('/api/v1/sms', smsRoutes)
+app.route('/api/v1/business-hours', businessHoursRoutes)
 
 export default app
