@@ -517,6 +517,7 @@ export interface ConversationThreadProps {
   onAssignTicket: () => void
   onResolveTicket: () => void
   onRetryMessage?: (message: TimelineMessage) => void
+  onOpenTemplateDialog?: () => void
   children?: ReactNode
 }
 
@@ -532,6 +533,7 @@ export function ConversationThread({
   onAssignTicket,
   onResolveTicket,
   onRetryMessage,
+  onOpenTemplateDialog,
   children,
 }: ConversationThreadProps) {
   const [inputText, setInputText] = useState('')
@@ -735,9 +737,19 @@ export function ConversationThread({
         <button
           type="button"
           title="Lampiran Gambar/File"
-          className="p-2 text-slate-500 hover:text-slate-800 rounded-full hover:bg-slate-200/60 text-lg"
+          className="p-2 text-slate-500 hover:text-slate-800 rounded-full hover:bg-slate-200/60 text-lg cursor-pointer"
         >
           📎
+        </button>
+
+        <button
+          type="button"
+          data-testid="btn-open-template-dialog"
+          title="Template Pesan WhatsApp Resmi"
+          onClick={onOpenTemplateDialog}
+          className="p-2 text-slate-500 hover:text-emerald-700 rounded-full hover:bg-slate-200/60 text-lg cursor-pointer"
+        >
+          📋
         </button>
 
         <div className="relative flex-1">
@@ -879,6 +891,7 @@ export interface WhatsAppLayoutProps {
   now?: Date
   onRetryMessage?: (message: TimelineMessage) => void
   onOpenSettings?: () => void
+  onOpenTemplateDialog?: () => void
   children?: ReactNode
 }
 
@@ -911,6 +924,7 @@ export function WhatsAppLayout({
   onSaveInternalNote = () => {},
   onRetryMessage,
   onOpenSettings,
+  onOpenTemplateDialog,
   children,
 }: WhatsAppLayoutProps) {
   const selectedConversation = conversations.find((c) => c.id === selectedConversationId) || null
@@ -954,6 +968,7 @@ export function WhatsAppLayout({
         onAssignTicket={onAssignTicket}
         onResolveTicket={onResolveTicket}
         onRetryMessage={onRetryMessage}
+        onOpenTemplateDialog={onOpenTemplateDialog}
       >
         {children}
       </ConversationThread>
