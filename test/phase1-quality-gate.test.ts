@@ -92,6 +92,11 @@ describe('Phase 1 Quality Gate & Test Suite Verification (Task 1.32)', () => {
 
   it('should verify packages/widget standalone live chat bundle is built and under 80 KB gzipped', () => {
     const widgetDist = join(rootDir, 'packages', 'widget', 'dist', 'widget.js')
+    if (!existsSync(widgetDist)) {
+      Bun.spawnSync(['bun', 'run', 'build'], {
+        cwd: join(rootDir, 'packages', 'widget'),
+      })
+    }
     expect(existsSync(widgetDist)).toBe(true)
 
     const bundleContent = readFileSync(widgetDist)
