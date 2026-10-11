@@ -1,6 +1,16 @@
 import { type ReactNode, useState } from 'react'
 import { Avatar, Badge, Button, Input } from '../astryx'
-import { ChatTimeline, type TimelineMessage } from '../chat'
+import {
+  type AutocompleteEntry,
+  type CannedItem,
+  ChatTimeline,
+  type CommandItem,
+  SlashAutocompletePopup,
+  type TimelineMessage,
+  applyAutocompleteSelection,
+  detectSlashQuery,
+  filterAutocompleteEntries,
+} from '../chat'
 import { type ContactDrawerData, ContactDrawer as CrmContactDrawer } from '../drawer'
 import type {
   ChatFilter,
@@ -435,10 +445,62 @@ export function ChatListPanel({
 // ==========================================
 // Kolom 3: ConversationThread (Flex-1 Canvas Obrolan)
 // ==========================================
+const DEFAULT_CANNED_RESPONSES: CannedItem[] = [
+  {
+    id: 'canned-halo',
+    shortCode: 'halo',
+    content:
+      'Halo kak! Selamat datang di layanan pelanggan kami. Ada yang bisa kami bantu hari ini?',
+    title: 'Salam Pembuka',
+  },
+  {
+    id: 'canned-ongkir',
+    shortCode: 'ongkir',
+    content:
+      'Untuk pengecekan estimasi ongkos kirim, mohon informasikan alamat kecamatan dan kota tujuan ya kak.',
+    title: 'Estimasi Ongkir',
+  },
+  {
+    id: 'canned-terimakasih',
+    shortCode: 'terimakasih',
+    content: 'Terima kasih banyak telah menghubungi kami kak! Semoga harimu menyenangkan.',
+    title: 'Ucapan Terima Kasih',
+  },
+  {
+    id: 'canned-jamkerja',
+    shortCode: 'jamkerja',
+    content: 'Jam operasional layanan kami adalah Senin - Jumat pukul 08.00 - 17.00 WIB.',
+    title: 'Jam Operasional',
+  },
+]
+
+const DEFAULT_SLASH_COMMANDS: CommandItem[] = [
+  {
+    id: 'cmd-cekresi',
+    name: 'cekresi',
+    description: 'Lacak status pengiriman kurir ekspedisi secara real-time',
+    endpointUrl: 'https://api.external.com/courier/track',
+  },
+  {
+    id: 'cmd-statusorder',
+    name: 'statusorder',
+    description: 'Periksa status pemesanan pelanggan di sistem e-commerce',
+    endpointUrl: 'https://api.external.com/orders/status',
+  },
+  {
+    id: 'cmd-refund',
+    name: 'refund',
+    description: 'Proses pengajuan klaim pengembalian dana tiket pelanggan',
+    endpointUrl: 'https://api.external.com/orders/refund',
+  },
+]
+
 export interface ConversationThreadProps {
   conversation: ConversationItem | null
   isDrawerOpen: boolean
   messages?: TimelineMessage[]
+  cannedResponses?: CannedItem[]
+  slashCommands?: CommandItem[]
   onToggleDrawer: () => void
   onSendMessage: (message: string) => void
   onAssignTicket: () => void
@@ -451,6 +513,8 @@ export function ConversationThread({
   conversation,
   isDrawerOpen,
   messages,
+  cannedResponses,
+  slashCommands,
   onToggleDrawer,
   onSendMessage,
   onAssignTicket,
@@ -459,6 +523,16 @@ export function ConversationThread({
   children,
 }: ConversationThreadProps) {
   const [inputText, setInputText] = useState('')
+  const [isAutocompleteOpen, setIsAutocompleteOpen] = useState(false)
+  const [selectedAutocompleteIndex, setSelectedAutocompleteIndex] = useState(0)
+
+  const activeCanned = cannedResponses ?? DEFAULT_CANNED_RESPONSES
+  const activeCommands = slashCommands ?? DEFAULT_SLASH_COMMANDS
+
+  const slashInfo = detectSlashQuery(inputText)
+  const filteredEntries = slashInfo.isActive
+    ? filterAutocompleteEntries(activeCanned, activeCommands, slashInfo.query)
+    : []
 
   if (!conversation) {
     return (
@@ -486,6 +560,59 @@ export function ConversationThread({
     if (!inputText.trim()) return
     onSendMessage(inputText)
     setInputText('')
+    setIsAutocompleteOpen(false)
+  }
+
+  const handleInputChange = (val: string) => {
+    setInputText(val)
+    const detected = detectSlashQuery(val)
+    if (detected.isActive) {
+      setIsAutocompleteOpen(true)
+      setSelectedAutocompleteIndex(0)
+    } else {
+      setIsAutocompleteOpen(false)
+    }
+  }
+
+  const handleSelectEntry = (entry: AutocompleteEntry) => {
+    if (!slashInfo.isActive) return
+    const newText = applyAutocompleteSelection(inputText, slashInfo.startIndex, entry)
+    setInputText(newText)
+    setIsAutocompleteOpen(false)
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (isAutocompleteOpen && slashInfo.isActive && filteredEntries.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        setSelectedAutocompleteIndex((prev) => (prev + 1) % filteredEntries.length)
+        return
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        setSelectedAutocompleteIndex(
+          (prev) => (prev - 1 + filteredEntries.length) % filteredEntries.length,
+        )
+        return
+      }
+      if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault()
+        const selected = filteredEntries[selectedAutocompleteIndex]
+        if (selected) {
+          handleSelectEntry(selected)
+        }
+        return
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        setIsAutocompleteOpen(false)
+        return
+      }
+    }
+
+    if (e.key === 'Enter') {
+      handleSend()
+    }
   }
 
   return (
@@ -575,7 +702,7 @@ export function ConversationThread({
       {/* Bottom Input Bar */}
       <footer
         data-testid="thread-input-bar"
-        className="bg-[#f0f2f5] px-4 py-2.5 flex items-center gap-2.5 border-t border-[#e9edef] shrink-0"
+        className="bg-[#f0f2f5] px-4 py-2.5 flex items-center gap-2.5 border-t border-[#e9edef] shrink-0 relative"
       >
         <button
           type="button"
@@ -593,16 +720,26 @@ export function ConversationThread({
           📎
         </button>
 
-        <input
-          type="text"
-          placeholder="Ketik pesan..."
-          value={inputText}
-          onChange={(e) => setInputText(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') handleSend()
-          }}
-          className="flex-1 bg-white text-sm text-[#111b21] rounded-lg px-4 py-2 border border-[#e9edef] focus:outline-none focus:border-wa-teal-primary"
-        />
+        <div className="relative flex-1">
+          <SlashAutocompletePopup
+            isOpen={isAutocompleteOpen && slashInfo.isActive}
+            query={slashInfo.query}
+            entries={filteredEntries}
+            selectedIndex={selectedAutocompleteIndex}
+            onSelect={handleSelectEntry}
+            onHover={setSelectedAutocompleteIndex}
+            onClose={() => setIsAutocompleteOpen(false)}
+          />
+
+          <input
+            type="text"
+            placeholder="Ketik pesan atau ketik / untuk balasan cepat..."
+            value={inputText}
+            onChange={(e) => handleInputChange(e.target.value)}
+            onKeyDown={handleKeyDown}
+            className="w-full bg-white text-sm text-[#111b21] rounded-lg px-4 py-2 border border-[#e9edef] focus:outline-none focus:border-wa-teal-primary"
+          />
+        </div>
 
         <Button variant="teal" size="sm" onClick={handleSend} className="rounded-lg px-4 py-2">
           Kirim
@@ -716,6 +853,8 @@ export interface WhatsAppLayoutProps {
   onAssignTicket?: () => void
   onResolveTicket?: () => void
   onSaveInternalNote?: (note: string) => void
+  cannedResponses?: CannedItem[]
+  slashCommands?: CommandItem[]
   messages?: TimelineMessage[]
   onRetryMessage?: (message: TimelineMessage) => void
   onOpenSettings?: () => void
@@ -732,6 +871,8 @@ export function WhatsAppLayout({
   activeFilter = 'all',
   searchQuery = '',
   internalNote = '',
+  cannedResponses,
+  slashCommands,
   messages,
   onTabChange = () => {},
   onChannelFilterChange = () => {},
@@ -782,6 +923,8 @@ export function WhatsAppLayout({
         conversation={selectedConversation}
         isDrawerOpen={isDrawerOpen}
         messages={messages}
+        cannedResponses={cannedResponses}
+        slashCommands={slashCommands}
         onToggleDrawer={onToggleDrawer}
         onSendMessage={onSendMessage}
         onAssignTicket={onAssignTicket}
