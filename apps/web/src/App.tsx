@@ -12,6 +12,7 @@ import type {
   PresenceStatus,
 } from './components/layout/types'
 import { BaileysPairingDialog, type BaileysPairingState } from './components/pairing'
+import { type AgentUser, TeamManagement, type TeamWithMembers } from './components/teams'
 import {
   applyRealtimeMessage,
   applyRealtimeMessageStatus,
@@ -200,6 +201,51 @@ const INITIAL_BOT_FLOW: BotFlowDefinition = {
   ],
 }
 
+const AVAILABLE_AGENTS: AgentUser[] = [
+  {
+    id: 'usr_default_agent',
+    name: 'Petugas CS',
+    email: 'agent@xatxoot.local',
+    role: 'agent',
+    status: 'online',
+  },
+  {
+    id: 'usr_sarah',
+    name: 'Sarah CS',
+    email: 'sarah@xatxoot.local',
+    role: 'agent',
+    status: 'online',
+  },
+  {
+    id: 'usr_budi',
+    name: 'Budi Support',
+    email: 'budi@xatxoot.local',
+    role: 'agent',
+    status: 'busy',
+  },
+]
+
+const INITIAL_TEAMS: TeamWithMembers[] = [
+  {
+    id: 'team-cs-general',
+    name: 'Tim Layanan Pelanggan Umum',
+    description: 'Menangani pertanyaan umum, informasi produk, dan komplain pelanggan',
+    allowAutoAssign: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    members: [AVAILABLE_AGENTS[0], AVAILABLE_AGENTS[1]],
+  },
+  {
+    id: 'team-tech-support',
+    name: 'Tim Bantuan Teknis',
+    description: 'Menangani kendala teknis integrasi, sistem eror, dan eskalasi bug',
+    allowAutoAssign: false,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    members: [AVAILABLE_AGENTS[2]],
+  },
+]
+
 export function App() {
   const [user, setUser] = useState<LayoutUser>(INITIAL_USER)
   const [conversations, setConversations] = useState<ConversationItem[]>(INITIAL_CONVERSATIONS)
@@ -216,6 +262,8 @@ export function App() {
   )
   const [isPairingDialogOpen, setIsPairingDialogOpen] = useState(false)
   const [isBotFlowBuilderOpen, setIsBotFlowBuilderOpen] = useState(false)
+  const [isTeamManagementOpen, setIsTeamManagementOpen] = useState(false)
+  const [teams, setTeams] = useState<TeamWithMembers[]>(INITIAL_TEAMS)
   const [botFlow, setBotFlow] = useState<BotFlowDefinition>(INITIAL_BOT_FLOW)
   const [pairingState, setPairingState] = useState<BaileysPairingState>({
     status: 'qr_ready',
@@ -443,6 +491,77 @@ export function App() {
             />
           </div>
         </div>
+      )}
+
+      {isTeamManagementOpen && (
+        <TeamManagement
+          teams={teams}
+          availableAgents={AVAILABLE_AGENTS}
+          isModal={true}
+          onSaveTeam={(teamData) => {
+            if (teamData.id) {
+              setTeams((prev) =>
+                prev.map((t) =>
+                  t.id === teamData.id
+                    ? {
+                        ...t,
+                        name: teamData.name,
+                        description: teamData.description,
+                        allowAutoAssign: teamData.allowAutoAssign,
+                        updatedAt: new Date().toISOString(),
+                      }
+                    : t,
+                ),
+              )
+            } else {
+              const newT: TeamWithMembers = {
+                id: `team-${Date.now().toString(36)}`,
+                name: teamData.name,
+                description: teamData.description,
+                allowAutoAssign: teamData.allowAutoAssign,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+                members: [],
+              }
+              setTeams((prev) => [...prev, newT])
+            }
+          }}
+          onDeleteTeam={(teamId) => {
+            setTeams((prev) => prev.filter((t) => t.id !== teamId))
+          }}
+          onAddMember={(teamId, agentId) => {
+            const ag = AVAILABLE_AGENTS.find((a) => a.id === agentId)
+            if (!ag) return
+            setTeams((prev) =>
+              prev.map((t) =>
+                t.id === teamId
+                  ? {
+                      ...t,
+                      members: [...(t.members || []), ag],
+                    }
+                  : t,
+              ),
+            )
+          }}
+          onRemoveMember={(teamId, agentId) => {
+            setTeams((prev) =>
+              prev.map((t) =>
+                t.id === teamId
+                  ? {
+                      ...t,
+                      members: (t.members || []).filter((m) => m.id !== agentId),
+                    }
+                  : t,
+              ),
+            )
+          }}
+          onToggleRoundRobin={(teamId, activeVal) => {
+            setTeams((prev) =>
+              prev.map((t) => (t.id === teamId ? { ...t, allowAutoAssign: activeVal } : t)),
+            )
+          }}
+          onClose={() => setIsTeamManagementOpen(false)}
+        />
       )}
     </>
   )
