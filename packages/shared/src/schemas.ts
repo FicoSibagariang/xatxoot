@@ -64,6 +64,11 @@ export const ChannelTypeSchema = z.enum([
   'whatsapp_unofficial',
   'web_widget',
   'api',
+  'email',
+  'telegram',
+  'facebook',
+  'instagram',
+  'sms',
 ])
 export type ChannelType = z.infer<typeof ChannelTypeSchema>
 
@@ -996,3 +1001,118 @@ export const UpdateUserAvailabilityInputSchema = z.object({
   availability: UserAvailabilitySchema,
 })
 export type UpdateUserAvailabilityInput = z.infer<typeof UpdateUserAvailabilityInputSchema>
+
+// ==========================================
+// Phase 3: Omnichannel Communication Channels (Task 3.4)
+// ==========================================
+
+// 1. Email Channel Schemas
+export const CreateEmailChannelInputSchema = z.object({
+  imapHost: z.string().min(1, 'Host IMAP wajib diisi'),
+  imapPort: z.number().int().positive('Port IMAP harus berupa angka positif').default(993),
+  imapUsername: z.string().min(1, 'Username IMAP wajib diisi'),
+  imapPassword: z.string().min(1, 'Password IMAP wajib diisi'),
+  smtpHost: z.string().min(1, 'Host SMTP wajib diisi'),
+  smtpPort: z.number().int().positive('Port SMTP harus berupa angka positif').default(587),
+  smtpUsername: z.string().min(1, 'Username SMTP wajib diisi'),
+  smtpPassword: z.string().min(1, 'Password SMTP wajib diisi'),
+})
+export type CreateEmailChannelInput = z.infer<typeof CreateEmailChannelInputSchema>
+
+export const UpdateEmailChannelInputSchema = CreateEmailChannelInputSchema.partial()
+export type UpdateEmailChannelInput = z.infer<typeof UpdateEmailChannelInputSchema>
+
+export const EmailChannelSchema = z.object({
+  id: z.string().uuid(),
+  imapHost: z.string(),
+  imapPort: z.number().int(),
+  imapUsername: z.string(),
+  imapPasswordEncrypted: z.string(),
+  smtpHost: z.string(),
+  smtpPort: z.number().int(),
+  smtpUsername: z.string(),
+  smtpPasswordEncrypted: z.string(),
+  createdAt: z.string().or(z.date()),
+  updatedAt: z.string().or(z.date()),
+})
+export type EmailChannel = z.infer<typeof EmailChannelSchema>
+
+// 2. Telegram Channel Schemas
+export const CreateTelegramChannelInputSchema = z.object({
+  botToken: z.string().min(1, 'Bot Token Telegram wajib diisi'),
+  botUsername: z.string().min(1, 'Bot Username Telegram wajib diisi'),
+})
+export type CreateTelegramChannelInput = z.infer<typeof CreateTelegramChannelInputSchema>
+
+export const UpdateTelegramChannelInputSchema = CreateTelegramChannelInputSchema.partial()
+export type UpdateTelegramChannelInput = z.infer<typeof UpdateTelegramChannelInputSchema>
+
+export const TelegramChannelSchema = z.object({
+  id: z.string().uuid(),
+  botTokenEncrypted: z.string(),
+  botUsername: z.string(),
+  createdAt: z.string().or(z.date()),
+  updatedAt: z.string().or(z.date()),
+})
+export type TelegramChannel = z.infer<typeof TelegramChannelSchema>
+
+// 3. Facebook Messenger Channel Schemas
+export const CreateFacebookChannelInputSchema = z.object({
+  pageId: z.string().min(1, 'Page ID Facebook wajib diisi'),
+  pageAccessToken: z.string().min(1, 'Page Access Token Facebook wajib diisi'),
+})
+export type CreateFacebookChannelInput = z.infer<typeof CreateFacebookChannelInputSchema>
+
+export const UpdateFacebookChannelInputSchema = CreateFacebookChannelInputSchema.partial()
+export type UpdateFacebookChannelInput = z.infer<typeof UpdateFacebookChannelInputSchema>
+
+export const FacebookChannelSchema = z.object({
+  id: z.string().uuid(),
+  pageId: z.string(),
+  pageAccessTokenEncrypted: z.string(),
+  createdAt: z.string().or(z.date()),
+  updatedAt: z.string().or(z.date()),
+})
+export type FacebookChannel = z.infer<typeof FacebookChannelSchema>
+
+// 4. Instagram Messaging Channel Schemas
+export const CreateInstagramChannelInputSchema = z.object({
+  igUserId: z.string().min(1, 'Instagram User ID wajib diisi'),
+  igAccessToken: z.string().min(1, 'Instagram Access Token wajib diisi'),
+})
+export type CreateInstagramChannelInput = z.infer<typeof CreateInstagramChannelInputSchema>
+
+export const UpdateInstagramChannelInputSchema = CreateInstagramChannelInputSchema.partial()
+export type UpdateInstagramChannelInput = z.infer<typeof UpdateInstagramChannelInputSchema>
+
+export const InstagramChannelSchema = z.object({
+  id: z.string().uuid(),
+  igUserId: z.string(),
+  igAccessTokenEncrypted: z.string(),
+  createdAt: z.string().or(z.date()),
+  updatedAt: z.string().or(z.date()),
+})
+export type InstagramChannel = z.infer<typeof InstagramChannelSchema>
+
+// 5. SMS Channel Schemas
+export const CreateSmsChannelInputSchema = z.object({
+  providerName: z.string().default('twilio'),
+  accountSid: z.string().min(1, 'Account SID wajib diisi'),
+  authToken: z.string().min(1, 'Auth Token SMS wajib diisi'),
+  fromPhoneNumber: z.string().min(1, 'Nomor Telepon Pengirim (From Phone Number) wajib diisi'),
+})
+export type CreateSmsChannelInput = z.infer<typeof CreateSmsChannelInputSchema>
+
+export const UpdateSmsChannelInputSchema = CreateSmsChannelInputSchema.partial()
+export type UpdateSmsChannelInput = z.infer<typeof UpdateSmsChannelInputSchema>
+
+export const SmsChannelSchema = z.object({
+  id: z.string().uuid(),
+  providerName: z.string(),
+  accountSid: z.string(),
+  authTokenEncrypted: z.string(),
+  fromPhoneNumber: z.string(),
+  createdAt: z.string().or(z.date()),
+  updatedAt: z.string().or(z.date()),
+})
+export type SmsChannel = z.infer<typeof SmsChannelSchema>
