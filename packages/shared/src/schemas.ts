@@ -971,3 +971,28 @@ export const SendWhatsAppTemplateMessageInputSchema = z.object({
 export type SendWhatsAppTemplateMessageInput = z.infer<
   typeof SendWhatsAppTemplateMessageInputSchema
 >
+
+// ==========================================
+// Phase 2: Assignment Engine (Task 2.14)
+// ==========================================
+export const AutoAssignInputSchema = z.object({
+  ticketId: z.string().uuid().optional(),
+  inboxId: z.string().uuid().optional(),
+  teamId: z.string().uuid().optional(),
+})
+export type AutoAssignInput = z.infer<typeof AutoAssignInputSchema>
+
+export const AutoAssignResultSchema = z.object({
+  ticket: TicketSchema,
+  assignedAgentId: z.string().uuid().nullable(),
+  poolType: z.enum(['inbox', 'team', 'direct']),
+  poolId: z.string().nullable().optional(),
+  success: z.boolean(),
+  reason: z.string().optional(),
+})
+export type AutoAssignResult = z.infer<typeof AutoAssignResultSchema>
+
+export const UpdateUserAvailabilityInputSchema = z.object({
+  availability: UserAvailabilitySchema,
+})
+export type UpdateUserAvailabilityInput = z.infer<typeof UpdateUserAvailabilityInputSchema>
