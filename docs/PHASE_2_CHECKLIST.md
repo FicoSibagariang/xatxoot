@@ -71,5 +71,5 @@
 ---
 
 ### Bagian 5: Verifikasi & Quality Gate
-- [ ] **Task 2.22**: Jalankan `bun test` untuk seluruh modul Fase 2 — 100% PASS.
+- [x] **Task 2.22**: Jalankan `bun test` untuk seluruh modul Fase 2 — 100% PASS.
 - [ ] **Task 2.23**: Jalankan `bun run check` (Biome) — 0 error & 0 warning.
