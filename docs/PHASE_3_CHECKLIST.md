@@ -23,7 +23,7 @@
 ## 📋 Daftar Tugas Atomik (Step-by-Step)
 
 ### Bagian 1: Skema Database & Migrasi (`apps/api/migrations/004_phase3_omnichannel.sql`)
-- [ ] **Task 3.1**: Buat tabel channel baru:
+- [x] **Task 3.1**: Buat tabel channel baru:
   - `channels_email` (imap_host, imap_port, imap_username, imap_password_encrypted, smtp_host, smtp_port, smtp_username, smtp_password_encrypted).
   - `channels_telegram` (bot_token_encrypted, bot_username).
   - `channels_facebook` (page_id, page_access_token_encrypted).
