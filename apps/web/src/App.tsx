@@ -1,5 +1,6 @@
 import type { BotFlowDefinition, WhatsAppTemplate } from '@xatxoot/shared'
 import { useState } from 'react'
+import { BusinessHoursSettings } from './components/business-hours'
 import { ChannelWizard } from './components/channels'
 import type { TimelineMessage } from './components/chat'
 import { VisualFlowBuilder } from './components/flow-builder'
@@ -340,6 +341,7 @@ export function App() {
   const [isTeamManagementOpen, setIsTeamManagementOpen] = useState(false)
   const [isTemplateDialogOpen, setIsTemplateDialogOpen] = useState(false)
   const [isChannelWizardOpen, setIsChannelWizardOpen] = useState(false)
+  const [isBusinessHoursOpen, setIsBusinessHoursOpen] = useState(false)
   const [teams, setTeams] = useState<TeamWithMembers[]>(INITIAL_TEAMS)
   const [templates] = useState<WhatsAppTemplate[]>(INITIAL_TEMPLATES)
   const [botFlow, setBotFlow] = useState<BotFlowDefinition>(INITIAL_BOT_FLOW)
@@ -678,6 +680,16 @@ export function App() {
           onClose={() => setIsChannelWizardOpen(false)}
           onSaveChannel={(_payload) => {
             setIsChannelWizardOpen(false)
+          }}
+        />
+      )}
+
+      {isBusinessHoursOpen && (
+        <BusinessHoursSettings
+          inboxName="WhatsApp Layanan CS"
+          onClose={() => setIsBusinessHoursOpen(false)}
+          onSave={(_config) => {
+            setIsBusinessHoursOpen(false)
           }}
         />
       )}
