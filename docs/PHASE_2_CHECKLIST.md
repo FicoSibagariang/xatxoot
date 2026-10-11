@@ -26,7 +26,7 @@
 ## 📋 Daftar Tugas Atomik (Step-by-Step)
 
 ### Bagian 1: Database & Migrasi (`apps/api/migrations/003_phase2_productivity.sql`)
-- [ ] **Task 2.1**: Buat tabel `teams` dan `team_members`.
+- [x] **Task 2.1**: Buat tabel `teams` dan `team_members`.
 - [ ] **Task 2.2**: Buat tabel `canned_responses` (short_code, content).
 - [ ] **Task 2.3**: Buat tabel `slash_commands` (name, description, endpoint_url, auth_header).
 - [ ] **Task 2.4**: Buat tabel chatbot engine:

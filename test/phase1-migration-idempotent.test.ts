@@ -73,6 +73,10 @@ describe('Phase 1 Migration Idempotency & Execution (Task 1.4)', () => {
       return []
     }
 
+    const expectedMigrationFiles = readdirSync(migrationsDir)
+      .filter((file) => file.endsWith('.sql'))
+      .sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }))
+
     // Status before migrations
     const initialStatus = await getMigrationStatus({
       db: mockDb as unknown as import('bun').SQL,
@@ -87,15 +91,15 @@ describe('Phase 1 Migration Idempotency & Execution (Task 1.4)', () => {
       db: mockDb as unknown as import('bun').SQL,
       migrationsDir,
     })
-    expect(firstRunApplied).toEqual(['001_init.sql', '002_phase1_inbox.sql'])
-    expect(appliedVersions).toEqual(['001_init.sql', '002_phase1_inbox.sql'])
+    expect(firstRunApplied).toEqual(expectedMigrationFiles)
+    expect(appliedVersions).toEqual(expectedMigrationFiles)
 
     // Status after first run
     const completedStatus = await getMigrationStatus({
       db: mockDb as unknown as import('bun').SQL,
       migrationsDir,
     })
-    expect(completedStatus.applied).toEqual(['001_init.sql', '002_phase1_inbox.sql'])
+    expect(completedStatus.applied).toEqual(expectedMigrationFiles)
     expect(completedStatus.pending).toEqual([])
 
     // Second execution (Idempotent run: must apply 0 migrations)
@@ -104,7 +108,7 @@ describe('Phase 1 Migration Idempotency & Execution (Task 1.4)', () => {
       migrationsDir,
     })
     expect(secondRunApplied).toEqual([])
-    expect(appliedVersions).toEqual(['001_init.sql', '002_phase1_inbox.sql'])
+    expect(appliedVersions).toEqual(expectedMigrationFiles)
   })
 
   it('should verify root and apps/api package.json define db:migrate scripts', () => {
