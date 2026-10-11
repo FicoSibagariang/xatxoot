@@ -1,0 +1,63 @@
+-- Phase 3: Omnichannel Communication Channels Migration (Task 3.1)
+-- Channels for Email, Telegram, Facebook Messenger, Instagram Direct, and SMS
+
+-- 1. channels_email (IMAP Inbound & SMTP Outbound)
+CREATE TABLE IF NOT EXISTS channels_email (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    imap_host VARCHAR(255) NOT NULL,
+    imap_port INT NOT NULL DEFAULT 993,
+    imap_username VARCHAR(255) NOT NULL,
+    imap_password_encrypted TEXT NOT NULL,
+    smtp_host VARCHAR(255) NOT NULL,
+    smtp_port INT NOT NULL DEFAULT 587,
+    smtp_username VARCHAR(255) NOT NULL,
+    smtp_password_encrypted TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- 2. channels_telegram (Telegram Bot API)
+CREATE TABLE IF NOT EXISTS channels_telegram (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    bot_token_encrypted TEXT NOT NULL,
+    bot_username VARCHAR(255) NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- 3. channels_facebook (Meta Graph API - Facebook Messenger)
+CREATE TABLE IF NOT EXISTS channels_facebook (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    page_id VARCHAR(255) NOT NULL UNIQUE,
+    page_access_token_encrypted TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- 4. channels_instagram (Meta Graph API - Instagram Messaging)
+CREATE TABLE IF NOT EXISTS channels_instagram (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    ig_user_id VARCHAR(255) NOT NULL UNIQUE,
+    ig_access_token_encrypted TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- 5. channels_sms (SMS Gateways: Twilio / Custom HTTP SMS)
+CREATE TABLE IF NOT EXISTS channels_sms (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    provider_name VARCHAR(100) NOT NULL DEFAULT 'twilio',
+    account_sid VARCHAR(255) NOT NULL,
+    auth_token_encrypted TEXT NOT NULL,
+    from_phone_number VARCHAR(50) NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Performance indexes for channel lookup and webhook matching
+CREATE INDEX IF NOT EXISTS idx_channels_email_imap_username ON channels_email(imap_username);
+CREATE INDEX IF NOT EXISTS idx_channels_email_smtp_username ON channels_email(smtp_username);
+CREATE INDEX IF NOT EXISTS idx_channels_telegram_bot_username ON channels_telegram(bot_username);
+CREATE INDEX IF NOT EXISTS idx_channels_facebook_page_id ON channels_facebook(page_id);
+CREATE INDEX IF NOT EXISTS idx_channels_instagram_ig_user_id ON channels_instagram(ig_user_id);
+CREATE INDEX IF NOT EXISTS idx_channels_sms_from_phone_number ON channels_sms(from_phone_number);
