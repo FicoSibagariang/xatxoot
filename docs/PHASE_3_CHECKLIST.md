@@ -73,4 +73,4 @@
 
 ### Bagian 5: Verifikasi & Quality Gate
 - [x] **Task 3.17**: Jalankan seluruh test suite (`bun test`) — 100% PASS.
-- [ ] **Task 3.18**: Jalankan pemeriksaan linter & formatter (`bun run check`) — 0 issue.
+- [x] **Task 3.18**: Jalankan pemeriksaan linter & formatter (`bun run check`) — 0 issue.

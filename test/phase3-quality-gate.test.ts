@@ -132,5 +132,21 @@ describe('Phase 3 Quality Gate & Test Suite Verification (Task 3.17)', () => {
         '- [x] **Task 3.17**: Jalankan seluruh test suite (`bun test`) — 100% PASS.',
       )
     })
+
+    it('should verify Phase 3 checklist marks Task 3.18 as completed', () => {
+      const checklistContent = readFileSync(join(rootDir, 'docs', 'PHASE_3_CHECKLIST.md'), 'utf-8')
+      expect(checklistContent).toContain(
+        '- [x] **Task 3.18**: Jalankan pemeriksaan linter & formatter (`bun run check`) — 0 issue.',
+      )
+    })
+  })
+
+  describe('6. Phase 3 Biome Linter & Formatter Quality Gate (Task 3.18)', () => {
+    it('should pass biome check across entire monorepo with 0 errors and 0 warnings', () => {
+      const proc = Bun.spawnSync(['bunx', '@biomejs/biome', 'check', '.'], {
+        cwd: rootDir,
+      })
+      expect(proc.exitCode).toBe(0)
+    })
   })
 })
