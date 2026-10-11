@@ -64,7 +64,7 @@
 ### Bagian 4: Antarmuka Web Dashboard (`apps/web`)
 - [x] **Task 2.17**: Integrasi popup autocomplete `/` di composer chat untuk canned responses dan slash commands.
 - [x] **Task 2.18**: Indikator timer deadline per tiket di daftar inbox (merah jika mendekati deadline).
-- [ ] **Task 2.19**: Visual Flow Builder (drag-and-drop node graph canvas) di menu Pengaturan Bot.
+- [x] **Task 2.19**: Visual Flow Builder (drag-and-drop node graph canvas) di menu Pengaturan Bot.
 - [ ] **Task 2.20**: Menu manajemen Tim & konfigurasi round-robin.
 - [ ] **Task 2.21**: Dialog pemilih WhatsApp Message Template dengan input isian variabel dinamis.
 
