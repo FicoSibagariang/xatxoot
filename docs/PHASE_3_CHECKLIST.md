@@ -44,7 +44,7 @@
 ---
 
 ### Bagian 3: Backend Services & Adapters (`apps/api`) — Siklus TDD
-- [ ] **Task 3.7 (TDD - Email)**:
+- [x] **Task 3.7 (TDD - Email)**:
   - Parser email inbound: ekstraksi plain text/HTML dan pembuangan reply quote header.
   - Pengiriman outbound via Nodemailer/SMTP dengan *In-Reply-To* dan *References* header demi menjaga email thread.
 - [ ] **Task 3.8 (TDD - Telegram)**:
