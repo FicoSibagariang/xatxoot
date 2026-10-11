@@ -57,7 +57,7 @@
   - State machine yang mengevaluasi input kontak terhadap node pertanyaan/pilihan.
   - Eksekusi node HTTP Request secara asinkron.
   - Node Handoff: mengubah status tiket menjadi `open` dan memicu notifikasi ke agent manusia.
-- [ ] **Task 2.16 (TDD)**: Test suite & implementasi WhatsApp Cloud Template sync & outbound sender via template.
+- [x] **Task 2.16 (TDD)**: Test suite & implementasi WhatsApp Cloud Template sync & outbound sender via template.
 
 ---
 
