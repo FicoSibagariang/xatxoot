@@ -39,7 +39,7 @@
 ---
 
 ### Bagian 2: Shared Types & Zod Schemas (`packages/shared`)
-- [ ] **Task 2.8**: Definisi tipe & skema Zod untuk Team, Canned Response, dan Slash Command.
+- [x] **Task 2.8**: Definisi tipe & skema Zod untuk Team, Canned Response, dan Slash Command.
 - [ ] **Task 2.9**: Definisi AST node & edge untuk Visual Bot Engine (MessageNode, QuestionNode, HttpNode, BranchNode, HandoffNode).
 - [ ] **Task 2.10**: Skema validasi untuk Macro dan WhatsApp Message Template parameters.
 

@@ -466,3 +466,99 @@ export const MessageSchema = z.object({
   updatedAt: z.string().or(z.date()),
 })
 export type Message = z.infer<typeof MessageSchema>
+
+// ==========================================
+// Phase 2: Team, Canned Response & Slash Command
+// ==========================================
+
+// 1. Team & Team Member Schemas
+export const CreateTeamInputSchema = z.object({
+  name: z.string().min(1, 'Nama tim wajib diisi').max(255),
+  description: z.string().nullable().optional(),
+  allowAutoAssign: z.boolean().default(true),
+})
+export type CreateTeamInput = z.infer<typeof CreateTeamInputSchema>
+
+export const UpdateTeamInputSchema = CreateTeamInputSchema.partial()
+export type UpdateTeamInput = z.infer<typeof UpdateTeamInputSchema>
+
+export const TeamSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string(),
+  description: z.string().nullable().optional(),
+  allowAutoAssign: z.boolean(),
+  createdAt: z.string().or(z.date()),
+  updatedAt: z.string().or(z.date()),
+})
+export type Team = z.infer<typeof TeamSchema>
+
+export const AddTeamMemberInputSchema = z.object({
+  teamId: z.string().uuid('Team ID harus berupa UUID valid'),
+  userId: z.string().uuid('User ID harus berupa UUID valid'),
+})
+export type AddTeamMemberInput = z.infer<typeof AddTeamMemberInputSchema>
+
+export const TeamMemberSchema = z.object({
+  id: z.string().uuid(),
+  teamId: z.string().uuid(),
+  userId: z.string().uuid(),
+  createdAt: z.string().or(z.date()),
+})
+export type TeamMember = z.infer<typeof TeamMemberSchema>
+
+// 2. Canned Response Schemas
+export const CreateCannedResponseInputSchema = z.object({
+  shortCode: z.string().min(1, 'Short code wajib diisi').max(100),
+  content: z.string().min(1, 'Konten balasan cepat wajib diisi'),
+})
+export type CreateCannedResponseInput = z.infer<typeof CreateCannedResponseInputSchema>
+
+export const UpdateCannedResponseInputSchema = CreateCannedResponseInputSchema.partial()
+export type UpdateCannedResponseInput = z.infer<typeof UpdateCannedResponseInputSchema>
+
+export const CannedResponseSchema = z.object({
+  id: z.string().uuid(),
+  shortCode: z.string(),
+  content: z.string(),
+  createdAt: z.string().or(z.date()),
+  updatedAt: z.string().or(z.date()),
+})
+export type CannedResponse = z.infer<typeof CannedResponseSchema>
+
+// 3. Slash Command Schemas
+export const CreateSlashCommandInputSchema = z.object({
+  name: z.string().min(1, 'Nama slash command wajib diisi').max(100),
+  description: z.string().nullable().optional(),
+  endpointUrl: z.string().url('Endpoint URL harus berupa URL valid'),
+  authHeader: z.string().nullable().optional(),
+})
+export type CreateSlashCommandInput = z.infer<typeof CreateSlashCommandInputSchema>
+
+export const UpdateSlashCommandInputSchema = CreateSlashCommandInputSchema.partial()
+export type UpdateSlashCommandInput = z.infer<typeof UpdateSlashCommandInputSchema>
+
+export const SlashCommandSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string(),
+  description: z.string().nullable().optional(),
+  endpointUrl: z.string(),
+  authHeader: z.string().nullable().optional(),
+  createdAt: z.string().or(z.date()),
+  updatedAt: z.string().or(z.date()),
+})
+export type SlashCommand = z.infer<typeof SlashCommandSchema>
+
+export const ExecuteSlashCommandInputSchema = z.object({
+  command: z.string().min(1, 'Nama command wajib diisi'),
+  conversationId: z.string().uuid('Conversation ID harus berupa UUID valid'),
+  ticketId: z.string().uuid().nullable().optional(),
+  params: z.string().nullable().optional(),
+})
+export type ExecuteSlashCommandInput = z.infer<typeof ExecuteSlashCommandInputSchema>
+
+export const SlashCommandExecutionResponseSchema = z.object({
+  content: z.string(),
+  format: z.enum(['text', 'markdown', 'json']).default('text'),
+  metadata: z.record(z.any()).default({}),
+})
+export type SlashCommandExecutionResponse = z.infer<typeof SlashCommandExecutionResponseSchema>
