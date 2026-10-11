@@ -50,3 +50,33 @@ CREATE TABLE IF NOT EXISTS slash_commands (
 );
 
 CREATE INDEX IF NOT EXISTS idx_slash_commands_name ON slash_commands(name);
+
+-- Task 2.4: Chatbot Engine
+-- 5. bot_flows (Visual flow definitions and triggers)
+CREATE TABLE IF NOT EXISTS bot_flows (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(255) NOT NULL,
+    trigger_type VARCHAR(50) NOT NULL DEFAULT 'conversation_opened',
+    active BOOLEAN NOT NULL DEFAULT true,
+    flow_definition JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- 6. bot_sessions (Active chatbot execution sessions per conversation)
+CREATE TABLE IF NOT EXISTS bot_sessions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    conversation_id UUID NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+    flow_id UUID NOT NULL REFERENCES bot_flows(id) ON DELETE CASCADE,
+    current_node_id VARCHAR(100),
+    status VARCHAR(50) NOT NULL DEFAULT 'active',
+    context_data JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Performance indexes for chatbot engine
+CREATE INDEX IF NOT EXISTS idx_bot_flows_active ON bot_flows(active);
+CREATE INDEX IF NOT EXISTS idx_bot_flows_trigger_type ON bot_flows(trigger_type);
+CREATE INDEX IF NOT EXISTS idx_bot_sessions_conversation_id ON bot_sessions(conversation_id);
+CREATE INDEX IF NOT EXISTS idx_bot_sessions_flow_id ON bot_sessions(flow_id);

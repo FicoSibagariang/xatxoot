@@ -29,7 +29,7 @@
 - [x] **Task 2.1**: Buat tabel `teams` dan `team_members`.
 - [x] **Task 2.2**: Buat tabel `canned_responses` (short_code, content).
 - [x] **Task 2.3**: Buat tabel `slash_commands` (name, description, endpoint_url, auth_header).
-- [ ] **Task 2.4**: Buat tabel chatbot engine:
+- [x] **Task 2.4**: Buat tabel chatbot engine:
   - `bot_flows` (name, trigger_type, active, flow_definition JSONB).
   - `bot_sessions` (conversation_id, flow_id, current_node_id, context_data JSONB).
 - [ ] **Task 2.5**: Buat tabel `macros` & `macro_actions`.
