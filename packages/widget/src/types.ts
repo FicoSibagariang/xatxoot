@@ -28,3 +28,15 @@ export interface WidgetUser {
 
 export type WidgetEventType = 'open' | 'close' | 'unread' | 'message.sent' | 'message.received'
 export type WidgetEventHandler = (data?: unknown) => void
+
+export interface WidgetMessageResponse {
+  success: boolean
+  session_id: string
+  conversation_id: string
+  message: {
+    id: string
+    content: string | null
+    [key: string]: unknown
+  }
+  contact?: Record<string, unknown>
+}

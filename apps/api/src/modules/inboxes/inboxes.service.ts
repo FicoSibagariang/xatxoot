@@ -626,6 +626,83 @@ export class InboxService {
     )
     return true
   }
+
+  async findInboxByWebsiteToken(
+    websiteToken: string,
+  ): Promise<{ inbox: Inbox; channel: WebWidgetChannelData } | null> {
+    if (!websiteToken) return null
+
+    // 1. Check PostgreSQL DB
+    try {
+      const rows = await sql`
+        SELECT
+          i.id, i.name, i.channel_type as "channelType", i.channel_id as "channelId",
+          i.enable_auto_assign as "enableAutoAssign", i.greeting_enabled as "greetingEnabled",
+          i.greeting_message as "greetingMessage", i.working_hours_enabled as "workingHoursEnabled",
+          i.working_hours as "workingHours", i.out_of_office_message as "outOfOfficeMessage",
+          i.lock_to_single_conv as "lockToSingleConv", i.sender_name_type as "senderNameType",
+          i.created_at as "createdAt", i.updated_at as "updatedAt",
+          c.id as "c_id", c.website_token as "c_websiteToken", c.website_url as "c_websiteUrl",
+          c.allowed_domains as "c_allowedDomains", c.widget_color as "c_widgetColor",
+          c.reply_time as "c_replyTime", c.pre_chat_form_enabled as "c_preChatFormEnabled",
+          c.created_at as "c_createdAt", c.updated_at as "c_updatedAt"
+        FROM inboxes i
+        JOIN channels_web_widget c ON i.channel_id = c.id
+        WHERE c.website_token = ${websiteToken}
+        LIMIT 1
+      `
+      if (rows.length > 0) {
+        const row = rows[0] as Record<string, unknown>
+        const inbox: Inbox = {
+          id: row.id as string,
+          name: row.name as string,
+          channelType: row.channelType as Inbox['channelType'],
+          channelId: row.channelId as string,
+          enableAutoAssign: row.enableAutoAssign as boolean,
+          greetingEnabled: row.greetingEnabled as boolean,
+          greetingMessage: (row.greetingMessage as string) || null,
+          workingHoursEnabled: row.workingHoursEnabled as boolean,
+          workingHours: (row.workingHours as Record<string, unknown>) || {},
+          outOfOfficeMessage: (row.outOfOfficeMessage as string) || null,
+          lockToSingleConv: row.lockToSingleConv as boolean,
+          senderNameType: row.senderNameType as Inbox['senderNameType'],
+          createdAt: row.createdAt as string,
+          updatedAt: row.updatedAt as string,
+        }
+        const channel: WebWidgetChannelData = {
+          id: row.c_id as string,
+          websiteToken: row.c_websiteToken as string,
+          websiteUrl: (row.c_websiteUrl as string) || null,
+          allowedDomains: (row.c_allowedDomains as string[]) || [],
+          widgetColor: (row.c_widgetColor as string) || '#00a884',
+          replyTime: (row.c_replyTime as string) || 'in_a_few_minutes',
+          preChatFormEnabled: row.c_preChatFormEnabled as boolean,
+          createdAt: row.c_createdAt as string,
+          updatedAt: row.c_updatedAt as string,
+        }
+        return { inbox, channel }
+      }
+    } catch {
+      // Fallback
+    }
+
+    // 2. Check memoryStore
+    for (const [, entry] of memoryStore.channels.entries()) {
+      if (entry.type === 'web_widget') {
+        const widgetChannel = entry.data as WebWidgetChannelData
+        if (widgetChannel.websiteToken === websiteToken) {
+          const inbox = Array.from(memoryStore.inboxes.values()).find(
+            (i) => i.channelId === widgetChannel.id,
+          )
+          if (inbox) {
+            return { inbox, channel: widgetChannel }
+          }
+        }
+      }
+    }
+
+    return null
+  }
 }
 
 export const inboxService = new InboxService()

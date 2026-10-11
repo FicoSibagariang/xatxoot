@@ -96,7 +96,7 @@
 
 ### Bagian 7: Website Live Chat Widget (`packages/widget`)
 - [x] **Task 1.29**: Scaffold widget bundle mandiri (< 80 KB gzipped) berbasis Preact/React.
-- [ ] **Task 1.30**: API endpoint publik untuk komunikasi widget (`POST /api/v1/widget/messages`, SSE untuk balasan agent).
+- [x] **Task 1.30**: API endpoint publik untuk komunikasi widget (`POST /api/v1/widget/messages`, SSE untuk balasan agent).
 - [ ] **Task 1.31**: Fitur kustomisasi warna & judul widget sesuai pengaturan Inbox.
 
 ---

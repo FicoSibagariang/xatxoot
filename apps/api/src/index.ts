@@ -5,6 +5,7 @@ import { inboxRoutes } from './modules/inboxes/inboxes.routes'
 import { realtimeRoutes } from './modules/realtime/realtime.routes'
 import { ticketRoutes } from './modules/tickets/tickets.routes'
 import { whatsappCloudWebhookRoutes } from './modules/webhooks/whatsapp-cloud.webhook.routes'
+import { widgetRoutes } from './modules/widget/widget.routes'
 
 const app = new Hono()
 
@@ -18,5 +19,6 @@ app.route('/api/v1/conversations', conversationRoutes)
 app.route('/api/v1/tickets', ticketRoutes)
 app.route('/api/v1/realtime', realtimeRoutes)
 app.route('/api/v1/webhooks/whatsapp-cloud', whatsappCloudWebhookRoutes)
+app.route('/api/v1/widget', widgetRoutes)
 
 export default app

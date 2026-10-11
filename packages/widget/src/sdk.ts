@@ -3,6 +3,7 @@ import type {
   WidgetConfig,
   WidgetEventHandler,
   WidgetEventType,
+  WidgetMessageResponse,
   WidgetUser,
 } from './types'
 
@@ -124,6 +125,48 @@ export class WidgetSDK {
         this.listeners.delete(event)
       }
     }
+  }
+
+  buildStreamUrl(sessionId: string): string {
+    const cleanBase = this.config.baseUrl ? this.config.baseUrl.replace(/\/+$/, '') : ''
+    const path = '/api/v1/widget/stream'
+    const fullPath = cleanBase ? `${cleanBase}${path}` : path
+    const params = new URLSearchParams({
+      website_token: this.config.websiteToken,
+      session_id: sessionId,
+    })
+    return `${fullPath}?${params.toString()}`
+  }
+
+  async sendMessage(content: string, sessionId?: string): Promise<WidgetMessageResponse> {
+    const cleanBase = this.config.baseUrl ? this.config.baseUrl.replace(/\/+$/, '') : ''
+    const path = '/api/v1/widget/messages'
+    const fullPath = cleanBase ? `${cleanBase}${path}` : path
+
+    const effectiveSessionId = sessionId || `visitor_${Date.now()}`
+    const payload = {
+      website_token: this.config.websiteToken,
+      session_id: effectiveSessionId,
+      content,
+      contact: this.user || undefined,
+    }
+
+    const response = await fetch(fullPath, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    })
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({ error: 'Gagal mengirim pesan' }))
+      throw new Error((err as { error?: string }).error || 'Gagal mengirim pesan')
+    }
+
+    const result = (await response.json()) as WidgetMessageResponse
+    this.emit('message.sent', result)
+    return result
   }
 
   private emit(event: string, data?: unknown): void {
