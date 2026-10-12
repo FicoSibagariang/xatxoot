@@ -73,4 +73,4 @@
 
 ### Bagian 5: Verifikasi & Quality Gate
 - [x] **Task 4.17**: Pastikan seluruh test suite lolos (`bun test`) — 100% PASS.
-- [ ] **Task 4.18**: Validasi Biome linter & formatter (`bun run check`) — 0 warning.
+- [x] **Task 4.18**: Validasi Biome linter & formatter (`bun run check`) — 0 warning.
