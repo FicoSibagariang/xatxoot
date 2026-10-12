@@ -75,3 +75,22 @@ CREATE INDEX IF NOT EXISTS idx_portal_articles_category_id ON portal_articles(ca
 CREATE INDEX IF NOT EXISTS idx_portal_articles_author_id ON portal_articles(author_id);
 CREATE INDEX IF NOT EXISTS idx_portal_articles_slug ON portal_articles(slug);
 CREATE INDEX IF NOT EXISTS idx_portal_articles_status ON portal_articles(status);
+
+-- Task 4.3: Automation Rules Table
+
+-- 5. automation_rules
+CREATE TABLE IF NOT EXISTS automation_rules (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(255) NOT NULL,
+    event_name VARCHAR(100) NOT NULL,
+    conditions JSONB NOT NULL DEFAULT '[]'::jsonb,
+    actions JSONB NOT NULL DEFAULT '[]'::jsonb,
+    active BOOLEAN NOT NULL DEFAULT true,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Performance indexes for automation rules evaluation
+CREATE INDEX IF NOT EXISTS idx_automation_rules_event_name ON automation_rules(event_name);
+CREATE INDEX IF NOT EXISTS idx_automation_rules_active ON automation_rules(active);
+
