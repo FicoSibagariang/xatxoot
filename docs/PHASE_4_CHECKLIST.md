@@ -30,7 +30,7 @@
   - `portals` (name, slug, custom_domain, header_text, logo_url).
   - `categories` (portal_id, name, slug, description, position).
   - `articles` (category_id, author_id, title, slug, content_markdown, status: `draft`|`published`, views_count).
-- [ ] **Task 4.3**: Buat tabel Automation Rules:
+- [x] **Task 4.3**: Buat tabel Automation Rules:
   - `automation_rules` (name, event_name, conditions JSONB, actions JSONB, active).
 - [ ] **Task 4.4**: Buat tabel Campaigns & Broadcast:
   - `campaigns` (inbox_id, title, message_content, scheduled_at, status: `draft`|`scheduled`|`processing`|`completed`, anti_ban_delay_min, anti_ban_delay_max).
