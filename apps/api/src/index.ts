@@ -8,6 +8,7 @@ import {
   businessHoursRoutes,
   inboxBusinessHoursRoutes,
 } from './modules/business-hours/business-hours.routes'
+import { campaignRoutes } from './modules/campaigns/campaigns.routes'
 import { cannedResponseRoutes } from './modules/canned-responses/canned-responses.routes'
 import { conversationRoutes } from './modules/conversations/conversations.routes'
 import { csatRoutes } from './modules/csat/csat.routes'
@@ -63,5 +64,6 @@ app.route('/api/v1/portals', portalRoutes)
 app.route('/api/v1/categories', categoryRoutes)
 app.route('/api/v1/articles', articleRoutes)
 app.route('/api/v1/automation-rules', automationRoutes)
+app.route('/api/v1/campaigns', campaignRoutes)
 
 export default app
