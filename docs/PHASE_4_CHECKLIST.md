@@ -32,7 +32,7 @@
   - `articles` (category_id, author_id, title, slug, content_markdown, status: `draft`|`published`, views_count).
 - [x] **Task 4.3**: Buat tabel Automation Rules:
   - `automation_rules` (name, event_name, conditions JSONB, actions JSONB, active).
-- [ ] **Task 4.4**: Buat tabel Campaigns & Broadcast:
+- [x] **Task 4.4**: Buat tabel Campaigns & Broadcast:
   - `campaigns` (inbox_id, title, message_content, scheduled_at, status: `draft`|`scheduled`|`processing`|`completed`, anti_ban_delay_min, anti_ban_delay_max).
   - `campaign_deliveries` (campaign_id, contact_id, status: `pending`|`sent`|`failed`, error_message, sent_at).
 
