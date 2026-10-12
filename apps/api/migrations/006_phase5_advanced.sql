@@ -60,3 +60,20 @@ CREATE TABLE IF NOT EXISTS ticket_sla_statuses (
 CREATE INDEX IF NOT EXISTS idx_ticket_sla_statuses_ticket_id ON ticket_sla_statuses(ticket_id);
 CREATE INDEX IF NOT EXISTS idx_ticket_sla_statuses_policy_id ON ticket_sla_statuses(policy_id);
 CREATE INDEX IF NOT EXISTS idx_ticket_sla_statuses_is_breached ON ticket_sla_statuses(is_breached);
+
+-- Task 5.5: Enterprise SSO Configuration Table (SAML & OIDC)
+CREATE TABLE IF NOT EXISTS sso_providers (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    provider_type VARCHAR(50) NOT NULL,
+    issuer_url TEXT NOT NULL,
+    client_id VARCHAR(255),
+    client_secret_encrypted TEXT,
+    client_secret_enc TEXT,
+    cert_data TEXT,
+    active BOOLEAN NOT NULL DEFAULT true,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_sso_providers_provider_type ON sso_providers(provider_type);
+CREATE INDEX IF NOT EXISTS idx_sso_providers_active ON sso_providers(active);

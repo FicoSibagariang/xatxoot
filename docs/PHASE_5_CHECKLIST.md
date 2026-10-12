@@ -32,7 +32,7 @@
 - [x] **Task 5.4**: Buat tabel SLA:
   - `sla_policies` (name, inbox_id, first_response_time_seconds, resolution_time_seconds).
   - `ticket_sla_statuses` (ticket_id, policy_id, first_response_deadline, resolution_deadline, is_breached).
-- [ ] **Task 5.5**: Buat tabel konfigurasi SSO Enterprise:
+- [x] **Task 5.5**: Buat tabel konfigurasi SSO Enterprise:
   - `sso_providers` (provider_type: `saml`|`oidc`, issuer_url, client_id, client_secret_encrypted, cert_data).
 
 ---
