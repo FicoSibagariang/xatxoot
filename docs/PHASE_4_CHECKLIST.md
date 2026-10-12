@@ -66,7 +66,7 @@
 ### Bagian 4: Antarmuka Web Dashboard (`apps/web`)
 - [x] **Task 4.13**: Halaman Visual Analytics: grafik performa agen, chart volume chat per jam, heatmap, dan rata-rata skor CSAT.
 - [x] **Task 4.14**: Halaman Editor Help Center: rich markdown editor untuk menulis artikel basis pengetahuan.
-- [ ] **Task 4.15**: Antarmuka Builder Automation Rules: antarmuka visual pemilihan *Trigger $\rightarrow$ Filter $\rightarrow$ Action*.
+- [x] **Task 4.15**: Antarmuka Builder Automation Rules: antarmuka visual pemilihan *Trigger $\rightarrow$ Filter $\rightarrow$ Action*.
 - [ ] **Task 4.16**: Wizard Pembuatan Campaign: pemilih audiens, preview pesan WhatsApp, konfigurasi throttle anti-ban, dan progress bar pengiriman live.
 
 ---
