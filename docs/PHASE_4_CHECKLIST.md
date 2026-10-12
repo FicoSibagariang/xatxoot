@@ -26,7 +26,7 @@
 ### Bagian 1: Skema Database & Migrasi (`apps/api/migrations/005_phase4_insights.sql`)
 - [x] **Task 4.1**: Buat tabel agregasi pelaporan & event audit:
   - `reporting_events` (event_type, conversation_id, ticket_id, user_id, inbox_id, value_in_seconds, created_at).
-- [ ] **Task 4.2**: Buat tabel Help Center / Portal:
+- [x] **Task 4.2**: Buat tabel Help Center / Portal:
   - `portals` (name, slug, custom_domain, header_text, logo_url).
   - `categories` (portal_id, name, slug, description, position).
   - `articles` (category_id, author_id, title, slug, content_markdown, status: `draft`|`published`, views_count).
