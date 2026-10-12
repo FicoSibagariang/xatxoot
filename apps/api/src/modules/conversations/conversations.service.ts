@@ -493,6 +493,23 @@ export class ConversationService {
   async getTicketById(ticketId: string): Promise<Ticket | null> {
     return ticketService.getTicketById(ticketId)
   }
+
+  async listContacts(): Promise<Contact[]> {
+    try {
+      const rows = await sql`
+        SELECT
+          id, name, phone_number as "phoneNumber", email,
+          created_at as "createdAt", updated_at as "updatedAt"
+        FROM contacts
+      `
+      if (rows && rows.length > 0) {
+        return rows as unknown as Contact[]
+      }
+    } catch {
+      // Memory fallback
+    }
+    return Array.from(memoryStore.contacts.values())
+  }
 }
 
 export const conversationService = new ConversationService()

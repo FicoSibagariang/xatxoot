@@ -57,7 +57,7 @@
 - [x] **Task 4.11 (TDD - Automation Rules Evaluator)**:
   - Evaluator kondisi berbasis JSON Logic / operator sederhana (`contains`, `equals`, `in_list`).
   - Eksekutor aksi berantai secara transaksional di database.
-- [ ] **Task 4.12 (TDD - Broadcast Engine & Anti-Ban Guard)**:
+- [x] **Task 4.12 (TDD - Broadcast Engine & Anti-Ban Guard)**:
   - Worker BullMQ khusus `campaign-dispatch`.
   - Anti-Ban Rate Limiter: menyuntikkan jitter/delay acak (misal: 15–45 detik per pesan) untuk pengiriman nomor WhatsApp Baileys demi mencegah pemblokiran algoritma Meta.
 
