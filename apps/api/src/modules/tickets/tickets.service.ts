@@ -327,6 +327,44 @@ export class TicketService {
     return updated
   }
 
+  async updateTicket(id: string, updates: Partial<Ticket>): Promise<Ticket> {
+    const existing = await this.getTicketById(id)
+    if (!existing) {
+      throw new Error(`Ticket not found: ${id}`)
+    }
+
+    const now = new Date().toISOString()
+    const updated: Ticket = {
+      ...existing,
+      ...updates,
+      updatedAt: now,
+    }
+
+    memoryStore.tickets.set(id, updated)
+
+    try {
+      await sql`
+        UPDATE tickets
+        SET
+          team_id = ${updated.teamId},
+          assignee_id = ${updated.assigneeId},
+          priority = ${updated.priority},
+          status = ${updated.status},
+          updated_at = ${now}
+        WHERE id = ${id}
+      `
+    } catch {
+      // Memory fallback
+    }
+
+    realtimeService.broadcast({
+      event: 'ticket.updated',
+      data: { ticket: updated },
+    })
+
+    return updated
+  }
+
   async recordFirstReply(id: string): Promise<Ticket | null> {
     const existing = await this.getTicketById(id)
     if (!existing || existing.firstReplyCreatedAt) {
