@@ -24,7 +24,7 @@
 ## 📋 Daftar Tugas Atomik (Step-by-Step)
 
 ### Bagian 1: Skema Database & Migrasi (`apps/api/migrations/005_phase4_insights.sql`)
-- [ ] **Task 4.1**: Buat tabel agregasi pelaporan & event audit:
+- [x] **Task 4.1**: Buat tabel agregasi pelaporan & event audit:
   - `reporting_events` (event_type, conversation_id, ticket_id, user_id, inbox_id, value_in_seconds, created_at).
 - [ ] **Task 4.2**: Buat tabel Help Center / Portal:
   - `portals` (name, slug, custom_domain, header_text, logo_url).
