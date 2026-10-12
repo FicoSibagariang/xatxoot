@@ -14,3 +14,20 @@ CREATE TABLE IF NOT EXISTS article_embeddings (
 
 -- Performance index for article lookup
 CREATE INDEX IF NOT EXISTS idx_article_embeddings_article_id ON article_embeddings(article_id);
+
+-- Task 5.3: AI Provider Configuration Settings Table
+CREATE TABLE IF NOT EXISTS ai_settings (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    provider VARCHAR(50) NOT NULL,
+    api_key_encrypted TEXT,
+    api_key_enc TEXT,
+    model_name VARCHAR(100) NOT NULL,
+    temperature NUMERIC(3, 2) NOT NULL DEFAULT 0.70,
+    active BOOLEAN NOT NULL DEFAULT true,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Performance indexes for AI provider settings
+CREATE INDEX IF NOT EXISTS idx_ai_settings_provider ON ai_settings(provider);
+CREATE INDEX IF NOT EXISTS idx_ai_settings_active ON ai_settings(active);
