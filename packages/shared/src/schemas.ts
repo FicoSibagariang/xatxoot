@@ -1510,3 +1510,84 @@ export const UpdateArticleInputSchema = UpdatePortalArticleInputSchema
 export type UpdateArticleInput = UpdatePortalArticleInput
 export const ArticleSchema = PortalArticleSchema
 export type Article = PortalArticle
+
+// ==========================================
+// Phase 4: Automation Rules Engine DSL (Task 4.7)
+// ==========================================
+
+export const AutomationRuleEventSchema = z.enum([
+  'conversation_created',
+  'conversation_updated',
+  'conversation_opened',
+  'conversation_resolved',
+  'message_created',
+])
+export type AutomationRuleEvent = z.infer<typeof AutomationRuleEventSchema>
+
+export const AutomationRuleOperatorSchema = z.enum([
+  'equal_to',
+  'not_equal_to',
+  'contains',
+  'does_not_contain',
+  'starts_with',
+  'ends_with',
+  'is_present',
+  'is_not_present',
+  'in_list',
+])
+export type AutomationRuleOperator = z.infer<typeof AutomationRuleOperatorSchema>
+
+export const AutomationRuleConditionSchema = z.object({
+  attribute: z.string().min(1, 'Attribute kondisi wajib diisi'),
+  operator: AutomationRuleOperatorSchema,
+  value: z.union([z.string(), z.number(), z.boolean(), z.array(z.string())]).optional(),
+})
+export type AutomationRuleCondition = z.infer<typeof AutomationRuleConditionSchema>
+
+export const AutomationRuleActionTypeSchema = z.enum([
+  'send_message',
+  'add_label',
+  'remove_label',
+  'assign_team',
+  'assign_agent',
+  'remove_assigned_agent',
+  'remove_assigned_team',
+  'change_status',
+  'change_priority',
+  'add_internal_note',
+  'send_webhook_event',
+  'mute_conversation',
+])
+export type AutomationRuleActionType = z.infer<typeof AutomationRuleActionTypeSchema>
+
+export const AutomationRuleActionSchema = z.object({
+  actionName: AutomationRuleActionTypeSchema,
+  actionParams: z.record(z.any()).optional(),
+})
+export type AutomationRuleAction = z.infer<typeof AutomationRuleActionSchema>
+
+export const CreateAutomationRuleInputSchema = z.object({
+  name: z.string().min(1, 'Nama aturan otomasi wajib diisi').max(255),
+  eventName: AutomationRuleEventSchema,
+  conditions: z
+    .array(AutomationRuleConditionSchema)
+    .min(1, 'Aturan wajib memiliki minimal 1 kondisi'),
+  actions: z.array(AutomationRuleActionSchema).min(1, 'Aturan wajib memiliki minimal 1 aksi'),
+  active: z.boolean().default(true),
+})
+export type CreateAutomationRuleInput = z.infer<typeof CreateAutomationRuleInputSchema>
+
+export const UpdateAutomationRuleInputSchema = CreateAutomationRuleInputSchema.partial()
+export type UpdateAutomationRuleInput = z.infer<typeof UpdateAutomationRuleInputSchema>
+
+export const AutomationRuleSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string(),
+  eventName: AutomationRuleEventSchema,
+  conditions: z.array(AutomationRuleConditionSchema),
+  actions: z.array(AutomationRuleActionSchema),
+  active: z.boolean(),
+  createdAt: z.string().or(z.date()),
+  updatedAt: z.string().or(z.date()),
+})
+export type AutomationRule = z.infer<typeof AutomationRuleSchema>
