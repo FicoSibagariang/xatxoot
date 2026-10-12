@@ -40,7 +40,7 @@
 
 ### Bagian 2: Shared Types & Zod Schemas (`packages/shared`)
 - [x] **Task 4.5**: Tipe & skema validasi untuk query filter metrik laporan (*date range, agent_id, inbox_id*).
-- [ ] **Task 4.6**: Skema validasi artikel & kategori Help Center.
+- [x] **Task 4.6**: Skema validasi artikel & kategori Help Center.
 - [ ] **Task 4.7**: Definisi DSL kondisi & aksi untuk Automation Rules Engine.
 - [ ] **Task 4.8**: Skema validasi pengiriman Campaign & broadcast audience selector.
 
