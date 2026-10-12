@@ -24,7 +24,7 @@
 ## 📋 Daftar Tugas Atomik (Step-by-Step)
 
 ### Bagian 1: Skema Database & Migrasi (`apps/api/migrations/006_phase5_advanced.sql`)
-- [ ] **Task 5.1**: Aktifkan ekstensi `CREATE EXTENSION IF NOT EXISTS vector;`.
+- [x] **Task 5.1**: Aktifkan ekstensi `CREATE EXTENSION IF NOT EXISTS vector;`.
 - [ ] **Task 5.2**: Buat tabel vector embeddings untuk basis pengetahuan:
   - `article_embeddings` (article_id, chunk_text, embedding vector(1536 atau 768)).
 - [ ] **Task 5.3**: Buat tabel konfigurasi AI provider:
