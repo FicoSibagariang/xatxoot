@@ -1,4 +1,5 @@
 import { type ReactNode, useState } from 'react'
+import { AnalyticsDashboard } from '../analytics'
 import { Avatar, Badge, Button, Input } from '../astryx'
 import {
   type AutocompleteEntry,
@@ -942,45 +943,53 @@ export function WhatsAppLayout({
         onOpenSettings={onOpenSettings}
       />
 
-      {/* Kolom 2: ChatListPanel */}
-      <ChatListPanel
-        conversations={conversations}
-        selectedConversationId={selectedConversationId}
-        activeFilter={activeFilter}
-        searchQuery={searchQuery}
-        now={now}
-        onSelectConversation={onSelectConversation}
-        onFilterChange={onFilterChange}
-        onSearchChange={onSearchChange}
-        onNewChat={onNewChat}
-      />
+      {activeTab === 'reports' ? (
+        <div className="flex-1 h-full overflow-y-auto">
+          <AnalyticsDashboard />
+        </div>
+      ) : (
+        <>
+          {/* Kolom 2: ChatListPanel */}
+          <ChatListPanel
+            conversations={conversations}
+            selectedConversationId={selectedConversationId}
+            activeFilter={activeFilter}
+            searchQuery={searchQuery}
+            now={now}
+            onSelectConversation={onSelectConversation}
+            onFilterChange={onFilterChange}
+            onSearchChange={onSearchChange}
+            onNewChat={onNewChat}
+          />
 
-      {/* Kolom 3: ConversationThread */}
-      <ConversationThread
-        conversation={selectedConversation}
-        isDrawerOpen={isDrawerOpen}
-        messages={messages}
-        cannedResponses={cannedResponses}
-        slashCommands={slashCommands}
-        now={now}
-        onToggleDrawer={onToggleDrawer}
-        onSendMessage={onSendMessage}
-        onAssignTicket={onAssignTicket}
-        onResolveTicket={onResolveTicket}
-        onRetryMessage={onRetryMessage}
-        onOpenTemplateDialog={onOpenTemplateDialog}
-      >
-        {children}
-      </ConversationThread>
+          {/* Kolom 3: ConversationThread */}
+          <ConversationThread
+            conversation={selectedConversation}
+            isDrawerOpen={isDrawerOpen}
+            messages={messages}
+            cannedResponses={cannedResponses}
+            slashCommands={slashCommands}
+            now={now}
+            onToggleDrawer={onToggleDrawer}
+            onSendMessage={onSendMessage}
+            onAssignTicket={onAssignTicket}
+            onResolveTicket={onResolveTicket}
+            onRetryMessage={onRetryMessage}
+            onOpenTemplateDialog={onOpenTemplateDialog}
+          >
+            {children}
+          </ConversationThread>
 
-      {/* Kolom 3.5: ContactDrawer (Slide-Over CRM) */}
-      <ContactDrawer
-        isOpen={isDrawerOpen}
-        conversation={selectedConversation}
-        internalNote={internalNote}
-        onClose={onCloseDrawer}
-        onSaveInternalNote={onSaveInternalNote}
-      />
+          {/* Kolom 3.5: ContactDrawer (Slide-Over CRM) */}
+          <ContactDrawer
+            isOpen={isDrawerOpen}
+            conversation={selectedConversation}
+            internalNote={internalNote}
+            onClose={onCloseDrawer}
+            onSaveInternalNote={onSaveInternalNote}
+          />
+        </>
+      )}
     </div>
   )
 }

@@ -292,5 +292,21 @@ describe('WhatsApp 3.5-Column Layout (Task 1.24 - apps/web)', () => {
       expect(html).toContain('data-testid="contact-crm-drawer"')
       expect(html).toContain('data-testid="sticky-internal-note-card"')
     })
+
+    it('should render AnalyticsDashboard in the main area when activeTab is reports', () => {
+      const html = renderToStaticMarkup(
+        <WhatsAppLayout
+          currentUser={mockUser}
+          conversations={mockConversations}
+          activeTab="reports"
+        />,
+      )
+
+      expect(html).toContain('data-testid="nav-rail"')
+      expect(html).toContain('data-testid="analytics-dashboard"')
+      expect(html).toContain('Visual Analytics Dashboard')
+      expect(html).not.toContain('data-testid="chat-list-panel"')
+      expect(html).not.toContain('data-testid="conversation-thread"')
+    })
   })
 })
