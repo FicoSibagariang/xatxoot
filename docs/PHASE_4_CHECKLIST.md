@@ -54,7 +54,7 @@
 - [x] **Task 4.10 (TDD - Help Center API & Public SSR)**:
   - CRUD manajemen artikel untuk agent/admin.
   - Public SSR route `GET /portal/:slug` dan `GET /portal/:slug/articles/:article_slug` menggunakan renderer HTML Hono ultra-ringan.
-- [ ] **Task 4.11 (TDD - Automation Rules Evaluator)**:
+- [x] **Task 4.11 (TDD - Automation Rules Evaluator)**:
   - Evaluator kondisi berbasis JSON Logic / operator sederhana (`contains`, `equals`, `in_list`).
   - Eksekutor aksi berantai secara transaksional di database.
 - [ ] **Task 4.12 (TDD - Broadcast Engine & Anti-Ban Guard)**:

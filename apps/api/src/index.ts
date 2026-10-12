@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { reportRoutes } from './modules/analytics/analytics.routes'
 import { assignmentRoutes } from './modules/assignment/assignment.routes'
 import { authRoutes } from './modules/auth/auth.routes'
+import { automationRoutes } from './modules/automation/automation-rules.routes'
 import { botFlowRoutes, botSessionRoutes } from './modules/bots/bots.routes'
 import {
   businessHoursRoutes,
@@ -61,5 +62,6 @@ app.route('/portal', publicPortalRoutes)
 app.route('/api/v1/portals', portalRoutes)
 app.route('/api/v1/categories', categoryRoutes)
 app.route('/api/v1/articles', articleRoutes)
+app.route('/api/v1/automation-rules', automationRoutes)
 
 export default app
