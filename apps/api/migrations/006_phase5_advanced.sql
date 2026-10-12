@@ -31,3 +31,32 @@ CREATE TABLE IF NOT EXISTS ai_settings (
 -- Performance indexes for AI provider settings
 CREATE INDEX IF NOT EXISTS idx_ai_settings_provider ON ai_settings(provider);
 CREATE INDEX IF NOT EXISTS idx_ai_settings_active ON ai_settings(active);
+
+-- Task 5.4: SLA Policies and Ticket SLA Statuses Tables
+CREATE TABLE IF NOT EXISTS sla_policies (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(255) NOT NULL,
+    inbox_id UUID REFERENCES inboxes(id) ON DELETE SET NULL,
+    first_response_time_seconds INT NOT NULL,
+    resolution_time_seconds INT NOT NULL,
+    active BOOLEAN NOT NULL DEFAULT true,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_sla_policies_inbox_id ON sla_policies(inbox_id);
+
+CREATE TABLE IF NOT EXISTS ticket_sla_statuses (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    ticket_id UUID NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
+    policy_id UUID REFERENCES sla_policies(id) ON DELETE SET NULL,
+    first_response_deadline TIMESTAMPTZ,
+    resolution_deadline TIMESTAMPTZ,
+    is_breached BOOLEAN NOT NULL DEFAULT false,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_ticket_sla_statuses_ticket_id ON ticket_sla_statuses(ticket_id);
+CREATE INDEX IF NOT EXISTS idx_ticket_sla_statuses_policy_id ON ticket_sla_statuses(policy_id);
+CREATE INDEX IF NOT EXISTS idx_ticket_sla_statuses_is_breached ON ticket_sla_statuses(is_breached);
