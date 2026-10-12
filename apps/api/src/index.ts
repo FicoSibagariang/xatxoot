@@ -11,6 +11,12 @@ import { cannedResponseRoutes } from './modules/canned-responses/canned-response
 import { conversationRoutes } from './modules/conversations/conversations.routes'
 import { csatRoutes } from './modules/csat/csat.routes'
 import { emailRoutes } from './modules/email/email.routes'
+import {
+  articleRoutes,
+  categoryRoutes,
+  portalRoutes,
+  publicPortalRoutes,
+} from './modules/help-center/help-center.routes'
 import { inboxRoutes } from './modules/inboxes/inboxes.routes'
 import { metaSocialRoutes } from './modules/meta-social/meta-social.routes'
 import { realtimeRoutes } from './modules/realtime/realtime.routes'
@@ -51,5 +57,9 @@ app.route('/api/v1/sms', smsRoutes)
 app.route('/api/v1/business-hours', businessHoursRoutes)
 app.route('/api/v1/csat', csatRoutes)
 app.route('/api/v1/reports', reportRoutes)
+app.route('/portal', publicPortalRoutes)
+app.route('/api/v1/portals', portalRoutes)
+app.route('/api/v1/categories', categoryRoutes)
+app.route('/api/v1/articles', articleRoutes)
 
 export default app

@@ -51,7 +51,7 @@
   - Listener event pencatat waktu: penanda First Response Time saat agent pertama kali membalas, dan Resolution Time saat tiket ditutup.
   - Query raw SQL agregasi harian/mingguan yang teroptimasi tanpa full-table scan.
   - Endpoint ekspor laporan ke stream CSV (`GET /api/v1/reports/export`).
-- [ ] **Task 4.10 (TDD - Help Center API & Public SSR)**:
+- [x] **Task 4.10 (TDD - Help Center API & Public SSR)**:
   - CRUD manajemen artikel untuk agent/admin.
   - Public SSR route `GET /portal/:slug` dan `GET /portal/:slug/articles/:article_slug` menggunakan renderer HTML Hono ultra-ringan.
 - [ ] **Task 4.11 (TDD - Automation Rules Evaluator)**:
