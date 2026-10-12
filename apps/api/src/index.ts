@@ -1,4 +1,5 @@
 import { Hono } from 'hono'
+import { reportRoutes } from './modules/analytics/analytics.routes'
 import { assignmentRoutes } from './modules/assignment/assignment.routes'
 import { authRoutes } from './modules/auth/auth.routes'
 import { botFlowRoutes, botSessionRoutes } from './modules/bots/bots.routes'
@@ -49,5 +50,6 @@ app.route('/api/v1/meta-social', metaSocialRoutes)
 app.route('/api/v1/sms', smsRoutes)
 app.route('/api/v1/business-hours', businessHoursRoutes)
 app.route('/api/v1/csat', csatRoutes)
+app.route('/api/v1/reports', reportRoutes)
 
 export default app

@@ -6,6 +6,7 @@ import {
   TicketStatusSchema,
 } from '@xatxoot/shared'
 import { sql } from '../../db'
+import { analyticsService } from '../analytics/analytics.service'
 import { csatService } from '../csat/csat.service'
 import { realtimeService } from '../realtime/realtime.service'
 
@@ -93,6 +94,7 @@ export class TicketService {
 
     if (ticket.status === 'resolved') {
       csatService.onTicketResolved(ticket).catch(() => {})
+      analyticsService.onTicketResolved(ticket).catch(() => {})
     }
 
     return ticket
@@ -243,6 +245,7 @@ export class TicketService {
 
     if (validatedStatus === 'resolved') {
       csatService.onTicketResolved(updated).catch(() => {})
+      analyticsService.onTicketResolved(updated).catch(() => {})
     }
 
     return updated
@@ -350,6 +353,8 @@ export class TicketService {
     } catch {
       // Memory fallback
     }
+
+    analyticsService.onFirstReply(updated, updated.assigneeId).catch(() => {})
 
     return updated
   }

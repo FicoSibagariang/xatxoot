@@ -47,7 +47,7 @@
 ---
 
 ### Bagian 3: Backend Services & Workers (`apps/api`) — Siklus TDD
-- [ ] **Task 4.9 (TDD - Analytics Engine)**:
+- [x] **Task 4.9 (TDD - Analytics Engine)**:
   - Listener event pencatat waktu: penanda First Response Time saat agent pertama kali membalas, dan Resolution Time saat tiket ditutup.
   - Query raw SQL agregasi harian/mingguan yang teroptimasi tanpa full-table scan.
   - Endpoint ekspor laporan ke stream CSV (`GET /api/v1/reports/export`).
