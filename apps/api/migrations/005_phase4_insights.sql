@@ -94,3 +94,40 @@ CREATE TABLE IF NOT EXISTS automation_rules (
 CREATE INDEX IF NOT EXISTS idx_automation_rules_event_name ON automation_rules(event_name);
 CREATE INDEX IF NOT EXISTS idx_automation_rules_active ON automation_rules(active);
 
+-- Task 4.4: Campaigns & Broadcast Tables
+
+-- 6. campaigns
+CREATE TABLE IF NOT EXISTS campaigns (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    inbox_id UUID NOT NULL REFERENCES inboxes(id) ON DELETE CASCADE,
+    title VARCHAR(255) NOT NULL,
+    message_content TEXT NOT NULL,
+    scheduled_at TIMESTAMPTZ,
+    status VARCHAR(50) NOT NULL DEFAULT 'draft',
+    anti_ban_delay_min INT NOT NULL DEFAULT 15,
+    anti_ban_delay_max INT NOT NULL DEFAULT 45,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- 7. campaign_deliveries
+CREATE TABLE IF NOT EXISTS campaign_deliveries (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    campaign_id UUID NOT NULL REFERENCES campaigns(id) ON DELETE CASCADE,
+    contact_id UUID NOT NULL REFERENCES contacts(id) ON DELETE CASCADE,
+    status VARCHAR(50) NOT NULL DEFAULT 'pending',
+    error_message TEXT,
+    sent_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Performance indexes for campaigns and deliveries dispatching
+CREATE INDEX IF NOT EXISTS idx_campaigns_inbox_id ON campaigns(inbox_id);
+CREATE INDEX IF NOT EXISTS idx_campaigns_status ON campaigns(status);
+CREATE INDEX IF NOT EXISTS idx_campaigns_scheduled_at ON campaigns(scheduled_at);
+CREATE INDEX IF NOT EXISTS idx_campaign_deliveries_campaign_id ON campaign_deliveries(campaign_id);
+CREATE INDEX IF NOT EXISTS idx_campaign_deliveries_contact_id ON campaign_deliveries(contact_id);
+CREATE INDEX IF NOT EXISTS idx_campaign_deliveries_status ON campaign_deliveries(status);
+
+
