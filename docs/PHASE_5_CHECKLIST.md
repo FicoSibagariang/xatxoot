@@ -65,7 +65,7 @@
 ### Bagian 4: Antarmuka Web Dashboard (`apps/web`)
 - [x] **Task 5.14**: Toolbar AI Copilot di composer chat (tombol Magic: *Ringkas*, *Perbaiki Bahasa*, *Buat Draf*).
 - [x] **Task 5.15**: Panel konfigurasi AI Provider (pengaturan kunci API, tes koneksi prompt, dan sinkronisasi embedding).
-- [ ] **Task 5.16**: Visual Badge SLA pada kartu tiket (hitung mundur sisa waktu sebelum breach).
+- [x] **Task 5.16**: Visual Badge SLA pada kartu tiket (hitung mundur sisa waktu sebelum breach).
 - [ ] **Task 5.17**: Halaman Pengaturan Keamanan Enterprise (SAML/OIDC SSO Setup dan tabel Audit Log aktivitas).
 
 ---

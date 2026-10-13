@@ -13,6 +13,7 @@ import {
   DeadlineTimerBadge,
   SlashAutocompletePopup,
   type SuggestedArticle,
+  TicketSlaBadge,
   type TimelineMessage,
   applyAutocompleteSelection,
   detectSlashQuery,
@@ -429,11 +430,23 @@ export function ChatListPanel({
                           <span className="text-[11px] font-semibold text-[#008069] shrink-0">
                             #{conv.ticket.ticketNumber} [{formatTicketStatus(conv.ticket.status)}]
                           </span>
-                          <DeadlineTimerBadge
-                            deadlineAt={conv.ticket.deadlineAt}
-                            status={conv.ticket.status}
-                            now={now}
-                          />
+                          {conv.ticket.slaStatus ? (
+                            <TicketSlaBadge
+                              firstResponseDeadline={conv.ticket.slaStatus.firstResponseDeadline}
+                              resolutionDeadline={conv.ticket.slaStatus.resolutionDeadline}
+                              isBreached={conv.ticket.slaStatus.isBreached}
+                              breachedAt={conv.ticket.slaStatus.breachedAt}
+                              policyName={conv.ticket.slaStatus.policyName}
+                              ticketStatus={conv.ticket.status}
+                              now={now}
+                            />
+                          ) : (
+                            <DeadlineTimerBadge
+                              deadlineAt={conv.ticket.deadlineAt}
+                              status={conv.ticket.status}
+                              now={now}
+                            />
+                          )}
                         </>
                       )}
                       <p className="text-xs text-[#667781] truncate">
@@ -820,12 +833,26 @@ export function ConversationThread({
               <span className="text-xs font-semibold px-2 py-1 rounded bg-[#e7fce3] text-[#008069] border border-[#c1f7b7]">
                 #{conversation.ticket.ticketNumber}
               </span>
-              <DeadlineTimerBadge
-                deadlineAt={conversation.ticket.deadlineAt}
-                status={conversation.ticket.status}
-                now={now}
-                size="md"
-              />
+              {conversation.ticket.slaStatus ? (
+                <TicketSlaBadge
+                  firstResponseDeadline={conversation.ticket.slaStatus.firstResponseDeadline}
+                  resolutionDeadline={conversation.ticket.slaStatus.resolutionDeadline}
+                  isBreached={conversation.ticket.slaStatus.isBreached}
+                  breachedAt={conversation.ticket.slaStatus.breachedAt}
+                  policyName={conversation.ticket.slaStatus.policyName}
+                  ticketStatus={conversation.ticket.status}
+                  now={now}
+                  size="md"
+                  showTooltip={true}
+                />
+              ) : (
+                <DeadlineTimerBadge
+                  deadlineAt={conversation.ticket.deadlineAt}
+                  status={conversation.ticket.status}
+                  now={now}
+                  size="md"
+                />
+              )}
             </>
           )}
 

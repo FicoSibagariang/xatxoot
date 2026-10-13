@@ -15,6 +15,14 @@ export interface LayoutUser {
   avatarUrl?: string
 }
 
+export interface TicketSlaSummary {
+  policyName?: string
+  firstResponseDeadline?: string | Date | null
+  resolutionDeadline?: string | Date | null
+  isBreached?: boolean
+  breachedAt?: string | Date | null
+}
+
 export interface TicketSummary {
   id: string
   ticketNumber: string
@@ -22,6 +30,7 @@ export interface TicketSummary {
   priority?: 'low' | 'medium' | 'high' | 'urgent'
   assignedTo?: string
   deadlineAt?: string | Date | null
+  slaStatus?: TicketSlaSummary
 }
 
 export interface ConversationItem {
