@@ -71,5 +71,5 @@
 ---
 
 ### Bagian 5: Verifikasi & Quality Gate
-- [ ] **Task 5.18**: Eksekusi seluruh pengujian menyeluruh monorepo (`bun test`) — 100% PASS.
+- [x] **Task 5.18**: Eksekusi seluruh pengujian menyeluruh monorepo (`bun test`) — 100% PASS.
 - [ ] **Task 5.19**: Pemeriksaan akhir kode dengan Biome (`bun run check`) — 0 warning/error.
