@@ -48,7 +48,7 @@
 - [x] **Task 5.9 (TDD - Vector & RAG Search Engine)**:
   - Worker pembuat chunk teks & generate embedding saat artikel Help Center dipublikasikan.
   - Query pencarian similaritas kosinus (`<=>`) native PostgreSQL pgvector.
-- [ ] **Task 5.10 (TDD - AI Copilot Services)**:
+- [x] **Task 5.10 (TDD - AI Copilot Services)**:
   - Layanan *Summarization*: menghasilkan ringkasan percakapan panjang untuk diinjeksi ke *Sticky Internal Note*.
   - Layanan *Tone Adjustment*: mengubah draf chat menjadi lebih sopan (*polite*), ringkas (*concise*), atau formal.
   - Layanan *RAG Suggestion*: menyusun usulan balasan berdasarkan artikel rujukan yang relevan.
