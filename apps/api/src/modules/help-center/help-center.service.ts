@@ -80,6 +80,10 @@ export class HelpCenterService {
   }
 
   async getPortalById(id: string): Promise<Portal | null> {
+    if (memoryStore.portals.has(id)) {
+      return memoryStore.portals.get(id) || null
+    }
+
     try {
       const rows = await sql`
         SELECT
@@ -97,10 +101,15 @@ export class HelpCenterService {
       // Memory fallback
     }
 
-    return memoryStore.portals.get(id) || null
+    return null
   }
 
   async getPortalBySlug(slug: string): Promise<Portal | null> {
+    const memoryPortal = Array.from(memoryStore.portals.values()).find((p) => p.slug === slug)
+    if (memoryPortal) {
+      return memoryPortal
+    }
+
     try {
       const rows = await sql`
         SELECT
@@ -118,7 +127,7 @@ export class HelpCenterService {
       // Memory fallback
     }
 
-    return Array.from(memoryStore.portals.values()).find((p) => p.slug === slug) || null
+    return null
   }
 
   async updatePortal(id: string, input: UpdatePortalInput): Promise<Portal> {
@@ -218,6 +227,14 @@ export class HelpCenterService {
   }
 
   async listCategories(filter?: { portalId?: string }): Promise<PortalCategory[]> {
+    if (memoryStore.categories.size > 0) {
+      let categories = Array.from(memoryStore.categories.values())
+      if (filter?.portalId) {
+        categories = categories.filter((c) => c.portalId === filter.portalId)
+      }
+      return categories.sort((a, b) => a.position - b.position)
+    }
+
     try {
       let query = sql`
         SELECT
@@ -238,14 +255,14 @@ export class HelpCenterService {
       // Memory fallback
     }
 
-    let categories = Array.from(memoryStore.categories.values())
-    if (filter?.portalId) {
-      categories = categories.filter((c) => c.portalId === filter.portalId)
-    }
-    return categories.sort((a, b) => a.position - b.position)
+    return []
   }
 
   async getCategoryById(id: string): Promise<PortalCategory | null> {
+    if (memoryStore.categories.has(id)) {
+      return memoryStore.categories.get(id) || null
+    }
+
     try {
       const rows = await sql`
         SELECT
@@ -262,7 +279,7 @@ export class HelpCenterService {
       // Memory fallback
     }
 
-    return memoryStore.categories.get(id) || null
+    return null
   }
 
   async updateCategory(id: string, input: UpdatePortalCategoryInput): Promise<PortalCategory> {
@@ -362,6 +379,23 @@ export class HelpCenterService {
     portalId?: string
     status?: string
   }): Promise<PortalArticle[]> {
+    if (memoryStore.articles.size > 0) {
+      let articles = Array.from(memoryStore.articles.values())
+      if (filter?.categoryId) {
+        articles = articles.filter((a) => a.categoryId === filter.categoryId)
+      }
+      if (filter?.portalId) {
+        const catIds = Array.from(memoryStore.categories.values())
+          .filter((c) => c.portalId === filter.portalId)
+          .map((c) => c.id)
+        articles = articles.filter((a) => catIds.includes(a.categoryId))
+      }
+      if (filter?.status) {
+        articles = articles.filter((a) => a.status === filter.status)
+      }
+      return articles
+    }
+
     try {
       let query = sql`
         SELECT
@@ -391,23 +425,14 @@ export class HelpCenterService {
       // Memory fallback
     }
 
-    let articles = Array.from(memoryStore.articles.values())
-    if (filter?.categoryId) {
-      articles = articles.filter((a) => a.categoryId === filter.categoryId)
-    }
-    if (filter?.portalId) {
-      const catIds = Array.from(memoryStore.categories.values())
-        .filter((c) => c.portalId === filter.portalId)
-        .map((c) => c.id)
-      articles = articles.filter((a) => catIds.includes(a.categoryId))
-    }
-    if (filter?.status) {
-      articles = articles.filter((a) => a.status === filter.status)
-    }
-    return articles
+    return []
   }
 
   async getArticleById(id: string): Promise<PortalArticle | null> {
+    if (memoryStore.articles.has(id)) {
+      return memoryStore.articles.get(id) || null
+    }
+
     try {
       const rows = await sql`
         SELECT
@@ -426,7 +451,7 @@ export class HelpCenterService {
       // Memory fallback
     }
 
-    return memoryStore.articles.get(id) || null
+    return null
   }
 
   async getArticleBySlug(

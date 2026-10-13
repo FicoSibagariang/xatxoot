@@ -21,6 +21,7 @@ import {
 } from './modules/help-center/help-center.routes'
 import { inboxRoutes } from './modules/inboxes/inboxes.routes'
 import { metaSocialRoutes } from './modules/meta-social/meta-social.routes'
+import { ragRoutes } from './modules/rag/rag.routes'
 import { realtimeRoutes } from './modules/realtime/realtime.routes'
 import { slashCommandRoutes } from './modules/slash-commands/slash-commands.routes'
 import { smsRoutes } from './modules/sms/sms.routes'
@@ -65,5 +66,6 @@ app.route('/api/v1/categories', categoryRoutes)
 app.route('/api/v1/articles', articleRoutes)
 app.route('/api/v1/automation-rules', automationRoutes)
 app.route('/api/v1/campaigns', campaignRoutes)
+app.route('/api/v1/rag', ragRoutes)
 
 export default app
