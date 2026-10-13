@@ -104,6 +104,28 @@ export class CopilotController {
       return c.json({ success: false, message }, 500)
     }
   }
+
+  async testConnection(c: Context) {
+    try {
+      const body = await c.req.json().catch(() => ({}))
+      const result = await copilotService.testConnection({
+        provider: body?.provider,
+        apiKey: body?.apiKey,
+        modelName: body?.modelName,
+        baseUrl: body?.baseUrl,
+        prompt: body?.prompt,
+      })
+
+      if (!result.verified) {
+        return c.json({ success: false, message: result.message, data: result }, 400)
+      }
+
+      return c.json({ success: true, data: result })
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Gagal menguji koneksi AI'
+      return c.json({ success: false, message }, 500)
+    }
+  }
 }
 
 export const copilotController = new CopilotController()
