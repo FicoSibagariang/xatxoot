@@ -246,4 +246,41 @@ describe('Phase 5 Quality Gate & Monorepo Test Suite Verification (Task 5.18)', 
       expect(checklistContent).toContain('- [x] **Task 5.18**:')
     })
   })
+
+  describe('6. Phase 5 Biome Linter & Formatter Quality Gate (Task 5.19)', () => {
+    it('should verify docs/PHASE_5_CHECKLIST.md marks Task 5.19 as completed', () => {
+      const checklistContent = readFileSync(join(rootDir, 'docs', 'PHASE_5_CHECKLIST.md'), 'utf-8')
+      expect(checklistContent).toContain('- [x] **Task 5.19**:')
+    })
+
+    it('should verify biome.json configuration adheres strictly to AGENTS.md conventions', () => {
+      const biomeConfigPath = join(rootDir, 'biome.json')
+      expect(existsSync(biomeConfigPath)).toBe(true)
+
+      const raw = readFileSync(biomeConfigPath, 'utf-8')
+      const config = JSON.parse(raw)
+
+      expect(config.formatter).toBeDefined()
+      expect(config.formatter.indentStyle).toBe('space')
+      expect(config.formatter.indentWidth).toBe(2)
+      expect(config.formatter.lineWidth).toBe(100)
+      expect(config.formatter.lineEnding).toBe('lf')
+
+      expect(config.javascript).toBeDefined()
+      expect(config.javascript.formatter).toBeDefined()
+      expect(config.javascript.formatter.quoteStyle).toBe('single')
+      expect(config.javascript.formatter.jsxQuoteStyle).toBe('double')
+      expect(config.javascript.formatter.semicolons).toBe('asNeeded')
+
+      expect(config.organizeImports).toBeDefined()
+      expect(config.organizeImports.enabled).toBe(true)
+    })
+
+    it('should pass biome check across entire monorepo with 0 errors and 0 warnings', () => {
+      const proc = Bun.spawnSync(['bunx', '@biomejs/biome', 'check', '.'], {
+        cwd: rootDir,
+      })
+      expect(proc.exitCode).toBe(0)
+    })
+  })
 })
