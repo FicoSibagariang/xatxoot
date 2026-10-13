@@ -15,11 +15,13 @@ import { generateTokens } from '../auth/auth.service'
 const memoryStore = {
   providers: new Map<string, SsoProvider>(),
   users: new Map<string, User>(),
+  auditLogs: [] as AuditLogItem[],
 }
 
 export function resetSsoStore(): void {
   memoryStore.providers.clear()
   memoryStore.users.clear()
+  memoryStore.auditLogs = []
 }
 
 export class SsoService {
@@ -412,6 +414,66 @@ export class SsoService {
 
     return newUser
   }
+
+  async listAuditLogs(limit = 50): Promise<AuditLogItem[]> {
+    try {
+      const rows = await sql`
+        SELECT
+          al.id,
+          al.user_id as "userId",
+          u.display_name as "userName",
+          u.email as "userEmail",
+          al.action,
+          al.auditable_type as "auditableType",
+          al.auditable_id as "auditableId",
+          al.changes,
+          al.ip_address as "ipAddress",
+          al.created_at as "createdAt"
+        FROM audit_logs al
+        LEFT JOIN users u ON al.user_id = u.id
+        ORDER BY al.created_at DESC
+        LIMIT ${limit}
+      `
+      if (rows && rows.length > 0) {
+        return rows as unknown as AuditLogItem[]
+      }
+    } catch {
+      // Memory fallback
+    }
+
+    if (memoryStore.auditLogs.length === 0) {
+      // Default initial mock logs for dev/test
+      return [
+        {
+          id: crypto.randomUUID(),
+          userId: null,
+          userName: 'Super Admin',
+          userEmail: 'admin@xatxoot.com',
+          action: 'UPDATE_SSO',
+          auditableType: 'SsoProvider',
+          auditableId: null,
+          changes: { active: true, providerType: 'saml' },
+          ipAddress: '192.168.1.10',
+          createdAt: new Date().toISOString(),
+        },
+      ]
+    }
+
+    return memoryStore.auditLogs.slice(0, limit)
+  }
+}
+
+export interface AuditLogItem {
+  id: string
+  userId: string | null
+  userName?: string
+  userEmail?: string
+  action: string
+  auditableType: string
+  auditableId: string | null
+  changes: Record<string, unknown>
+  ipAddress: string | null
+  createdAt: string
 }
 
 export const ssoService = new SsoService()

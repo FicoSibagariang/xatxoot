@@ -285,6 +285,14 @@ describe('SAML & OIDC Enterprise SSO Handler (Task 5.12 - apps/api)', () => {
       const text = await res.text()
       expect(text).toContain('EntityDescriptor')
     })
+
+    it('GET /api/v1/sso/audit-logs should return list of activity audit logs', async () => {
+      const res = await app.request('/api/v1/sso/audit-logs')
+      expect(res.status).toBe(200)
+      const json = await res.json()
+      expect(json.success).toBe(true)
+      expect(json.data).toBeArray()
+    })
   })
 
   describe('5. Single Organization Guardrail & Phase 5 Checklist', () => {
