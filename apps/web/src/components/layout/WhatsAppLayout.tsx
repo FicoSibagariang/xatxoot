@@ -2,12 +2,17 @@ import { type ReactNode, useState } from 'react'
 import { AnalyticsDashboard } from '../analytics'
 import { Avatar, Badge, Button, Input } from '../astryx'
 import {
+  AiCopilotToolbar,
+  AiMagicButton,
   type AutocompleteEntry,
   type CannedItem,
   ChatTimeline,
   type CommandItem,
+  type CopilotResultType,
+  type CopilotTone,
   DeadlineTimerBadge,
   SlashAutocompletePopup,
+  type SuggestedArticle,
   type TimelineMessage,
   applyAutocompleteSelection,
   detectSlashQuery,
@@ -519,6 +524,11 @@ export interface ConversationThreadProps {
   onResolveTicket: () => void
   onRetryMessage?: (message: TimelineMessage) => void
   onOpenTemplateDialog?: () => void
+  onAiSummarize?: () => Promise<string> | undefined
+  onAiImproveWriting?: (text: string) => Promise<string> | undefined
+  onAiDraftReply?: () => Promise<{ reply: string; articles?: SuggestedArticle[] }> | undefined
+  onAiChangeTone?: (text: string, tone: CopilotTone) => Promise<string> | undefined
+  onSaveInternalNote?: (note: string) => void
   children?: ReactNode
 }
 
@@ -535,11 +545,25 @@ export function ConversationThread({
   onResolveTicket,
   onRetryMessage,
   onOpenTemplateDialog,
+  onAiSummarize,
+  onAiImproveWriting,
+  onAiDraftReply,
+  onAiChangeTone,
+  onSaveInternalNote,
   children,
 }: ConversationThreadProps) {
   const [inputText, setInputText] = useState('')
   const [isAutocompleteOpen, setIsAutocompleteOpen] = useState(false)
   const [selectedAutocompleteIndex, setSelectedAutocompleteIndex] = useState(0)
+
+  // AI Copilot state
+  const [isAiToolbarOpen, setIsAiToolbarOpen] = useState(false)
+  const [isAiLoading, setIsAiLoading] = useState(false)
+  const [aiLoadingAction, setAiLoadingAction] = useState('AI sedang memproses...')
+  const [aiResultText, setAiResultText] = useState<string | null>(null)
+  const [aiResultType, setAiResultType] = useState<CopilotResultType | null>(null)
+  const [aiArticles, setAiArticles] = useState<SuggestedArticle[]>([])
+  const [aiError, setAiError] = useState<string | null>(null)
 
   const activeCanned = cannedResponses ?? DEFAULT_CANNED_RESPONSES
   const activeCommands = slashCommands ?? DEFAULT_SLASH_COMMANDS
@@ -627,6 +651,125 @@ export function ConversationThread({
 
     if (e.key === 'Enter') {
       handleSend()
+    }
+  }
+
+  const handleAiSummarize = async () => {
+    setIsAiLoading(true)
+    setAiLoadingAction('Sedang merangkum percakapan...')
+    setAiError(null)
+    try {
+      if (onAiSummarize) {
+        const res = await onAiSummarize()
+        if (res) {
+          setAiResultText(res)
+          setAiResultType('summary')
+        }
+      } else {
+        setAiResultText(
+          `Ringkasan Percakapan: Pelanggan ${conversation.contactName} menanyakan kendala terkait ${conversation.lastMessageText || 'layanan'}.`,
+        )
+        setAiResultType('summary')
+      }
+    } catch {
+      setAiError('Gagal merangkum percakapan. Silakan coba lagi.')
+    } finally {
+      setIsAiLoading(false)
+    }
+  }
+
+  const handleAiImprove = async (text?: string) => {
+    const targetText = text || inputText
+    if (!targetText.trim()) {
+      setAiError('Tulis draf pesan terlebih dahulu sebelum meminta perbaikan bahasa.')
+      return
+    }
+    setIsAiLoading(true)
+    setAiLoadingAction('Sedang memperbaiki bahasa draf...')
+    setAiError(null)
+    try {
+      if (onAiImproveWriting) {
+        const res = await onAiImproveWriting(targetText)
+        if (res) {
+          setAiResultText(res)
+          setAiResultType('improve')
+        }
+      } else {
+        setAiResultText(
+          `Halo Kak, ${targetText.trim().charAt(0).toUpperCase() + targetText.trim().slice(1)}. Terima kasih telah menghubungi kami.`,
+        )
+        setAiResultType('improve')
+      }
+    } catch {
+      setAiError('Gagal memperbaiki bahasa.')
+    } finally {
+      setIsAiLoading(false)
+    }
+  }
+
+  const handleAiDraftReply = async () => {
+    setIsAiLoading(true)
+    setAiLoadingAction('Menyusun draf balasan dengan Help Center KB...')
+    setAiError(null)
+    try {
+      if (onAiDraftReply) {
+        const res = await onAiDraftReply()
+        if (res) {
+          setAiResultText(res.reply)
+          setAiResultType('draft')
+          if (res.articles) setAiArticles(res.articles)
+        }
+      } else {
+        setAiResultText(
+          `Halo Kak ${conversation.contactName}, terima kasih telah menghubungi kami. Terkait kendala yang disampaikan, tim kami sedang memprosesnya. Mohon ditunggu ya!`,
+        )
+        setAiResultType('draft')
+        setAiArticles([
+          {
+            id: 'art-1',
+            title: 'Kebijakan Layanan Pelanggan',
+            snippet: 'Layanan bantuan aktif...',
+          },
+        ])
+      }
+    } catch {
+      setAiError('Gagal membuat draf balasan.')
+    } finally {
+      setIsAiLoading(false)
+    }
+  }
+
+  const handleAiChangeTone = async (tone: CopilotTone) => {
+    if (!inputText.trim()) {
+      setAiError('Ketik draf pesan terlebih dahulu untuk mengubah nada bicara.')
+      return
+    }
+    setIsAiLoading(true)
+    setAiLoadingAction(`Menyesuaikan gaya bahasa (${tone})...`)
+    setAiError(null)
+    try {
+      if (onAiChangeTone) {
+        const res = await onAiChangeTone(inputText, tone)
+        if (res) {
+          setAiResultText(res)
+          setAiResultType('tone')
+        }
+      } else {
+        const prefix =
+          tone === 'formal'
+            ? 'Yth. Pelanggan, dengan hormat kami sampaikan bahwa '
+            : tone === 'polite'
+              ? 'Mohon maaf atas ketidaknyamanannya kak, '
+              : tone === 'friendly'
+                ? 'Halo sahabat! Senang bisa membantu, '
+                : ''
+        setAiResultText(`${prefix}${inputText.trim()}`)
+        setAiResultType('tone')
+      }
+    } catch {
+      setAiError('Gagal mengubah gaya bahasa.')
+    } finally {
+      setIsAiLoading(false)
     }
   }
 
@@ -752,6 +895,35 @@ export function ConversationThread({
         >
           📋
         </button>
+
+        <AiMagicButton
+          isOpen={isAiToolbarOpen}
+          onToggle={() => setIsAiToolbarOpen(!isAiToolbarOpen)}
+          isLoading={isAiLoading}
+          hasResult={Boolean(aiResultText)}
+        />
+
+        <AiCopilotToolbar
+          isOpen={isAiToolbarOpen}
+          isLoading={isAiLoading}
+          loadingAction={aiLoadingAction}
+          errorMessage={aiError}
+          resultText={aiResultText}
+          resultType={aiResultType}
+          suggestedArticles={aiArticles}
+          currentText={inputText}
+          onToggle={() => setIsAiToolbarOpen(false)}
+          onSummarize={handleAiSummarize}
+          onImproveWriting={handleAiImprove}
+          onDraftReply={handleAiDraftReply}
+          onChangeTone={handleAiChangeTone}
+          onApplyText={(text) => {
+            setInputText(text)
+            setIsAiToolbarOpen(false)
+          }}
+          onInjectNote={onSaveInternalNote ? (note) => onSaveInternalNote(note) : undefined}
+          onClearResult={() => setAiResultText(null)}
+        />
 
         <div className="relative flex-1">
           <SlashAutocompletePopup
