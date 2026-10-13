@@ -52,7 +52,7 @@
   - Layanan *Summarization*: menghasilkan ringkasan percakapan panjang untuk diinjeksi ke *Sticky Internal Note*.
   - Layanan *Tone Adjustment*: mengubah draf chat menjadi lebih sopan (*polite*), ringkas (*concise*), atau formal.
   - Layanan *RAG Suggestion*: menyusun usulan balasan berdasarkan artikel rujukan yang relevan.
-- [ ] **Task 5.11 (TDD - SLA Monitoring Worker)**:
+- [x] **Task 5.11 (TDD - SLA Monitoring Worker)**:
   - Cron / recurring queue worker pengecek tiket yang mendekati deadline SLA.
   - Broadcast peringatan SSE & trigger webhook notifikasi saat terjadi pelanggaran (*SLA breach*).
 - [ ] **Task 5.12 (TDD - SAML & OIDC Handler)**:
