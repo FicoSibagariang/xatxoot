@@ -164,6 +164,18 @@ export class SsoController {
       },
     })
   }
+
+  async listAuditLogs(c: Context) {
+    try {
+      const limitParam = c.req.query('limit')
+      const limit = limitParam ? Number.parseInt(limitParam, 10) : 50
+      const logs = await ssoService.listAuditLogs(limit)
+      return c.json({ success: true, data: logs })
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Gagal mengambil audit logs'
+      return c.json({ success: false, message }, 500)
+    }
+  }
 }
 
 export const ssoController = new SsoController()

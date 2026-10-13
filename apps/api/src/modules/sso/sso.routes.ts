@@ -9,6 +9,7 @@ ssoRoutes.post('/providers', (c) => ssoController.createProvider(c))
 ssoRoutes.get('/providers/:id', (c) => ssoController.getProvider(c))
 ssoRoutes.put('/providers/:id', (c) => ssoController.updateProvider(c))
 ssoRoutes.delete('/providers/:id', (c) => ssoController.deleteProvider(c))
+ssoRoutes.get('/audit-logs', (c) => ssoController.listAuditLogs(c))
 
 // OIDC Flow
 ssoRoutes.get('/oidc/login/:providerId', (c) => ssoController.oidcLogin(c))
