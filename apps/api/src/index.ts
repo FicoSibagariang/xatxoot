@@ -11,6 +11,7 @@ import {
 import { campaignRoutes } from './modules/campaigns/campaigns.routes'
 import { cannedResponseRoutes } from './modules/canned-responses/canned-responses.routes'
 import { conversationRoutes } from './modules/conversations/conversations.routes'
+import { copilotRoutes } from './modules/copilot/copilot.routes'
 import { csatRoutes } from './modules/csat/csat.routes'
 import { emailRoutes } from './modules/email/email.routes'
 import {
@@ -67,5 +68,6 @@ app.route('/api/v1/articles', articleRoutes)
 app.route('/api/v1/automation-rules', automationRoutes)
 app.route('/api/v1/campaigns', campaignRoutes)
 app.route('/api/v1/rag', ragRoutes)
+app.route('/api/v1/copilot', copilotRoutes)
 
 export default app
