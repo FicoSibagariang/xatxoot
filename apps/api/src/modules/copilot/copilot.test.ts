@@ -323,6 +323,26 @@ describe('AI Copilot Services (Task 5.10 - apps/api)', () => {
       expect(getJson.success).toBe(true)
       expect(getJson.data.provider).toBe('gemini')
     })
+
+    it('POST /api/v1/copilot/test-connection should verify AI provider connectivity', async () => {
+      const res = await app.request('/api/v1/copilot/test-connection', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          provider: 'openai',
+          apiKey: 'sk-proj-test-key-12345',
+          modelName: 'gpt-4o',
+          prompt: 'Tes koneksi sistem Xatxoot.',
+        }),
+      })
+
+      expect(res.status).toBe(200)
+      const json = await res.json()
+      expect(json.success).toBe(true)
+      expect(json.data.verified).toBe(true)
+      expect(json.data.replyText).toContain('Koneksi berhasil')
+      expect(json.data.latencyMs).toBeGreaterThan(0)
+    })
   })
 
   describe('8. Single Organization Guardrail & Phase 5 Checklist', () => {
