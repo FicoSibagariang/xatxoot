@@ -40,7 +40,7 @@
 ### Bagian 2: Shared Types & Zod Schemas (`packages/shared`)
 - [x] **Task 5.6**: Tipe & skema validasi konfigurasi AI Provider & Copilot action requests.
 - [x] **Task 5.7**: Skema validasi aturan SLA Policy per tingkat prioritas.
-- [ ] **Task 5.8**: Skema validasi konfigurasi metadata SAML/OIDC.
+- [x] **Task 5.8**: Skema validasi konfigurasi metadata SAML/OIDC.
 
 ---
 
