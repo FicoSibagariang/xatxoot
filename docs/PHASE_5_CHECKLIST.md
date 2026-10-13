@@ -57,7 +57,7 @@
   - Broadcast peringatan SSE & trigger webhook notifikasi saat terjadi pelanggaran (*SLA breach*).
 - [x] **Task 5.12 (TDD - SAML & OIDC Handler)**:
   - Endpoint pemrosesan assertion SAML dan redirect OAuth OIDC.
-- [ ] **Task 5.13 (TDD - Capacity Policy Engine)**:
+- [x] **Task 5.13 (TDD - Capacity Policy Engine)**:
   - Membatasi penugasan tiket baru jika agent telah mencapai batas kapasitas maksimum (misal: 10 tiket aktif per agent).
 
 ---

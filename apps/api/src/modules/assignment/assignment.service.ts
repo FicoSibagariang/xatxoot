@@ -1,5 +1,6 @@
 import type { Role, Ticket, User, UserAvailability } from '@xatxoot/shared'
 import { sql } from '../../db'
+import { capacityService } from '../capacity/capacity.service'
 import { conversationService } from '../conversations/conversations.service'
 import { inboxService } from '../inboxes/inboxes.service'
 import { realtimeService } from '../realtime/realtime.service'
@@ -230,10 +231,22 @@ export class RoundRobinAssignmentService {
         // Fallback
       }
 
-      const candidates: AssignmentCandidate[] = []
+      const onlineAgents: AssignmentCandidate[] = []
       for (const uid of candidateIds) {
         const agent = await this.getAgent(uid)
         if (agent?.active && agent.availability === 'online') {
+          onlineAgents.push(agent)
+        }
+      }
+
+      if (onlineAgents.length === 0) {
+        return { candidates: [], poolKey, reason: 'no_online_agents' }
+      }
+
+      const candidates: AssignmentCandidate[] = []
+      for (const agent of onlineAgents) {
+        const check = await capacityService.canAssignTicket(agent.id)
+        if (check.allowed) {
           candidates.push(agent)
         }
       }
@@ -242,7 +255,7 @@ export class RoundRobinAssignmentService {
       candidates.sort((a, b) => a.id.localeCompare(b.id))
 
       if (candidates.length === 0) {
-        return { candidates: [], poolKey, reason: 'no_online_agents' }
+        return { candidates: [], poolKey, reason: 'all_agents_at_capacity' }
       }
       return { candidates, poolKey }
     }
@@ -268,10 +281,22 @@ export class RoundRobinAssignmentService {
         // Fallback
       }
 
-      const candidates: AssignmentCandidate[] = []
+      const onlineAgents: AssignmentCandidate[] = []
       for (const uid of candidateIds) {
         const agent = await this.getAgent(uid)
         if (agent?.active && agent.availability === 'online') {
+          onlineAgents.push(agent)
+        }
+      }
+
+      if (onlineAgents.length === 0) {
+        return { candidates: [], poolKey, reason: 'no_online_agents' }
+      }
+
+      const candidates: AssignmentCandidate[] = []
+      for (const agent of onlineAgents) {
+        const check = await capacityService.canAssignTicket(agent.id, options.inboxId)
+        if (check.allowed) {
           candidates.push(agent)
         }
       }
@@ -280,7 +305,7 @@ export class RoundRobinAssignmentService {
       candidates.sort((a, b) => a.id.localeCompare(b.id))
 
       if (candidates.length === 0) {
-        return { candidates: [], poolKey, reason: 'no_online_agents' }
+        return { candidates: [], poolKey, reason: 'all_agents_at_capacity' }
       }
       return { candidates, poolKey }
     }

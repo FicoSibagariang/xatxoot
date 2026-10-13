@@ -10,6 +10,7 @@ import {
 } from './modules/business-hours/business-hours.routes'
 import { campaignRoutes } from './modules/campaigns/campaigns.routes'
 import { cannedResponseRoutes } from './modules/canned-responses/canned-responses.routes'
+import { capacityRoutes } from './modules/capacity/capacity.routes'
 import { conversationRoutes } from './modules/conversations/conversations.routes'
 import { copilotRoutes } from './modules/copilot/copilot.routes'
 import { csatRoutes } from './modules/csat/csat.routes'
@@ -73,5 +74,6 @@ app.route('/api/v1/rag', ragRoutes)
 app.route('/api/v1/copilot', copilotRoutes)
 app.route('/api/v1/sla', slaRoutes)
 app.route('/api/v1/sso', ssoRoutes)
+app.route('/api/v1/capacity', capacityRoutes)
 
 export default app

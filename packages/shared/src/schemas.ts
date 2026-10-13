@@ -2126,3 +2126,85 @@ export const SsoAuthUserSchema = z.object({
   providerType: SsoProviderTypeSchema,
 })
 export type SsoAuthUser = z.infer<typeof SsoAuthUserSchema>
+
+// ==========================================
+// Phase 5: Agent Capacity Policy Engine (Task 5.13)
+// ==========================================
+
+export const CreateCapacityPolicyInputSchema = z.object({
+  name: z.string().min(1, 'Nama kebijakan kapasitas wajib diisi').max(255),
+  description: z.string().optional(),
+  maxActiveTickets: z
+    .number()
+    .int('Kapasitas harus berupa bilangan bulat')
+    .positive('Kapasitas minimal 1 tiket aktif')
+    .default(10),
+  inboxId: z.string().uuid('inboxId harus berupa UUID valid').nullable().optional(),
+  excludeSnoozed: z.boolean().default(false),
+  active: z.boolean().default(true),
+  accountId: z.never({ message: 'Single Organization: accountId dilarang' }).optional(),
+  account_id: z.never({ message: 'Single Organization: account_id dilarang' }).optional(),
+})
+export type CreateCapacityPolicyInput = z.infer<typeof CreateCapacityPolicyInputSchema>
+
+export const UpdateCapacityPolicyInputSchema = z.object({
+  name: z.string().min(1).max(255).optional(),
+  description: z.string().optional(),
+  maxActiveTickets: z
+    .number()
+    .int('Kapasitas harus berupa bilangan bulat')
+    .positive('Kapasitas minimal 1 tiket aktif')
+    .optional(),
+  inboxId: z.string().uuid('inboxId harus berupa UUID valid').nullable().optional(),
+  excludeSnoozed: z.boolean().optional(),
+  active: z.boolean().optional(),
+  accountId: z.never({ message: 'Single Organization: accountId dilarang' }).optional(),
+  account_id: z.never({ message: 'Single Organization: account_id dilarang' }).optional(),
+})
+export type UpdateCapacityPolicyInput = z.infer<typeof UpdateCapacityPolicyInputSchema>
+
+export const CapacityPolicySchema = z.object({
+  id: z.string().uuid(),
+  name: z.string(),
+  description: z.string().nullable().optional(),
+  maxActiveTickets: z.number().int(),
+  inboxId: z.string().uuid().nullable().optional(),
+  excludeSnoozed: z.boolean().default(false),
+  active: z.boolean().default(true),
+  createdAt: z.string().or(z.date()),
+  updatedAt: z.string().or(z.date()),
+})
+export type CapacityPolicy = z.infer<typeof CapacityPolicySchema>
+
+export const SetAgentCapacityOverrideInputSchema = z.object({
+  maxActiveTickets: z.number().int().min(0, 'Kapasitas tidak boleh negatif').nullable().optional(),
+  onLeave: z.boolean().default(false),
+  leaveReason: z.string().optional(),
+  leaveUntil: z.string().optional(),
+  accountId: z.never({ message: 'Single Organization: accountId dilarang' }).optional(),
+  account_id: z.never({ message: 'Single Organization: account_id dilarang' }).optional(),
+})
+export type SetAgentCapacityOverrideInput = z.infer<typeof SetAgentCapacityOverrideInputSchema>
+
+export const AgentCapacityOverrideSchema = z.object({
+  userId: z.string().uuid(),
+  maxActiveTickets: z.number().int().nullable().optional(),
+  onLeave: z.boolean().default(false),
+  leaveReason: z.string().nullable().optional(),
+  leaveUntil: z.string().nullable().optional(),
+  updatedAt: z.string().or(z.date()),
+})
+export type AgentCapacityOverride = z.infer<typeof AgentCapacityOverrideSchema>
+
+export const AgentWorkloadSchema = z.object({
+  userId: z.string().uuid(),
+  displayName: z.string(),
+  email: z.string(),
+  activeTicketCount: z.number().int(),
+  maxCapacity: z.number().int(),
+  availableCapacity: z.number().int(),
+  utilizationPercentage: z.number(),
+  isFull: z.boolean(),
+  onLeave: z.boolean(),
+})
+export type AgentWorkload = z.infer<typeof AgentWorkloadSchema>
