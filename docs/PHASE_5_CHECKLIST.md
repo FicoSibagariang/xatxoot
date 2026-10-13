@@ -45,7 +45,7 @@
 ---
 
 ### Bagian 3: Backend Services (`apps/api`) — Siklus TDD
-- [ ] **Task 5.9 (TDD - Vector & RAG Search Engine)**:
+- [x] **Task 5.9 (TDD - Vector & RAG Search Engine)**:
   - Worker pembuat chunk teks & generate embedding saat artikel Help Center dipublikasikan.
   - Query pencarian similaritas kosinus (`<=>`) native PostgreSQL pgvector.
 - [ ] **Task 5.10 (TDD - AI Copilot Services)**:
