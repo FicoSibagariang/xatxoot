@@ -27,6 +27,7 @@ import { realtimeRoutes } from './modules/realtime/realtime.routes'
 import { slaRoutes } from './modules/sla/sla.routes'
 import { slashCommandRoutes } from './modules/slash-commands/slash-commands.routes'
 import { smsRoutes } from './modules/sms/sms.routes'
+import { ssoRoutes } from './modules/sso/sso.routes'
 import { teamRoutes } from './modules/teams/teams.routes'
 import { telegramRoutes } from './modules/telegram/telegram.routes'
 import { ticketRoutes } from './modules/tickets/tickets.routes'
@@ -71,5 +72,6 @@ app.route('/api/v1/campaigns', campaignRoutes)
 app.route('/api/v1/rag', ragRoutes)
 app.route('/api/v1/copilot', copilotRoutes)
 app.route('/api/v1/sla', slaRoutes)
+app.route('/api/v1/sso', ssoRoutes)
 
 export default app

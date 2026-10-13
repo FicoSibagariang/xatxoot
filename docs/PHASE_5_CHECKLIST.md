@@ -55,7 +55,7 @@
 - [x] **Task 5.11 (TDD - SLA Monitoring Worker)**:
   - Cron / recurring queue worker pengecek tiket yang mendekati deadline SLA.
   - Broadcast peringatan SSE & trigger webhook notifikasi saat terjadi pelanggaran (*SLA breach*).
-- [ ] **Task 5.12 (TDD - SAML & OIDC Handler)**:
+- [x] **Task 5.12 (TDD - SAML & OIDC Handler)**:
   - Endpoint pemrosesan assertion SAML dan redirect OAuth OIDC.
 - [ ] **Task 5.13 (TDD - Capacity Policy Engine)**:
   - Membatasi penugasan tiket baru jika agent telah mencapai batas kapasitas maksimum (misal: 10 tiket aktif per agent).
