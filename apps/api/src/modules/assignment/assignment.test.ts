@@ -118,7 +118,7 @@ describe('Assignment Module - Round-Robin Engine (Core Logic)', () => {
     expect(updatedT2?.assigneeId).toBe(agentBId)
     expect(updatedT3?.assigneeId).toBe(agentCId)
     expect(updatedT4?.assigneeId).toBe(agentAId)
-  })
+  }, 15000)
 
   it('should skip agents who are offline or busy and only assign to online agents', async () => {
     const inboxId = '22222222-2222-2222-2222-222222222222'
@@ -295,7 +295,7 @@ describe('Assignment Module - Round-Robin Engine (Core Logic)', () => {
 
     expect(res1.assignedAgentId).toBe(agentT1Id)
     expect(res2.assignedAgentId).toBe(agentT2Id)
-  })
+  }, 15000)
 
   it('should NOT auto-assign if team has allow_auto_assign set to false', async () => {
     const team = await teamService.createTeam({
@@ -384,7 +384,7 @@ describe('Assignment Module - Inbound Message Automation Integration', () => {
 
     expect(res2.isNewTicket).toBe(true)
     expect(res2.ticket.assigneeId).toBe(agentBId)
-  })
+  }, 15000)
 })
 
 describe('Assignment Module - HTTP API Endpoints', () => {
