@@ -42,6 +42,10 @@ app.get('/health', (c) => {
   return c.json({ status: 'ok' })
 })
 
+app.get('/healthz', (c) => {
+  return c.json({ status: 'ok' })
+})
+
 app.route('/api/v1/auth', authRoutes)
 app.route('/api/v1/inboxes', inboxBusinessHoursRoutes)
 app.route('/api/v1/inboxes', inboxRoutes)

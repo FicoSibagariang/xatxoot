@@ -1,0 +1,31 @@
+# ==============================================================================
+# Production Caddyfile Reverse Proxy — Xatxoot
+# Automated Let's Encrypt / ZeroSSL TLS & Reverse Proxy Routing
+# ==============================================================================
+
+{
+    admin off
+}
+
+{$CADDY_DOMAIN:localhost} {
+    encode gzip zstd
+
+    # Healthcheck endpoints routing to backend api
+    reverse_proxy /healthz* api:3000
+    reverse_proxy /health* api:3000
+
+    # REST API endpoints routing to backend api
+    reverse_proxy /api/* api:3000
+
+    # Realtime WebSocket endpoints routing to backend api
+    reverse_proxy /ws* api:3000
+
+    # Help Center Public Portal endpoints routing to backend api
+    reverse_proxy /portal* api:3000
+
+    # Customer Live Chat Widget JS routing to backend api
+    reverse_proxy /widget.js* api:3000
+
+    # Web Dashboard Static SPA routing
+    reverse_proxy web:80
+}

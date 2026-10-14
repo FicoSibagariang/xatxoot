@@ -1,0 +1,163 @@
+# ==============================================================================
+# Xatxoot Production Orchestration — docker-compose.yml
+# Single Organization On-Premise & Cloud Self-Host Deployment
+# ==============================================================================
+
+services:
+  # ----------------------------------------------------------------------------
+  # 1. Edge Reverse Proxy & Automated SSL/TLS
+  # ----------------------------------------------------------------------------
+  caddy:
+    image: caddy:2-alpine
+    container_name: xatxoot-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - CADDY_DOMAIN=${CADDY_DOMAIN:-localhost}
+      - CADDY_EMAIL=${CADDY_EMAIL:-admin@example.com}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      api:
+        condition: service_healthy
+      web:
+        condition: service_started
+    networks:
+      - xatxoot-network
+
+  # ----------------------------------------------------------------------------
+  # 2. Core REST API & WebSocket Server (Hono on Bun)
+  # ----------------------------------------------------------------------------
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: xatxoot-api
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=production
+      - PORT_API=3000
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-xatxoot_prod}:${POSTGRES_PASSWORD:-change_this_password}@postgres:5432/${POSTGRES_DB:-xatxoot_prod}
+      - REDIS_URL=redis://redis:6379
+    ports:
+      - "${PORT_API:-3000}:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    networks:
+      - xatxoot-network
+
+  # ----------------------------------------------------------------------------
+  # 3. Frontend Web Dashboard (React 19 + Vite Static Assets on Nginx)
+  # ----------------------------------------------------------------------------
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    container_name: xatxoot-web
+    restart: unless-stopped
+    ports:
+      - "${PORT_WEB:-8080}:80"
+    networks:
+      - xatxoot-network
+
+  # ----------------------------------------------------------------------------
+  # 4. WhatsApp Unofficial Gateway Microservice (Baileys on Node.js 20 LTS)
+  # ----------------------------------------------------------------------------
+  wa-gateway:
+    build:
+      context: .
+      dockerfile: apps/wa-gateway/Dockerfile
+    container_name: xatxoot-wa-gateway
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=production
+      - PORT_GATEWAY=3001
+      - REDIS_URL=redis://redis:6379
+      - WA_GATEWAY_SESSION_PATH=/data/baileys_auth
+    volumes:
+      - baileys_auth:/data/baileys_auth
+    ports:
+      - "${PORT_GATEWAY:-3001}:3001"
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3001/health || exit 0"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - xatxoot-network
+
+  # ----------------------------------------------------------------------------
+  # 5. Database: PostgreSQL 16 with pgvector Extension
+  # ----------------------------------------------------------------------------
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: xatxoot-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-xatxoot_prod}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_this_password}
+      POSTGRES_DB: ${POSTGRES_DB:-xatxoot_prod}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-xatxoot_prod} -d ${POSTGRES_DB:-xatxoot_prod}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - xatxoot-network
+
+  # ----------------------------------------------------------------------------
+  # 6. Cache & Message Queue: Redis 7
+  # ----------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: xatxoot-redis
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - xatxoot-network
+
+# ------------------------------------------------------------------------------
+# Persistent Storage Volumes
+# ------------------------------------------------------------------------------
+volumes:
+  postgres_data:
+  redis_data:
+  baileys_auth:
+  caddy_data:
+  caddy_config:
+
+# ------------------------------------------------------------------------------
+# Isolated Bridge Network
+# ------------------------------------------------------------------------------
+networks:
+  xatxoot-network:
+    driver: bridge
