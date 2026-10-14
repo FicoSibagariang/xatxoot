@@ -10,7 +10,8 @@
     "check": "biome check .",
     "lint": "biome lint .",
     "format": "biome check --write .",
-    "db:migrate": "bun --filter '@xatxoot/api' db:migrate"
+    "db:migrate": "bun --filter '@xatxoot/api' db:migrate",
+    "test:e2e": "bun test test/e2e-smoke-flow.test.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4"

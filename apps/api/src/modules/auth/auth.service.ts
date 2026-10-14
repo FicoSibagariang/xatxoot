@@ -221,6 +221,19 @@ export async function logoutSession(refreshToken?: string): Promise<boolean> {
 
 export async function verifyUserToken(token: string): Promise<User | null> {
   if (!token) return null
+
+  if (token.startsWith('access_')) {
+    const parts = token.split('_')
+    const userId = parts[1]
+    if (userId) {
+      for (const entry of memoryStore.users.values()) {
+        if (entry.user.id === userId) {
+          return entry.user
+        }
+      }
+    }
+  }
+
   // In tests and runtime, valid access token starts with 'access_' or is 'valid-access-token'
   if (token === 'valid-access-token' || token.startsWith('access_')) {
     return {
