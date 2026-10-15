@@ -19,6 +19,7 @@ import {
   detectSlashQuery,
   filterAutocompleteEntries,
 } from '../chat'
+import { ContactsDashboard } from '../contacts/ContactsDashboard'
 import { type ContactDrawerData, ContactDrawer as CrmContactDrawer } from '../drawer'
 import type {
   ChatFilter,
@@ -1241,6 +1242,16 @@ export function WhatsAppLayout({
       {activeTab === 'reports' ? (
         <div className="flex-1 h-full overflow-y-auto">
           <AnalyticsDashboard />
+        </div>
+      ) : activeTab === 'contacts' ? (
+        <div className="flex-1 h-full overflow-y-auto">
+          <ContactsDashboard
+            conversations={conversations}
+            onStartChat={(conversationId) => {
+              onTabChange('inbox')
+              onSelectConversation(conversationId)
+            }}
+          />
         </div>
       ) : (
         <>

@@ -363,5 +363,21 @@ describe('WhatsApp 3.5-Column Layout (Task 1.24 - apps/web)', () => {
       expect(html).not.toContain('data-testid="chat-list-panel"')
       expect(html).not.toContain('data-testid="conversation-thread"')
     })
+
+    it('should render ContactsDashboard in the main area when activeTab is contacts', () => {
+      const html = renderToStaticMarkup(
+        <WhatsAppLayout
+          currentUser={mockUser}
+          conversations={mockConversations}
+          activeTab="contacts"
+        />,
+      )
+
+      expect(html).toContain('data-testid="nav-rail"')
+      expect(html).toContain('data-testid="contacts-dashboard"')
+      expect(html).toContain('Kontak &amp; CRM')
+      expect(html).not.toContain('data-testid="chat-list-panel"')
+      expect(html).not.toContain('data-testid="conversation-thread"')
+    })
   })
 })
