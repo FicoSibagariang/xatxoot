@@ -10,6 +10,7 @@ export default defineConfig({
   server: {
     host: webHost,
     port: webPort,
+    allowedHosts: true,
     proxy: {
       '/api': {
         target: `http://localhost:${apiPort}`,
