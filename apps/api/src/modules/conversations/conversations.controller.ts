@@ -25,3 +25,14 @@ export async function handleGetConversation(c: Context) {
     return c.json({ error: message }, 500)
   }
 }
+
+export async function handleMarkConversationAsRead(c: Context) {
+  try {
+    const id = c.req.param('id')
+    const success = await conversationService.markConversationAsRead(id)
+    return c.json({ success, conversationId: id, unreadCount: 0 }, 200)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Internal Server Error'
+    return c.json({ error: message }, 500)
+  }
+}

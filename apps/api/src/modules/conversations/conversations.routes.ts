@@ -4,7 +4,11 @@ import {
   handleListConversationMessages,
   handleSendConversationMessage,
 } from '../messages/messages.controller'
-import { handleGetConversation, handleListConversations } from './conversations.controller'
+import {
+  handleGetConversation,
+  handleListConversations,
+  handleMarkConversationAsRead,
+} from './conversations.controller'
 
 export const conversationRoutes = new Hono()
 
@@ -12,6 +16,7 @@ conversationRoutes.use('*', authMiddleware)
 
 conversationRoutes.get('/', handleListConversations)
 conversationRoutes.get('/:id', handleGetConversation)
+conversationRoutes.post('/:id/read', handleMarkConversationAsRead)
 conversationRoutes.get('/:id/messages', handleListConversationMessages)
 conversationRoutes.post('/:id/messages', handleSendConversationMessage)
 

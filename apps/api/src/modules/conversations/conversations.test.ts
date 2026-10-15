@@ -248,6 +248,33 @@ describe('Conversations Module - REST Endpoints', () => {
 
     expect(res.status).toBe(404)
   })
+
+  it('POST /api/v1/conversations/:id/read should mark conversation as read and reset unreadCount to 0', async () => {
+    const seeded = await conversationService.handleInboundMessage({
+      inboxId: MOCK_INBOX_ID,
+      sourceId: '+6281234560077',
+      senderPhone: '+6281234560077',
+      senderName: 'Test Unread User',
+      content: 'Pesan belum dibaca',
+      externalId: `wamid.unread_${Date.now()}`,
+    })
+
+    const convId = seeded.conversation.id
+    expect(seeded.conversation.unreadCount).toBeGreaterThan(0)
+
+    const res = await app.request(`/api/v1/conversations/${convId}/read`, {
+      method: 'POST',
+      headers: AUTH_HEADER,
+    })
+
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.success).toBe(true)
+    expect(body.unreadCount).toBe(0)
+
+    const checkDetail = await conversationService.getConversationById(convId)
+    expect(checkDetail?.conversation.unreadCount).toBe(0)
+  })
 })
 
 describe('Conversations Module - Service Level Contract', () => {

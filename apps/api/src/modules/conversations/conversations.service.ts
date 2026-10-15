@@ -500,11 +500,35 @@ export class ConversationService {
         storeMessages.length > 0 ? storeMessages : memoryStore.messages.get(conversation.id) || []
     }
 
+    if (conversation.unreadCount && conversation.unreadCount > 0) {
+      conversation.unreadCount = 0
+      this.markConversationAsRead(id).catch(() => {})
+    }
+
     return {
       conversation,
       contact,
       activeTicket,
       messages,
+    }
+  }
+
+  async markConversationAsRead(id: string): Promise<boolean> {
+    const conv = memoryStore.conversations.get(id)
+    if (conv) {
+      conv.unreadCount = 0
+      conv.updatedAt = new Date().toISOString()
+    }
+
+    try {
+      await sql`
+        UPDATE conversations
+        SET unread_count = 0, updated_at = NOW()
+        WHERE id = ${id}
+      `
+      return true
+    } catch {
+      return Boolean(conv)
     }
   }
 

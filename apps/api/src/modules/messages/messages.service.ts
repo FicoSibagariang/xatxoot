@@ -441,6 +441,9 @@ export class MessageService {
       await ticketService.recordFirstReply(conversation.activeTicketId)
     }
 
+    // 7. Mark conversation as read on agent reply
+    await conversationService.markConversationAsRead(conversation.id)
+
     realtimeService.broadcast({
       event: 'message.created',
       data: { message, conversationId: conversation.id },

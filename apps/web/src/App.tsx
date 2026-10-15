@@ -1,5 +1,5 @@
 import type { BotFlowDefinition, WhatsAppTemplate } from '@xatxoot/shared'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { BusinessHoursSettings } from './components/business-hours'
 import { ChannelWizard } from './components/channels'
 import type { ContentType, MessageType, TimelineMessage } from './components/chat'
@@ -359,6 +359,8 @@ export function App({ initialAuthenticated }: AppProps = {}) {
   const [conversations, setConversations] = useState<ConversationItem[]>([])
   const [messagesMap, setMessagesMap] = useState<Record<string, TimelineMessage[]>>({})
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null)
+  const selectedIdRef = useRef<string | null>(null)
+  selectedIdRef.current = selectedConversationId
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
   const [activeTab, setActiveTab] = useState<LayoutNavTab>('inbox')
   const [activeChannelFilter, setActiveChannelFilter] = useState<LayoutChannelFilter>('all')
@@ -449,33 +451,38 @@ export function App({ initialAuthenticated }: AppProps = {}) {
         const data = (await res.json()) as any[]
         if (Array.isArray(data)) {
           if (data.length > 0) {
+            const currentSelected = selectedIdRef.current
             // biome-ignore lint/suspicious/noExplicitAny: mapping backend schema
-            const mapped: ConversationItem[] = data.map((item: any) => ({
-              id: item.id,
-              contactName: item.contact?.name || item.contact?.phoneNumber || 'Pelanggan WhatsApp',
-              contactPhone: item.contact?.phoneNumber,
-              // biome-ignore lint/suspicious/noExplicitAny: channel type
-              channel: (item.channelType as any) || 'whatsapp',
-              lastMessage:
-                item.lastMessage ||
-                (item.lastMessageAt ? 'Pesan baru diterima' : 'Percakapan baru'),
-              lastMessageTimestamp: item.lastMessageAt
-                ? new Date(item.lastMessageAt).toLocaleTimeString('id-ID', {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })
-                : 'Baru saja',
-              unreadCount: item.unreadCount || 0,
-              ticket: item.activeTicket
-                ? {
-                    id: item.activeTicket.id,
-                    ticketNumber: item.activeTicket.displayId || 'T-000',
-                    status: item.activeTicket.status || 'open',
-                    priority: item.activeTicket.priority || 'medium',
-                    assignedTo: item.activeTicket.assigneeId,
-                  }
-                : undefined,
-            }))
+            const mapped: ConversationItem[] = data.map((item: any) => {
+              const isSelected = item.id === currentSelected
+              return {
+                id: item.id,
+                contactName:
+                  item.contact?.name || item.contact?.phoneNumber || 'Pelanggan WhatsApp',
+                contactPhone: item.contact?.phoneNumber,
+                // biome-ignore lint/suspicious/noExplicitAny: channel type
+                channel: (item.channelType as any) || 'whatsapp',
+                lastMessage:
+                  item.lastMessage ||
+                  (item.lastMessageAt ? 'Pesan baru diterima' : 'Percakapan baru'),
+                lastMessageTimestamp: item.lastMessageAt
+                  ? new Date(item.lastMessageAt).toLocaleTimeString('id-ID', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })
+                  : 'Baru saja',
+                unreadCount: isSelected ? 0 : item.unreadCount || 0,
+                ticket: item.activeTicket
+                  ? {
+                      id: item.activeTicket.id,
+                      ticketNumber: item.activeTicket.displayId || 'T-000',
+                      status: item.activeTicket.status || 'open',
+                      priority: item.activeTicket.priority || 'medium',
+                      assignedTo: item.activeTicket.assigneeId,
+                    }
+                  : undefined,
+              }
+            })
 
             setConversations(mapped)
             setSelectedConversationId((prev) =>
@@ -503,6 +510,9 @@ export function App({ initialAuthenticated }: AppProps = {}) {
   // Fetch messages when conversation is selected
   useEffect(() => {
     if (!selectedConversationId) return
+    setConversations((prev) =>
+      prev.map((c) => (c.id === selectedConversationId ? { ...c, unreadCount: 0 } : c)),
+    )
     const fetchMessages = async () => {
       try {
         const token =
@@ -784,8 +794,22 @@ export function App({ initialAuthenticated }: AppProps = {}) {
 
   const handleSelectConversation = (id: string) => {
     setSelectedConversationId(id)
-    // Clear unread
+    selectedIdRef.current = id
+    // Clear unread in local state
     setConversations((prev) => prev.map((c) => (c.id === id ? { ...c, unreadCount: 0 } : c)))
+
+    try {
+      const token =
+        typeof window !== 'undefined'
+          ? localStorage.getItem('auth_token') || 'valid-access-token'
+          : 'valid-access-token'
+      fetch(`/api/v1/conversations/${id}/read`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      }).catch(() => {})
+    } catch {
+      // Ignore
+    }
   }
 
   const currentPath = typeof window !== 'undefined' ? window.location.pathname : '/'
