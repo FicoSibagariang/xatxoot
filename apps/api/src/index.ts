@@ -81,6 +81,8 @@ app.route('/api/v1/sso', ssoRoutes)
 app.route('/api/v1/capacity', capacityRoutes)
 
 const apiPort = Number(process.env.PORT_API || process.env.PORT || 3000)
-;(app as unknown as { port: number }).port = apiPort
+const apiHost = process.env.HOST || '0.0.0.0'
+;(app as unknown as { port: number; hostname: string }).port = apiPort
+;(app as unknown as { port: number; hostname: string }).hostname = apiHost
 
 export default app

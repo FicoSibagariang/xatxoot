@@ -32,6 +32,8 @@ app.route('/', graphMessagesRoutes)
 app.route('/', generatorRoutes)
 
 const simPort = Number(process.env.PORT_SIMULATOR || process.env.PORT_WA_SIMULATOR || 3002)
-;(app as unknown as { port: number }).port = simPort
+const simHost = process.env.HOST || '0.0.0.0'
+;(app as unknown as { port: number; hostname: string }).port = simPort
+;(app as unknown as { port: number; hostname: string }).hostname = simHost
 
 export default app
