@@ -152,4 +152,54 @@ describe('WhatsApp Unofficial Gateway Baileys Multi-Device (Task 1.11)', () => {
     expect(session.shouldReconnect).toBe(false)
     expect(statusUpdates).toContain('logged_out')
   })
+
+  it('should track currentQr and phoneNumber during session lifecycle', async () => {
+    const { BaileysSession } = await import('../apps/wa-gateway/src/index')
+    const session = new BaileysSession({ sessionId: 'qr_track_session' })
+    expect(session.currentQr).toBeNull()
+    expect(session.phoneNumber).toBeNull()
+
+    await session.emitQr('2@real_qr_sample_code')
+    expect(session.currentQr).toBe('2@real_qr_sample_code')
+    expect(session.status).toBe('pairing')
+
+    session.emitConnected({ user: { id: '628998877665:1@s.whatsapp.net' } })
+    expect(session.status).toBe('connected')
+    expect(session.phoneNumber).toBe('+628998877665')
+    expect(session.currentQr).toBeNull()
+  })
+
+  it('should forward inbound message to API endpoint or handler', async () => {
+    const { BaileysSession } = await import('../apps/wa-gateway/src/index')
+    let receivedEvent: unknown = null
+    const session = new BaileysSession({
+      sessionId: 'forward_test_session',
+      channelId: 'channel_123',
+      inboxId: 'inbox_456',
+      handlers: {
+        onMessageReceived: (event) => {
+          receivedEvent = event
+        },
+      },
+    })
+
+    const sampleWam = {
+      key: {
+        remoteJid: '628123456789@s.whatsapp.net',
+        id: 'WAMID_99999',
+        fromMe: false,
+      },
+      message: {
+        conversation: 'Pesan masuk dari pelanggan!',
+      },
+      messageTimestamp: 1700000000,
+      pushName: 'Budi Santoso',
+    }
+
+    const event = await session.handleInboundMessage(sampleWam)
+    expect(event).not.toBeNull()
+    expect(event?.content).toBe('Pesan masuk dari pelanggan!')
+    expect(event?.senderNumber).toBe('628123456789')
+    expect(receivedEvent).toBe(event)
+  })
 })

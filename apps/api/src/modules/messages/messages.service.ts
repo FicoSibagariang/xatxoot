@@ -46,19 +46,28 @@ export class MessageService {
     saveMessageToStore(message)
 
     try {
+      const isUuid = (val?: string | null) =>
+        Boolean(val && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val))
+
+      const dbSenderId = isUuid(message.senderId)
+        ? message.senderId
+        : '3b87d597-cde4-4b3e-8cce-e3bd24ac1c4f'
+
+      const dbTicketId = isUuid(message.ticketId) ? message.ticketId : null
+
       await sql`
         INSERT INTO messages (
           id, conversation_id, ticket_id, sender_type, sender_id, message_type,
-          content, content_type, status, source_id, content_attributes, created_at, updated_at
+          content, content_type, status, external_source_id, content_attributes, created_at, updated_at
         ) VALUES (
-          ${message.id}, ${message.conversationId}, ${message.ticketId}, ${message.senderType},
-          ${message.senderId}, ${message.messageType}, ${message.content}, ${message.contentType},
+          ${message.id}, ${message.conversationId}, ${dbTicketId}, ${message.senderType},
+          ${dbSenderId}, ${message.messageType}, ${message.content}, ${message.contentType},
           ${message.status}, ${message.externalSourceId}, ${JSON.stringify(message.contentAttributes)},
           ${message.createdAt}, ${message.updatedAt}
         )
       `
-    } catch {
-      // Memory fallback
+    } catch (err) {
+      console.warn('[messages.service] Could not save message to DB:', (err as Error).message)
     }
 
     return message
@@ -80,7 +89,7 @@ export class MessageService {
           content,
           content_type as "contentType",
           status,
-          source_id as "externalSourceId",
+          external_source_id as "externalSourceId",
           content_attributes as "contentAttributes",
           created_at as "createdAt",
           updated_at as "updatedAt"
@@ -101,14 +110,6 @@ export class MessageService {
   }
 
   async listConversationMessages(conversationId: string): Promise<Message[]> {
-    const messageIds = messageStore.conversationIndex.get(conversationId) || []
-    if (messageIds.length > 0) {
-      return messageIds
-        .map((id) => messageStore.messages.get(id))
-        .filter((m): m is Message => m !== undefined)
-        .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
-    }
-
     try {
       const rows = await sql`
         SELECT
@@ -121,7 +122,7 @@ export class MessageService {
           content,
           content_type as "contentType",
           status,
-          source_id as "externalSourceId",
+          external_source_id as "externalSourceId",
           content_attributes as "contentAttributes",
           created_at as "createdAt",
           updated_at as "updatedAt"
@@ -129,14 +130,15 @@ export class MessageService {
         WHERE conversation_id = ${conversationId}
         ORDER BY created_at ASC
       `
-      if (rows.length > 0) {
-        return rows as unknown as Message[]
-      }
+      return (rows || []) as unknown as Message[]
     } catch {
-      // Memory fallback
+      // Memory fallback if DB is offline
+      const messageIds = messageStore.conversationIndex.get(conversationId) || []
+      return messageIds
+        .map((id) => messageStore.messages.get(id))
+        .filter((m): m is Message => m !== undefined)
+        .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
     }
-
-    return []
   }
 
   async updateDeliveryStatus(externalId: string, status: MessageStatus): Promise<Message | null> {
@@ -161,12 +163,12 @@ export class MessageService {
             content,
             content_type as "contentType",
             status,
-            source_id as "externalSourceId",
+            external_source_id as "externalSourceId",
             content_attributes as "contentAttributes",
             created_at as "createdAt",
             updated_at as "updatedAt"
           FROM messages
-          WHERE source_id = ${externalId}
+          WHERE external_source_id = ${externalId}
           LIMIT 1
         `
         if (rows.length > 0) {
@@ -194,7 +196,7 @@ export class MessageService {
       await sql`
         UPDATE messages
         SET status = ${status}, updated_at = ${now}
-        WHERE source_id = ${externalId}
+        WHERE external_source_id = ${externalId}
       `
     } catch {
       // Memory fallback
@@ -260,6 +262,38 @@ export class MessageService {
     }
 
     messageStore.queuedBaileysJobs.push(job)
+
+    // Forward to wa-gateway HTTP endpoint asynchronously so caller is never blocked
+    const gatewayPort = Number(process.env.PORT_GATEWAY || 8801)
+    fetch(`http://127.0.0.1:${gatewayPort}/api/messages/send`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params),
+      signal: AbortSignal.timeout(10000),
+    })
+      .then(async (res) => {
+        if (res.ok) {
+          const data = (await res.json()) as { success: boolean; externalMessageId?: string }
+          if (data?.externalMessageId && params.messageId) {
+            try {
+              await sql`
+                UPDATE messages
+                SET external_source_id = ${data.externalMessageId}
+                WHERE id = ${params.messageId}
+              `
+            } catch {
+              // fallback
+            }
+          }
+        }
+      })
+      .catch((err) => {
+        console.warn(
+          '[api] Could not immediately forward message to wa-gateway:',
+          (err as Error).message,
+        )
+      })
+
     return { jobId: params.jobId }
   }
 

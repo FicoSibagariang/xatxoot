@@ -1,3 +1,4 @@
+import QRCode from 'qrcode'
 import type { BaileysPairingState } from './types'
 
 // ==========================================
@@ -23,55 +24,39 @@ export function QrCodeRenderer({ qrData, size = 240, className = '' }: QrCodeRen
     )
   }
 
-  // Generate authentic 25x25 QR Matrix deterministically from payload
-  const gridSize = 25
-  const grid: boolean[][] = Array.from({ length: gridSize }, () => Array(gridSize).fill(false))
+  let qrMatrix: ReturnType<typeof QRCode.create> | null = null
+  try {
+    qrMatrix = QRCode.create(qrData, { errorCorrectionLevel: 'M' })
+  } catch (err) {
+    console.error('Failed to parse authentic QR data matrix:', err)
+  }
 
-  // 1. Add Finder Patterns (3 corners: 7x7)
-  const setFinderPattern = (startRow: number, startCol: number) => {
-    for (let r = 0; r < 7; r++) {
-      for (let c = 0; c < 7; c++) {
-        // Outer 7x7 border or inner 3x3 core
-        const isBorder = r === 0 || r === 6 || c === 0 || c === 6
-        const isCore = r >= 2 && r <= 4 && c >= 2 && c <= 4
-        grid[startRow + r][startCol + c] = isBorder || isCore
+  if (!qrMatrix) {
+    return (
+      <div
+        data-testid="qr-code-display"
+        style={{ width: size, height: size }}
+        className={`flex flex-col items-center justify-center bg-rose-50 border border-dashed border-rose-200 rounded-2xl text-rose-500 text-xs p-4 text-center ${className}`}
+      >
+        <span className="text-3xl mb-2">⚠️</span>
+        <span>QR Code tidak valid</span>
+      </div>
+    )
+  }
+
+  const margin = 2
+  const matrixSize = qrMatrix.modules.size
+  const totalSize = matrixSize + margin * 2
+
+  const darkModules: Array<{ x: number; y: number }> = []
+  for (let r = 0; r < matrixSize; r++) {
+    for (let c = 0; c < matrixSize; c++) {
+      if (qrMatrix.modules.get(r, c)) {
+        darkModules.push({ x: c + margin, y: r + margin })
       }
     }
   }
 
-  // Top-left
-  setFinderPattern(0, 0)
-  // Top-right
-  setFinderPattern(0, gridSize - 7)
-  // Bottom-left
-  setFinderPattern(gridSize - 7, 0)
-
-  // 2. Timing Patterns at row 6 and col 6
-  for (let i = 8; i < gridSize - 8; i++) {
-    grid[6][i] = i % 2 === 0
-    grid[i][6] = i % 2 === 0
-  }
-
-  // 3. Fill payload modules deterministically based on character hash
-  let charIndex = 0
-  for (let r = 0; r < gridSize; r++) {
-    for (let c = 0; c < gridSize; c++) {
-      // Skip finder pattern zones
-      const inTopLeft = r < 8 && c < 8
-      const inTopRight = r < 8 && c >= gridSize - 8
-      const inBottomLeft = r >= gridSize - 8 && c < 8
-      const inTiming = r === 6 || c === 6
-
-      if (!inTopLeft && !inTopRight && !inBottomLeft && !inTiming) {
-        const charCode = qrData.charCodeAt(charIndex % qrData.length)
-        const isDark = (charCode + r * 3 + c * 7) % 3 === 0
-        grid[r][c] = isDark
-        charIndex++
-      }
-    }
-  }
-
-  // Build SVG path rects
   return (
     <div
       data-testid="qr-code-display"
@@ -80,26 +65,14 @@ export function QrCodeRenderer({ qrData, size = 240, className = '' }: QrCodeRen
       <svg
         width={size}
         height={size}
-        viewBox={`0 0 ${gridSize} ${gridSize}`}
+        viewBox={`0 0 ${totalSize} ${totalSize}`}
         className="shape-rendering-crispEdges"
       >
         <title>QR Code Scanner Matrix</title>
-        <rect width={gridSize} height={gridSize} fill="#ffffff" />
-        {grid.map((row, r) =>
-          row.map((isDark, c) =>
-            isDark ? (
-              <rect
-                // biome-ignore lint/suspicious/noArrayIndexKey: Fixed coordinate key
-                key={`${r}-${c}`}
-                x={c}
-                y={r}
-                width={1}
-                height={1}
-                fill="#111b21"
-              />
-            ) : null,
-          ),
-        )}
+        <rect width={totalSize} height={totalSize} fill="#ffffff" />
+        {darkModules.map((pos) => (
+          <rect key={`${pos.y}-${pos.x}`} x={pos.x} y={pos.y} width={1} height={1} fill="#111b21" />
+        ))}
       </svg>
     </div>
   )

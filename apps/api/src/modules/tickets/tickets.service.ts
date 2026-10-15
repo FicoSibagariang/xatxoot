@@ -127,14 +127,17 @@ export class TicketService {
         WHERE id = ${id}
         LIMIT 1
       `
-      if (rows.length > 0) {
-        return rows[0] as unknown as Ticket
+      if (rows && rows.length > 0) {
+        const ticket = rows[0] as unknown as Ticket
+        memoryStore.tickets.set(id, ticket)
+        return ticket
       }
+      memoryStore.tickets.delete(id)
+      return null
     } catch {
-      // Memory fallback
+      // Memory fallback if DB is offline
+      return memoryStore.tickets.get(id) || null
     }
-
-    return memoryStore.tickets.get(id) || null
   }
 
   async listTickets(filter?: TicketFilter): Promise<Ticket[]> {
@@ -174,24 +177,28 @@ export class TicketService {
       }
       query = sql`${query} ORDER BY created_at DESC`
       const rows = await query
-      if (rows.length > 0) {
-        return rows as unknown as Ticket[]
+      const tickets = (rows || []) as unknown as Ticket[]
+      if (!filter?.status && filter?.assigneeId === undefined && !filter?.conversationId) {
+        memoryStore.tickets.clear()
+        for (const t of tickets) {
+          memoryStore.tickets.set(t.id, t)
+        }
       }
+      return tickets
     } catch {
-      // Memory fallback
+      // Memory fallback if DB is offline
+      let tickets = Array.from(memoryStore.tickets.values())
+      if (filter?.status) {
+        tickets = tickets.filter((t) => t.status === filter.status)
+      }
+      if (filter?.assigneeId !== undefined) {
+        tickets = tickets.filter((t) => t.assigneeId === filter.assigneeId)
+      }
+      if (filter?.conversationId) {
+        tickets = tickets.filter((t) => t.conversationId === filter.conversationId)
+      }
+      return tickets
     }
-
-    let tickets = Array.from(memoryStore.tickets.values())
-    if (filter?.status) {
-      tickets = tickets.filter((t) => t.status === filter.status)
-    }
-    if (filter?.assigneeId !== undefined) {
-      tickets = tickets.filter((t) => t.assigneeId === filter.assigneeId)
-    }
-    if (filter?.conversationId) {
-      tickets = tickets.filter((t) => t.conversationId === filter.conversationId)
-    }
-    return tickets
   }
 
   async updateTicketStatus(

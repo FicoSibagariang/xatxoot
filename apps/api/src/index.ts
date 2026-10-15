@@ -33,6 +33,7 @@ import { teamRoutes } from './modules/teams/teams.routes'
 import { telegramRoutes } from './modules/telegram/telegram.routes'
 import { ticketRoutes } from './modules/tickets/tickets.routes'
 import { whatsappCloudWebhookRoutes } from './modules/webhooks/whatsapp-cloud.webhook.routes'
+import { whatsappUnofficialWebhookRoutes } from './modules/webhooks/whatsapp-unofficial.webhook.routes'
 import { whatsappTemplateRoutes } from './modules/whatsapp-templates/whatsapp-templates.routes'
 import { widgetRoutes } from './modules/widget/widget.routes'
 
@@ -60,6 +61,7 @@ app.route('/api/v1/bot-sessions', botSessionRoutes)
 app.route('/api/v1/whatsapp-templates', whatsappTemplateRoutes)
 app.route('/api/v1/realtime', realtimeRoutes)
 app.route('/api/v1/webhooks/whatsapp-cloud', whatsappCloudWebhookRoutes)
+app.route('/api/v1/webhooks/whatsapp-unofficial', whatsappUnofficialWebhookRoutes)
 app.route('/api/v1/widget', widgetRoutes)
 app.route('/api/v1/email', emailRoutes)
 app.route('/api/v1/telegram', telegramRoutes)

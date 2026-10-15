@@ -369,7 +369,7 @@ export class ConversationService {
       await sql`
         INSERT INTO messages (
           id, conversation_id, ticket_id, sender_type, sender_id, message_type, content, content_type,
-          status, source_id, content_attributes, created_at, updated_at
+          status, external_source_id, content_attributes, created_at, updated_at
         ) VALUES (
           ${message.id}, ${message.conversationId}, ${message.ticketId}, ${message.senderType},
           ${message.senderId}, ${message.messageType}, ${message.content}, ${message.contentType},
@@ -391,59 +391,114 @@ export class ConversationService {
 
     realtimeService.broadcast({
       event: 'message.created',
-      data: result,
+      data: {
+        id: message.id,
+        conversationId: conversation.id,
+        content: message.content || '',
+        messageType: message.messageType,
+        contentType: message.contentType,
+        senderId: message.senderId,
+        senderType: message.senderType,
+        senderName: contact.name || 'Pelanggan WhatsApp',
+        timestamp: message.createdAt,
+        createdAt: message.createdAt,
+        message,
+        conversation,
+        contact,
+        ticket,
+        isNewTicket,
+      },
     })
 
     return result
   }
 
   async getConversationById(id: string): Promise<ConversationDetail | null> {
-    let conversation = memoryStore.conversations.get(id)
+    let conversation: Conversation | null = null
 
-    if (!conversation) {
-      try {
-        const rows = await sql`
-          SELECT
-            id,
-            inbox_id as "inboxId",
-            contact_id as "contactId",
-            contact_inbox_id as "contactInboxId",
-            active_ticket_id as "activeTicketId",
-            unread_count as "unreadCount",
-            last_message_at as "lastMessageAt",
-            created_at as "createdAt",
-            updated_at as "updatedAt"
-          FROM conversations
-          WHERE id = ${id}
-          LIMIT 1
-        `
-        if (rows.length > 0) {
-          conversation = rows[0] as unknown as Conversation
-          memoryStore.conversations.set(id, conversation)
-        }
-      } catch {
-        // Memory fallback
+    try {
+      const rows = await sql`
+        SELECT
+          id,
+          inbox_id as "inboxId",
+          contact_id as "contactId",
+          contact_inbox_id as "contactInboxId",
+          active_ticket_id as "activeTicketId",
+          unread_count as "unreadCount",
+          last_message_at as "lastMessageAt",
+          created_at as "createdAt",
+          updated_at as "updatedAt"
+        FROM conversations
+        WHERE id = ${id}
+        LIMIT 1
+      `
+      if (rows && rows.length > 0) {
+        conversation = rows[0] as unknown as Conversation
+        memoryStore.conversations.set(id, conversation)
+      } else {
+        memoryStore.conversations.delete(id)
+        return null
       }
+    } catch {
+      // Memory fallback if DB is offline
+      conversation = memoryStore.conversations.get(id) || null
     }
 
     if (!conversation) {
       return null
     }
 
-    const contact = conversation.contactId
+    let contact = conversation.contactId
       ? memoryStore.contacts.get(conversation.contactId) || null
       : null
+
+    if (!contact && conversation.contactId) {
+      try {
+        const cRows = await sql`
+          SELECT id, name, phone_number as "phoneNumber", email, avatar_url as "avatarUrl",
+                 created_at as "createdAt", updated_at as "updatedAt"
+          FROM contacts WHERE id = ${conversation.contactId} LIMIT 1
+        `
+        if (cRows && cRows.length > 0) {
+          contact = cRows[0] as unknown as Contact
+          memoryStore.contacts.set(conversation.contactId, contact)
+        }
+      } catch {
+        // DB fallback
+      }
+    }
 
     const activeTicket = conversation.activeTicketId
       ? await ticketService.getTicketById(conversation.activeTicketId)
       : null
 
-    const storeIds = messageStore.conversationIndex.get(conversation.id) || []
-    const storeMessages = storeIds
-      .map((id) => messageStore.messages.get(id))
-      .filter((m): m is Message => m !== undefined)
-    const messages =
-      storeMessages.length > 0 ? storeMessages : memoryStore.messages.get(conversation.id) || []
+    let messages: Message[] = []
+    try {
+      const dbMsgs = await sql`
+        SELECT id, conversation_id as "conversationId", ticket_id as "ticketId",
+               sender_id as "senderId", sender_type as "senderType",
+               message_type as "messageType", content_type as "contentType",
+               content, status, external_source_id as "externalSourceId",
+               created_at as "createdAt", updated_at as "updatedAt"
+        FROM messages
+        WHERE conversation_id = ${id}
+        ORDER BY created_at ASC
+      `
+      if (dbMsgs && dbMsgs.length > 0) {
+        messages = dbMsgs as unknown as Message[]
+      }
+    } catch {
+      // Memory fallback if DB is offline
+    }
+
+    if (messages.length === 0) {
+      const storeIds = messageStore.conversationIndex.get(conversation.id) || []
+      const storeMessages = storeIds
+        .map((id) => messageStore.messages.get(id))
+        .filter((m): m is Message => m !== undefined)
+      messages =
+        storeMessages.length > 0 ? storeMessages : memoryStore.messages.get(conversation.id) || []
+    }
 
     return {
       conversation,
@@ -461,21 +516,83 @@ export class ConversationService {
       }
     >
   > {
-    let conversations = Array.from(memoryStore.conversations.values())
-    if (filter?.inboxId) {
-      conversations = conversations.filter((c) => c.inboxId === filter.inboxId)
+    let conversations: Conversation[]
+
+    try {
+      const rows = filter?.inboxId
+        ? await sql`
+            SELECT id, inbox_id as "inboxId", contact_id as "contactId",
+                   contact_inbox_id as "contactInboxId", active_ticket_id as "activeTicketId",
+                   unread_count as "unreadCount", last_message_at as "lastMessageAt",
+                   created_at as "createdAt", updated_at as "updatedAt"
+            FROM conversations
+            WHERE inbox_id = ${filter.inboxId}
+            ORDER BY last_message_at DESC
+          `
+        : await sql`
+            SELECT id, inbox_id as "inboxId", contact_id as "contactId",
+                   contact_inbox_id as "contactInboxId", active_ticket_id as "activeTicketId",
+                   unread_count as "unreadCount", last_message_at as "lastMessageAt",
+                   created_at as "createdAt", updated_at as "updatedAt"
+            FROM conversations
+            ORDER BY last_message_at DESC
+          `
+      conversations = (rows || []) as unknown as Conversation[]
+      if (!filter?.inboxId) {
+        memoryStore.conversations.clear()
+        for (const conv of conversations) {
+          memoryStore.conversations.set(conv.id, conv)
+        }
+      }
+    } catch {
+      // Memory fallback if DB is offline
+      conversations = Array.from(memoryStore.conversations.values())
+      if (filter?.inboxId) {
+        conversations = conversations.filter((c) => c.inboxId === filter.inboxId)
+      }
     }
 
     const result = []
     for (const conv of conversations) {
-      const contact = conv.contactId ? memoryStore.contacts.get(conv.contactId) || null : null
+      let contact = conv.contactId ? memoryStore.contacts.get(conv.contactId) || null : null
+      if (!contact && conv.contactId) {
+        try {
+          const cRows = await sql`
+            SELECT id, name, phone_number as "phoneNumber", email, avatar_url as "avatarUrl",
+                   created_at as "createdAt", updated_at as "updatedAt"
+            FROM contacts WHERE id = ${conv.contactId} LIMIT 1
+          `
+          if (cRows && cRows.length > 0) {
+            contact = cRows[0] as unknown as Contact
+            memoryStore.contacts.set(conv.contactId, contact)
+          }
+        } catch {
+          // ignore
+        }
+      }
       const activeTicket = conv.activeTicketId
         ? await ticketService.getTicketById(conv.activeTicketId)
         : null
+
+      let lastMessage: string | null = null
+      try {
+        const mRows = await sql`
+          SELECT content FROM messages
+          WHERE conversation_id = ${conv.id}
+          ORDER BY created_at DESC LIMIT 1
+        `
+        if (mRows && mRows.length > 0) {
+          lastMessage = mRows[0].content as string | null
+        }
+      } catch {
+        // ignore
+      }
+
       result.push({
         ...conv,
         contact,
         activeTicket,
+        lastMessage,
       })
     }
 

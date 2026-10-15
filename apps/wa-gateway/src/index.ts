@@ -51,3 +51,71 @@ export {
   type SendWaReactionJobPayload,
   SendWaReactionJobPayloadSchema,
 } from './types/queue'
+export {
+  createGatewayServer,
+  type GatewayServerOptions,
+} from './services/gateway-server'
+
+// Global error handlers to prevent daemon crash on socket timeouts
+process.on('uncaughtException', (err) => {
+  console.error('[wa-gateway] Uncaught exception:', err)
+})
+process.on('unhandledRejection', (reason) => {
+  console.error('[wa-gateway] Unhandled rejection:', reason)
+})
+
+// Start HTTP gateway daemon when executed as entrypoint
+const isDirectRun =
+  process.argv[1]?.endsWith('src/index.ts') || process.argv[1]?.endsWith('dist/index.js')
+if (isDirectRun) {
+  const { existsSync, readdirSync } = await import('node:fs')
+  const { join } = await import('node:path')
+  const port = Number(process.env.PORT_GATEWAY || 8801)
+  const host = process.env.HOST || '0.0.0.0'
+  const { baileysConnectionManager } = await import('./services/baileys-connection-manager')
+  const { createGatewayServer } = await import('./services/gateway-server')
+  const { OutboundMessageDispatcher } = await import('./services/outbound-dispatcher')
+  const { createOutboundWorker } = await import('./services/bullmq-worker')
+
+  const outboundDispatcher = new OutboundMessageDispatcher({
+    connectionManager: baileysConnectionManager,
+  })
+
+  // Start BullMQ outbound worker in background
+  try {
+    createOutboundWorker({
+      dispatcher: outboundDispatcher,
+    })
+    console.log('[wa-gateway] Outbound BullMQ worker initialized')
+  } catch (err) {
+    console.warn('[wa-gateway] Could not start BullMQ worker:', err)
+  }
+
+  const server = createGatewayServer(baileysConnectionManager, { dispatcher: outboundDispatcher })
+  server.listen(port, host, async () => {
+    console.log(`[wa-gateway] WhatsApp Gateway server running at http://${host}:${port}`)
+
+    // Auto-resume existing authenticated sessions
+    const sessionsDir = './data/sessions'
+    if (existsSync(sessionsDir)) {
+      try {
+        const entries = readdirSync(sessionsDir, { withFileTypes: true })
+        for (const entry of entries) {
+          if (entry.isDirectory()) {
+            const credsPath = join(sessionsDir, entry.name, 'creds.json')
+            if (existsSync(credsPath)) {
+              const sessionId = entry.name
+              console.log(`[wa-gateway] Resuming authenticated session: ${sessionId}`)
+              const session = await baileysConnectionManager.createSession({ sessionId })
+              session.startSocket().catch((err) => {
+                console.error(`[wa-gateway] Failed to auto-resume session ${sessionId}:`, err)
+              })
+            }
+          }
+        }
+      } catch (err) {
+        console.error('[wa-gateway] Failed to scan sessions dir:', err)
+      }
+    }
+  })
+}

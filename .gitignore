@@ -33,6 +33,8 @@ out/
 *.db-journal
 *.sqlite
 storage/uploads/
+data/
+apps/wa-gateway/data/
 
 # Logs
 *.log

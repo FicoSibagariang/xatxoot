@@ -1,8 +1,8 @@
 import type { BotFlowDefinition, WhatsAppTemplate } from '@xatxoot/shared'
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { BusinessHoursSettings } from './components/business-hours'
 import { ChannelWizard } from './components/channels'
-import type { TimelineMessage } from './components/chat'
+import type { ContentType, MessageType, TimelineMessage } from './components/chat'
 import { VisualFlowBuilder } from './components/flow-builder'
 import { WhatsAppLayout } from './components/layout/WhatsAppLayout'
 import type {
@@ -356,18 +356,15 @@ export function App({ initialAuthenticated }: AppProps = {}) {
     return INITIAL_USER
   })
 
-  const [conversations, setConversations] = useState<ConversationItem[]>(INITIAL_CONVERSATIONS)
-  const [messagesMap, setMessagesMap] =
-    useState<Record<string, TimelineMessage[]>>(INITIAL_MESSAGES_MAP)
-  const [selectedConversationId, setSelectedConversationId] = useState<string | null>('conv-1')
+  const [conversations, setConversations] = useState<ConversationItem[]>([])
+  const [messagesMap, setMessagesMap] = useState<Record<string, TimelineMessage[]>>({})
+  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null)
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
   const [activeTab, setActiveTab] = useState<LayoutNavTab>('inbox')
   const [activeChannelFilter, setActiveChannelFilter] = useState<LayoutChannelFilter>('all')
   const [activeFilter, setActiveFilter] = useState<ChatFilter>('all')
   const [searchQuery, setSearchQuery] = useState('')
-  const [internalNote, setInternalNote] = useState(
-    'Pelanggan VIP. Sering melakukan pemesanan rutin setiap awal bulan.',
-  )
+  const [internalNote, setInternalNote] = useState('')
   const [isPairingDialogOpen, setIsPairingDialogOpen] = useState(false)
   const [isBotFlowBuilderOpen, setIsBotFlowBuilderOpen] = useState(false)
   const [isTeamManagementOpen, setIsTeamManagementOpen] = useState(false)
@@ -378,28 +375,219 @@ export function App({ initialAuthenticated }: AppProps = {}) {
   const [templates] = useState<WhatsAppTemplate[]>(INITIAL_TEMPLATES)
   const [botFlow, setBotFlow] = useState<BotFlowDefinition>(INITIAL_BOT_FLOW)
   const [pairingState, setPairingState] = useState<BaileysPairingState>({
-    status: 'qr_ready',
-    qrData: '2@fK7x8Y1...xatxoot-baileys-live-session-qr',
+    status: 'connecting',
   })
 
-  // Real-time SSE updates without page refresh
-  const { status: _realtimeStatus } = useRealtimeStream({
-    token: 'mock-agent-jwt',
-    onMessageCreated: (event) => {
-      setMessagesMap((prev) => applyRealtimeMessage(prev, event))
-      setConversations((prev) =>
-        prev.map((c) =>
-          c.id === event.conversationId
-            ? {
-                ...c,
-                lastMessage: event.content,
-                lastMessageTimestamp: 'Baru saja',
-                unreadCount:
-                  selectedConversationId === event.conversationId ? 0 : (c.unreadCount || 0) + 1,
+  // Fetch live Baileys pairing QR code from backend API
+  const fetchBaileysQr = useCallback(async () => {
+    try {
+      const token =
+        typeof window !== 'undefined'
+          ? localStorage.getItem('auth_token') || 'valid-access-token'
+          : 'valid-access-token'
+      const res = await fetch('/api/v1/inboxes/default/channel/whatsapp-unofficial/qr', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+      if (res.ok) {
+        const data = (await res.json()) as {
+          sessionId?: string
+          connectionStatus?: string
+          qrCode?: string | null
+          phoneNumber?: string | null
+        }
+        if (data.connectionStatus === 'connected') {
+          setPairingState({
+            status: 'connected',
+            sessionId: data.sessionId,
+            phoneNumber: data.phoneNumber || '+6281234567890',
+          })
+        } else if (data.qrCode) {
+          setPairingState({
+            status: 'qr_ready',
+            qrData: data.qrCode,
+            sessionId: data.sessionId,
+          })
+        } else {
+          setPairingState((prev) => ({
+            ...prev,
+            status: (data.connectionStatus as BaileysPairingState['status']) || 'connecting',
+            sessionId: data.sessionId || prev.sessionId,
+          }))
+        }
+      }
+    } catch (err) {
+      console.error('Failed to fetch Baileys live QR code:', err)
+    }
+  }, [])
+
+  // Poll for Baileys pairing QR status while pairing dialog is open
+  useEffect(() => {
+    if (!isPairingDialogOpen) return
+
+    fetchBaileysQr()
+    const timer = setInterval(() => {
+      fetchBaileysQr()
+    }, 2500)
+
+    return () => clearInterval(timer)
+  }, [isPairingDialogOpen, fetchBaileysQr])
+
+  // Initial load: Fetch conversations from backend API
+  const fetchConversations = useCallback(async () => {
+    try {
+      const token =
+        typeof window !== 'undefined'
+          ? localStorage.getItem('auth_token') || 'valid-access-token'
+          : 'valid-access-token'
+      const res = await fetch('/api/v1/conversations', {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (res.ok) {
+        // biome-ignore lint/suspicious/noExplicitAny: backend conversation item
+        const data = (await res.json()) as any[]
+        if (Array.isArray(data)) {
+          if (data.length > 0) {
+            // biome-ignore lint/suspicious/noExplicitAny: mapping backend schema
+            const mapped: ConversationItem[] = data.map((item: any) => ({
+              id: item.id,
+              contactName: item.contact?.name || item.contact?.phoneNumber || 'Pelanggan WhatsApp',
+              contactPhone: item.contact?.phoneNumber,
+              // biome-ignore lint/suspicious/noExplicitAny: channel type
+              channel: (item.channelType as any) || 'whatsapp',
+              lastMessage:
+                item.lastMessage ||
+                (item.lastMessageAt ? 'Pesan baru diterima' : 'Percakapan baru'),
+              lastMessageTimestamp: item.lastMessageAt
+                ? new Date(item.lastMessageAt).toLocaleTimeString('id-ID', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })
+                : 'Baru saja',
+              unreadCount: item.unreadCount || 0,
+              ticket: item.activeTicket
+                ? {
+                    id: item.activeTicket.id,
+                    ticketNumber: item.activeTicket.displayId || 'T-000',
+                    status: item.activeTicket.status || 'open',
+                    priority: item.activeTicket.priority || 'medium',
+                    assignedTo: item.activeTicket.assigneeId,
+                  }
+                : undefined,
+            }))
+
+            setConversations(mapped)
+            setSelectedConversationId((prev) =>
+              prev && mapped.some((m) => m.id === prev) ? prev : mapped[0].id,
+            )
+          } else {
+            setConversations([])
+            setSelectedConversationId(null)
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load conversations from backend:', err)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchConversations()
+    const timer = setInterval(() => {
+      fetchConversations()
+    }, 2500)
+    return () => clearInterval(timer)
+  }, [fetchConversations])
+
+  // Fetch messages when conversation is selected
+  useEffect(() => {
+    if (!selectedConversationId) return
+    const fetchMessages = async () => {
+      try {
+        const token =
+          typeof window !== 'undefined'
+            ? localStorage.getItem('auth_token') || 'valid-access-token'
+            : 'valid-access-token'
+        const res = await fetch(`/api/v1/conversations/${selectedConversationId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        if (res.ok) {
+          // biome-ignore lint/suspicious/noExplicitAny: backend conversation detail
+          const data = (await res.json()) as any
+          if (data.messages && Array.isArray(data.messages)) {
+            // biome-ignore lint/suspicious/noExplicitAny: message mapping
+            const mappedMsgs: TimelineMessage[] = data.messages.map((m: any) => {
+              const isCustomer = m.senderType === 'contact' || m.senderType === 'customer'
+              const msgType: MessageType =
+                m.messageType === 'activity' || m.senderType === 'system'
+                  ? 'activity'
+                  : isCustomer
+                    ? 'incoming'
+                    : 'outgoing'
+
+              return {
+                id: m.id,
+                conversationId: m.conversationId,
+                senderId: m.senderId || (isCustomer ? 'customer' : user.id),
+                senderType: isCustomer ? 'contact' : 'user',
+                senderName: isCustomer
+                  ? data.contact?.name || data.contact?.phoneNumber || 'Pelanggan'
+                  : user.name,
+                messageType: msgType,
+                contentType: (m.contentType as ContentType) || 'text',
+                content: m.content || '',
+                timestamp: m.createdAt
+                  ? new Date(m.createdAt).toLocaleTimeString('id-ID', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })
+                  : 'Baru saja',
+                dateGroup: 'HARI INI',
+                status: m.status || (isCustomer ? 'delivered' : 'read'),
               }
-            : c,
-        ),
-      )
+            })
+            setMessagesMap((prev) => ({
+              ...prev,
+              [selectedConversationId]: mappedMsgs,
+            }))
+          }
+        }
+      } catch {
+        // preserve memory messages on error
+      }
+    }
+    fetchMessages()
+    const timer = setInterval(fetchMessages, 2000)
+    return () => clearInterval(timer)
+  }, [selectedConversationId, user.name, user.id])
+
+  // Real-time SSE updates without page refresh
+  const sseToken =
+    typeof window !== 'undefined'
+      ? localStorage.getItem('auth_token') || 'valid-access-token'
+      : 'valid-access-token'
+
+  const { status: _realtimeStatus } = useRealtimeStream({
+    token: sseToken,
+    onMessageCreated: (rawEvent) => {
+      // biome-ignore lint/suspicious/noExplicitAny: event normalization
+      const anyEvt = rawEvent as any
+      const event: MessageCreatedEvent = {
+        id: anyEvt.message?.id || anyEvt.id,
+        conversationId:
+          anyEvt.conversation?.id || anyEvt.conversationId || anyEvt.message?.conversationId,
+        content: anyEvt.message?.content || anyEvt.content || '',
+        messageType: anyEvt.message?.messageType || anyEvt.messageType || 'incoming',
+        contentType: anyEvt.message?.contentType || anyEvt.contentType || 'text',
+        senderId: anyEvt.message?.senderId || anyEvt.contact?.id || anyEvt.senderId,
+        senderType: anyEvt.message?.senderType || anyEvt.senderType || 'contact',
+        senderName: anyEvt.contact?.name || anyEvt.senderName || 'Pelanggan WhatsApp',
+        timestamp: anyEvt.message?.createdAt || anyEvt.timestamp,
+      }
+
+      setMessagesMap((prev) => applyRealtimeMessage(prev, event))
+      fetchConversations()
     },
     onMessageStatusUpdated: (event) => {
       setMessagesMap((prev) => applyRealtimeMessageStatus(prev, event))
@@ -448,21 +636,28 @@ export function App({ initialAuthenticated }: AppProps = {}) {
 
   const currentMessages = selectedConversationId ? messagesMap[selectedConversationId] || [] : []
 
-  const handleSendMessage = (text: string) => {
-    if (!selectedConversationId) return
+  const handleSendMessage = async (text: string) => {
+    if (!selectedConversationId || !text.trim()) return
+
+    const tempId = `msg-${Date.now()}`
+    const now = new Date()
+    const timeStr = now.toLocaleTimeString('id-ID', {
+      hour: '2-digit',
+      minute: '2-digit',
+    })
 
     const newMsg: TimelineMessage = {
-      id: `msg-${Date.now()}`,
+      id: tempId,
       conversationId: selectedConversationId,
       senderId: user.id,
       senderType: 'user',
       senderName: user.name,
       messageType: 'outgoing',
       contentType: 'text',
-      content: text,
-      timestamp: 'Baru saja',
+      content: text.trim(),
+      timestamp: timeStr,
       dateGroup: 'HARI INI',
-      status: 'sent',
+      status: 'pending',
     }
 
     setMessagesMap((prev) => ({
@@ -475,13 +670,80 @@ export function App({ initialAuthenticated }: AppProps = {}) {
         c.id === selectedConversationId
           ? {
               ...c,
-              lastMessage: text,
-              lastMessageTimestamp: 'Baru saja',
+              lastMessage: text.trim(),
+              lastMessageTimestamp: timeStr,
               unreadCount: 0,
             }
           : c,
       ),
     )
+
+    try {
+      const token =
+        typeof window !== 'undefined'
+          ? localStorage.getItem('auth_token') || 'valid-access-token'
+          : 'valid-access-token'
+
+      const res = await fetch(`/api/v1/conversations/${selectedConversationId}/messages`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          content: text.trim(),
+          contentType: 'text',
+        }),
+      })
+
+      if (res.ok) {
+        // biome-ignore lint/suspicious/noExplicitAny: backend message response
+        const data = (await res.json()) as any
+        const m = data?.message
+        if (m) {
+          const sentMsg: TimelineMessage = {
+            id: m.id || tempId,
+            conversationId: selectedConversationId,
+            senderId: m.senderId || user.id,
+            senderType: 'user',
+            senderName: user.name,
+            messageType: 'outgoing',
+            contentType: (m.contentType as ContentType) || 'text',
+            content: m.content || text.trim(),
+            timestamp: m.createdAt
+              ? new Date(m.createdAt).toLocaleTimeString('id-ID', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })
+              : timeStr,
+            dateGroup: 'HARI INI',
+            status: m.status || 'sent',
+          }
+
+          setMessagesMap((prev) => ({
+            ...prev,
+            [selectedConversationId]: (prev[selectedConversationId] || []).map((msg) =>
+              msg.id === tempId ? sentMsg : msg,
+            ),
+          }))
+        }
+      } else {
+        setMessagesMap((prev) => ({
+          ...prev,
+          [selectedConversationId]: (prev[selectedConversationId] || []).map((msg) =>
+            msg.id === tempId ? { ...msg, status: 'failed' } : msg,
+          ),
+        }))
+      }
+    } catch (err) {
+      console.error('Failed to send message:', err)
+      setMessagesMap((prev) => ({
+        ...prev,
+        [selectedConversationId]: (prev[selectedConversationId] || []).map((msg) =>
+          msg.id === tempId ? { ...msg, status: 'failed' } : msg,
+        ),
+      }))
+    }
   }
 
   const handleResolveTicket = () => {
@@ -632,20 +894,16 @@ export function App({ initialAuthenticated }: AppProps = {}) {
         onRefreshQr={() => {
           setPairingState((prev) => ({
             ...prev,
-            status: 'qr_ready',
-            qrData: `2@fK7x8Y1...refreshed-${Date.now()}`,
+            status: 'connecting',
           }))
+          fetchBaileysQr()
         }}
         onRetry={() => {
-          setPairingState({
+          setPairingState((prev) => ({
+            ...prev,
             status: 'connecting',
-          })
-          setTimeout(() => {
-            setPairingState({
-              status: 'qr_ready',
-              qrData: `2@fK7x8Y1...reconnected-${Date.now()}`,
-            })
-          }, 500)
+          }))
+          fetchBaileysQr()
         }}
       />
 

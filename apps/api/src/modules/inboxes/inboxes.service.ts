@@ -290,6 +290,24 @@ export class InboxService {
   }
 
   async getInboxById(id: string): Promise<{ inbox: Inbox; channel: ChannelData } | null> {
+    if (id === 'active' || id === 'default') {
+      try {
+        const rows = await sql`
+          SELECT id FROM inboxes WHERE channel_type = 'whatsapp_unofficial' ORDER BY created_at DESC LIMIT 1
+        `
+        if (rows.length > 0) {
+          return this.getInboxById(rows[0].id)
+        }
+      } catch {
+        // Fallback
+      }
+      for (const [inboxId, inboxRec] of memoryStore.inboxes.entries()) {
+        if (inboxRec.channelType === 'whatsapp_unofficial') {
+          return this.getInboxById(inboxId)
+        }
+      }
+    }
+
     try {
       const rows = await sql`
         SELECT id, name, channel_type as "channelType", channel_id as "channelId",
@@ -571,10 +589,95 @@ export class InboxService {
       return null
     }
 
+    const sessionId = String(channelDetails.sessionId)
+    const channelId = String(channelDetails.id)
+    const gatewayPort = Number(process.env.PORT_GATEWAY || 8801)
+    const gatewayUrl = `http://127.0.0.1:${gatewayPort}`
+
+    try {
+      // 1. Query gateway session status
+      const statusRes = await fetch(`${gatewayUrl}/api/sessions/${sessionId}/status`, {
+        signal: AbortSignal.timeout(1500),
+      })
+
+      if (statusRes.ok) {
+        const gwStatus = (await statusRes.json()) as {
+          status: string
+          qrCode?: string | null
+          phoneNumber?: string | null
+        }
+
+        if (gwStatus.status === 'connected') {
+          if (channelDetails.connectionStatus !== 'connected') {
+            await sql`
+              UPDATE channels_whatsapp_unofficial
+              SET connection_status = 'connected', phone_number = ${gwStatus.phoneNumber || null}, qr_code = NULL, updated_at = NOW()
+              WHERE id = ${channelId}
+            `.catch(() => {})
+          }
+          return {
+            sessionId,
+            connectionStatus: 'connected',
+            phoneNumber: gwStatus.phoneNumber || null,
+            qrCode: null,
+          }
+        }
+
+        if (gwStatus.qrCode) {
+          await sql`
+            UPDATE channels_whatsapp_unofficial
+            SET connection_status = 'qr_ready', qr_code = ${gwStatus.qrCode}, updated_at = NOW()
+            WHERE id = ${channelId}
+          `.catch(() => {})
+          return {
+            sessionId,
+            connectionStatus: 'qr_ready',
+            qrCode: gwStatus.qrCode,
+            phoneNumber: null,
+          }
+        }
+      }
+
+      // 2. If session disconnected in gateway, trigger start
+      if (channelDetails.connectionStatus !== 'connected') {
+        const startRes = await fetch(`${gatewayUrl}/api/sessions/start`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sessionId, channelId, inboxId }),
+          signal: AbortSignal.timeout(2000),
+        })
+
+        if (startRes.ok) {
+          const startData = (await startRes.json()) as {
+            status: string
+            qrCode?: string | null
+            phoneNumber?: string | null
+          }
+          if (startData.qrCode) {
+            return {
+              sessionId,
+              connectionStatus: 'qr_ready',
+              qrCode: startData.qrCode,
+              phoneNumber: null,
+            }
+          }
+          return {
+            sessionId,
+            connectionStatus: startData.status || 'connecting',
+            qrCode: null,
+            phoneNumber: null,
+          }
+        }
+      }
+    } catch {
+      // Gateway unreachable or timed out; fallback to local DB state
+    }
+
     return {
       sessionId: channelDetails.sessionId,
       connectionStatus: channelDetails.connectionStatus,
       qrCode: channelDetails.qrCode || null,
+      phoneNumber: channelDetails.phoneNumber || null,
     }
   }
 
@@ -587,6 +690,18 @@ export class InboxService {
     const channel = inboxResult.channel as WhatsAppUnofficialChannelData
     channel.connectionStatus = 'disconnected'
     channel.qrCode = null
+
+    // Notify wa-gateway to terminate socket session
+    const gatewayPort = Number(process.env.PORT_GATEWAY || 8801)
+    const gatewayUrl = `http://127.0.0.1:${gatewayPort}`
+    try {
+      await fetch(`${gatewayUrl}/api/sessions/${channel.sessionId}/disconnect`, {
+        method: 'POST',
+        signal: AbortSignal.timeout(1500),
+      })
+    } catch {
+      // ignore network errors
+    }
 
     try {
       await sql`

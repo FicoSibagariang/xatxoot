@@ -52,7 +52,7 @@ export interface MinimalWAMessage {
 
 export function extractInboundMessage(
   wam: unknown,
-  context: { channelId: string; inboxId: string },
+  context: { channelId: string; inboxId: string; allowSelfChat?: boolean },
 ): WaInboundMessageEvent | null {
   if (!wam || typeof wam !== 'object') {
     return null
@@ -64,8 +64,8 @@ export function extractInboundMessage(
     return null
   }
 
-  // Ignore outgoing messages sent by the device
-  if (key.fromMe) {
+  // Ignore outgoing messages sent by the device (unless testing via self-chat)
+  if (key.fromMe && !context.allowSelfChat) {
     return null
   }
 
@@ -81,10 +81,45 @@ export function extractInboundMessage(
     return null
   }
 
-  const senderNumber = remoteJid.replace(/@.*$/, '')
-  const contentObj = msg.message
+  // If remoteJid is an LID, extract actual phone number from remoteJidAlt / participantAlt
+  let senderJid = remoteJid
+  // biome-ignore lint/suspicious/noExplicitAny: Baileys alt properties
+  const anyKey = key as any
+  if (senderJid.endsWith('@lid')) {
+    if (
+      anyKey.remoteJidAlt &&
+      typeof anyKey.remoteJidAlt === 'string' &&
+      anyKey.remoteJidAlt.includes('@s.whatsapp.net')
+    ) {
+      senderJid = anyKey.remoteJidAlt
+    } else if (
+      anyKey.participantAlt &&
+      typeof anyKey.participantAlt === 'string' &&
+      anyKey.participantAlt.includes('@s.whatsapp.net')
+    ) {
+      senderJid = anyKey.participantAlt
+    }
+  }
+
+  const senderNumber = senderJid.split('@')[0].split(':')[0]
+  // biome-ignore lint/suspicious/noExplicitAny: Baileys nested message wrapper
+  let contentObj: any = msg.message
   if (!contentObj) {
     return null
+  }
+
+  // Unwrap ephemeral, viewOnce, or other wrappers
+  while (
+    contentObj?.ephemeralMessage?.message ||
+    contentObj?.viewOnceMessage?.message ||
+    contentObj?.viewOnceMessageV2?.message ||
+    contentObj?.documentWithCaptionMessage?.message
+  ) {
+    contentObj =
+      contentObj.ephemeralMessage?.message ||
+      contentObj.viewOnceMessage?.message ||
+      contentObj.viewOnceMessageV2?.message ||
+      contentObj.documentWithCaptionMessage?.message
   }
 
   let messageType: WaInboundMessageType = 'text'
@@ -145,6 +180,24 @@ export function extractInboundMessage(
     media = {
       mimeType: contentObj.stickerMessage.mimetype || 'image/webp',
     }
+  } else if (contentObj.buttonsResponseMessage) {
+    messageType = 'text'
+    content =
+      contentObj.buttonsResponseMessage.selectedDisplayText ||
+      contentObj.buttonsResponseMessage.selectedButtonId ||
+      undefined
+  } else if (contentObj.listResponseMessage) {
+    messageType = 'text'
+    content =
+      contentObj.listResponseMessage.title ||
+      contentObj.listResponseMessage.singleSelectReply?.selectedRowId ||
+      undefined
+  } else if (contentObj.templateButtonReplyMessage) {
+    messageType = 'text'
+    content =
+      contentObj.templateButtonReplyMessage.selectedDisplayText ||
+      contentObj.templateButtonReplyMessage.selectedId ||
+      undefined
   } else {
     return null
   }

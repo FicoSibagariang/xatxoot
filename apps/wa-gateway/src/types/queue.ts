@@ -7,7 +7,7 @@ export const JOB_NAME_SEND_REACTION = 'send-reaction'
 export const SendWaMessageJobPayloadSchema = z.object({
   jobId: z.string().uuid('Job ID harus berupa UUID valid'),
   messageId: z.string().uuid('Message ID harus berupa UUID valid'),
-  channelId: z.string().uuid('Channel ID harus berupa UUID valid'),
+  channelId: z.string().min(1, 'Channel ID wajib diisi'),
   recipientNumber: z.string().min(1, 'Recipient number wajib diisi'),
   messageType: z.enum(['text', 'image', 'video', 'audio', 'document']),
   text: z.string().optional(),
@@ -19,7 +19,7 @@ export const SendWaMessageJobPayloadSchema = z.object({
 export type SendWaMessageJobPayload = z.infer<typeof SendWaMessageJobPayloadSchema>
 
 export const SendWaReactionJobPayloadSchema = z.object({
-  channelId: z.string().uuid('Channel ID harus berupa UUID valid'),
+  channelId: z.string().min(1, 'Channel ID wajib diisi'),
   recipientNumber: z.string().min(1, 'Recipient number wajib diisi'),
   targetExternalMessageId: z.string().min(1, 'Target external message ID wajib diisi'),
   emoji: z.string(),

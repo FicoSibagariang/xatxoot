@@ -452,7 +452,7 @@ export class WhatsAppTemplateService {
       await sql`
         INSERT INTO messages (
           id, conversation_id, ticket_id, sender_type, sender_id, message_type,
-          content, content_type, status, source_id, content_attributes, created_at, updated_at
+          content, content_type, status, external_source_id, content_attributes, created_at, updated_at
         ) VALUES (
           ${message.id}, ${message.conversationId}, ${message.ticketId}, ${message.senderType},
           ${message.senderId}, ${message.messageType}, ${message.content}, ${message.contentType},

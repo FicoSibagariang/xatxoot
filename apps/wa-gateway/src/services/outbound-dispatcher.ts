@@ -26,11 +26,27 @@ export class OutboundMessageDispatcher {
     this.redisPublisher = options.redisPublisher
   }
 
-  private findSession(channelId: string) {
+  private findSession(channelId?: string) {
     const sessions = this.connectionManager.getAllSessions()
-    return sessions.find(
-      (s) => s.channelId === channelId && s.status === 'connected' && s.socket != null,
-    )
+    if (channelId) {
+      const match = sessions.find(
+        (s) =>
+          (s.channelId === channelId ||
+            s.sessionId === channelId ||
+            s.sessionId.includes(channelId) ||
+            channelId.includes(s.sessionId)) &&
+          s.status === 'connected' &&
+          s.socket != null,
+      )
+      if (match) return match
+    }
+
+    const connectedSessions = sessions.filter((s) => s.status === 'connected' && s.socket != null)
+    if (connectedSessions.length === 1) {
+      return connectedSessions[0]
+    }
+
+    return undefined
   }
 
   async sendMessage(payload: SendWaMessageJobPayload): Promise<DispatchResult> {
@@ -41,7 +57,8 @@ export class OutboundMessageDispatcher {
       throw new Error(`No connected Baileys session for channel ${validated.channelId}`)
     }
 
-    const jid = `${validated.recipientNumber.replace(/@.*$/, '')}@s.whatsapp.net`
+    const cleanNumber = validated.recipientNumber.replace(/@.*$/, '').replace(/\D/g, '')
+    const jid = `${cleanNumber}@s.whatsapp.net`
     const content: Record<string, unknown> = {}
 
     if (validated.messageType === 'text') {
@@ -90,7 +107,8 @@ export class OutboundMessageDispatcher {
       throw new Error(`No connected Baileys session for channel ${validated.channelId}`)
     }
 
-    const jid = `${validated.recipientNumber.replace(/@.*$/, '')}@s.whatsapp.net`
+    const cleanNumber = validated.recipientNumber.replace(/@.*$/, '').replace(/\D/g, '')
+    const jid = `${cleanNumber}@s.whatsapp.net`
     const content = {
       react: {
         text: validated.emoji,

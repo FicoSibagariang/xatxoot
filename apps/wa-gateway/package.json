@@ -12,7 +12,7 @@
     "test": "bun test"
   },
   "dependencies": {
-    "@whiskeysockets/baileys": "^6.7.24",
+    "@whiskeysockets/baileys": "7.0.0-rc14",
     "@xatxoot/shared": "workspace:*",
     "bullmq": "^5.81.5",
     "ioredis": "^5.5.0",

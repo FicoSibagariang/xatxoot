@@ -15,6 +15,23 @@ describe('Baileys QR Pairing Dialog Component (Task 1.27 - apps/web)', () => {
       expect(html).toContain('height="240"')
     })
 
+    it('should dynamically adapt viewBox to QR version matrix size for long authentic WhatsApp pairing strings', () => {
+      // Authentic WhatsApp multi-device pairing string is typically 150+ chars
+      const authenticWaQr =
+        '2@fK7x8Y1jK89L+N7gV90kL88xY1jK89L+N7gV90kL88=,bF8x1jK89L+N7gV90kL88xY1jK89L+N7gV90kL88=,cF8x1jK89L+N7gV90kL88xY1jK89L+N7gV90kL88=,dF8x1jK89L+N7gV90kL88xY1jK89L+N7gV90kL88='
+      const html = renderToStaticMarkup(<QrCodeRenderer qrData={authenticWaQr} size={260} />)
+      expect(html).toContain('data-testid="qr-code-display"')
+      expect(html).toContain('width="260"')
+      // Standard ISO QR code for 170+ chars with Error Correction M is Version 7-10 (45x45 to 57x57 matrix + quiet zone margin)
+      // ViewBox should be larger than hardcoded 25x25
+      const match = html.match(/viewBox="0 0 (\d+) (\d+)"/)
+      expect(match).not.toBeNull()
+      if (match) {
+        const viewBoxDimension = Number.parseInt(match[1], 10)
+        expect(viewBoxDimension).toBeGreaterThan(30)
+      }
+    })
+
     it('should render fallback placeholder when qrData is empty', () => {
       const html = renderToStaticMarkup(<QrCodeRenderer qrData="" size={240} />)
       expect(html).toContain('data-testid="qr-code-display"')
