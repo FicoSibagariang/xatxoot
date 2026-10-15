@@ -34,6 +34,12 @@ describe('Omnichannel Channel Configuration Wizard (Task 3.13 - apps/web)', () =
       expect(html).toContain('SMS Twilio')
       expect(html).toContain('Twilio SMS')
       expect(html).toContain('Kirim dan terima SMS global melalui Twilio')
+
+      // 5. WhatsApp Web / Baileys Card
+      expect(html).toContain('WhatsApp Web (Baileys)')
+      expect(html).toContain('Scan QR')
+      expect(html).toContain('Tautkan akun WhatsApp menggunakan QR Code')
+      expect(html).toContain('data-testid="channel-select-whatsapp"')
     })
   })
 

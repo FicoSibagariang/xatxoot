@@ -101,6 +101,25 @@ describe('WhatsApp 3.5-Column Layout (Task 1.24 - apps/web)', () => {
 
       expect(html).toContain('data-active="true"')
     })
+
+    it('should render WhatsApp QR pairing button and status indicator in CH section when onOpenWhatsAppPairing is provided', () => {
+      const html = renderToStaticMarkup(
+        <NavRail
+          currentUser={mockUser}
+          activeTab="inbox"
+          activeChannelFilter="all"
+          onTabChange={() => {}}
+          onChannelFilterChange={() => {}}
+          onPresenceChange={() => {}}
+          onOpenWhatsAppPairing={() => {}}
+          whatsappConnectionStatus="qr_ready"
+        />,
+      )
+
+      expect(html).toContain('data-testid="channel-whatsapp-qr-button"')
+      expect(html).toContain('Tautkan WhatsApp Web / Scan QR Baileys')
+      expect(html).toContain('bg-amber-400')
+    })
   })
 
   describe('ChatListPanel (Kolom 2: 360px - 400px Resizable/Bounded Panel)', () => {

@@ -8,7 +8,13 @@ import {
 import type React from 'react'
 import { useState } from 'react'
 
-export type WizardChannelType = 'email' | 'telegram' | 'facebook' | 'instagram' | 'sms'
+export type WizardChannelType =
+  | 'email'
+  | 'telegram'
+  | 'facebook'
+  | 'instagram'
+  | 'sms'
+  | 'whatsapp_baileys'
 
 export interface ChannelWizardPayload {
   channelType: WizardChannelType
@@ -117,6 +123,7 @@ export interface ChannelWizardProps {
   savedInboxName?: string
   onSaveChannel?: (payload: ChannelWizardPayload) => void | Promise<void>
   onClose?: () => void
+  onOpenWhatsAppPairing?: () => void
 }
 
 export function ChannelWizard({
@@ -125,6 +132,7 @@ export function ChannelWizard({
   savedInboxName = '',
   onSaveChannel,
   onClose,
+  onOpenWhatsAppPairing,
 }: ChannelWizardProps) {
   const [step, setStep] = useState<'select' | 'configure' | 'success'>(initialStep)
   const [selectedChannel, setSelectedChannel] = useState<WizardChannelType>(initialChannel)
@@ -180,6 +188,7 @@ export function ChannelWizard({
         facebook: 'Facebook Messenger',
         instagram: 'Instagram Direct',
         sms: 'Twilio SMS Helpline',
+        whatsapp_baileys: 'WhatsApp Layanan',
       }
       setInboxName(defaultNames[channel])
     }
@@ -233,6 +242,8 @@ export function ChannelWizard({
         return '/api/v1/meta-social/webhook'
       case 'sms':
         return '/api/v1/sms/webhook'
+      case 'whatsapp_baileys':
+        return 'Baileys Socket Gateway (Real-time Redis & BullMQ)'
       default:
         return 'IMAP Polling Service Aktif (Pengecekan Inbound Otomatis)'
     }
@@ -396,6 +407,33 @@ export function ChannelWizard({
                     Kirim dan terima SMS global melalui Twilio Programmable Messaging API.
                   </p>
                 </button>
+
+                {/* 5. WhatsApp Web / Baileys Card */}
+                <button
+                  type="button"
+                  data-testid="channel-select-whatsapp"
+                  onClick={() => {
+                    if (onOpenWhatsAppPairing) {
+                      onOpenWhatsAppPairing()
+                      if (onClose) onClose()
+                    } else {
+                      handleSelectChannel('whatsapp_baileys')
+                    }
+                  }}
+                  className="flex flex-col text-left rounded-xl border border-slate-200 p-4 transition-all hover:border-emerald-500 hover:shadow-md bg-white hover:bg-emerald-50/10 cursor-pointer sm:col-span-2"
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-2xl">💬</span>
+                    <span className="rounded-md bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 border border-emerald-200">
+                      Scan QR
+                    </span>
+                  </div>
+                  <h3 className="font-bold text-slate-800">WhatsApp Web (Baileys)</h3>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Tautkan akun WhatsApp menggunakan QR Code untuk menerima dan membalas pesan
+                    obrolan secara langsung.
+                  </p>
+                </button>
               </div>
             </div>
           )}
@@ -410,6 +448,7 @@ export function ChannelWizard({
                   {(selectedChannel === 'facebook' || selectedChannel === 'instagram') &&
                     'Konfigurasi Meta Social'}
                   {selectedChannel === 'sms' && 'Konfigurasi SMS (Twilio)'}
+                  {selectedChannel === 'whatsapp_baileys' && 'Konfigurasi WhatsApp Web (Baileys)'}
                 </h3>
                 <button
                   type="button"
@@ -865,6 +904,32 @@ export function ChannelWizard({
                     />
                     {errors.fromPhoneNumber && (
                       <p className="mt-1 text-[11px] text-rose-600">{errors.fromPhoneNumber}</p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* 5. WHATSAPP BAILEYS FORM */}
+              {selectedChannel === 'whatsapp_baileys' && (
+                <div className="space-y-4">
+                  <div className="rounded-xl bg-emerald-50 p-4 border border-emerald-100 text-xs text-emerald-900">
+                    <p className="font-semibold mb-1">Koneksi WhatsApp Web (Baileys):</p>
+                    <p className="text-[11px] text-emerald-800 mb-3">
+                      Saluran ini menghubungkan nomor WhatsApp pribadi atau bisnis Anda secara
+                      nirkabel melalui pemindaian QR Code (fitur Perangkat Tertaut di aplikasi
+                      WhatsApp).
+                    </p>
+                    {onOpenWhatsAppPairing && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onOpenWhatsAppPairing()
+                          if (onClose) onClose()
+                        }}
+                        className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3.5 py-2 text-xs font-bold text-white shadow-xs hover:bg-emerald-700 transition-colors cursor-pointer"
+                      >
+                        📲 Buka Pemindai QR Sekarang
+                      </button>
                     )}
                   </div>
                 </div>

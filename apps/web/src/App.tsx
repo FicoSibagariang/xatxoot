@@ -620,6 +620,8 @@ export function App({ initialAuthenticated }: AppProps = {}) {
         onOpenTemplateDialog={() => setIsTemplateDialogOpen(true)}
         onLogout={handleLogout}
         onAddChannel={() => setIsChannelWizardOpen(true)}
+        onOpenWhatsAppPairing={() => setIsPairingDialogOpen(true)}
+        whatsappConnectionStatus={pairingState.status}
       />
 
       <BaileysPairingDialog
@@ -769,6 +771,10 @@ export function App({ initialAuthenticated }: AppProps = {}) {
       {isChannelWizardOpen && (
         <ChannelWizard
           onClose={() => setIsChannelWizardOpen(false)}
+          onOpenWhatsAppPairing={() => {
+            setIsChannelWizardOpen(false)
+            setIsPairingDialogOpen(true)
+          }}
           onSaveChannel={async (payload) => {
             try {
               const token =

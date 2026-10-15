@@ -42,6 +42,8 @@ export interface NavRailProps {
   onOpenSettings?: () => void
   onLogout?: () => void
   onAddChannel?: () => void
+  onOpenWhatsAppPairing?: () => void
+  whatsappConnectionStatus?: 'connected' | 'qr_ready' | 'connecting' | 'disconnected'
 }
 
 export function NavRail({
@@ -54,6 +56,8 @@ export function NavRail({
   onOpenSettings,
   onLogout,
   onAddChannel,
+  onOpenWhatsAppPairing,
+  whatsappConnectionStatus = 'disconnected',
 }: NavRailProps) {
   const [showPresenceMenu, setShowPresenceMenu] = useState(false)
 
@@ -206,9 +210,30 @@ export function NavRail({
             data-testid="channel-add-button"
             onClick={onAddChannel}
             title="Tambah / Kelola Saluran (Channels)"
-            className="w-8 h-8 rounded-lg text-xs flex items-center justify-center bg-slate-800 text-slate-300 hover:bg-emerald-600 hover:text-white transition-all cursor-pointer font-bold mb-1"
+            className="w-8 h-8 rounded-lg text-xs flex items-center justify-center bg-slate-800 text-slate-300 hover:bg-emerald-600 hover:text-white transition-all cursor-pointer font-bold mb-0.5"
           >
             ➕
+          </button>
+        )}
+
+        {onOpenWhatsAppPairing && (
+          <button
+            type="button"
+            data-testid="channel-whatsapp-qr-button"
+            onClick={onOpenWhatsAppPairing}
+            title="Tautkan WhatsApp Web / Scan QR Baileys"
+            className="relative w-8 h-8 rounded-lg text-xs flex items-center justify-center bg-slate-800 text-emerald-400 hover:bg-emerald-600 hover:text-white transition-all cursor-pointer font-bold mb-1"
+          >
+            📲
+            <span
+              className={`absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-[#111b21] ${
+                whatsappConnectionStatus === 'connected'
+                  ? 'bg-emerald-500'
+                  : whatsappConnectionStatus === 'qr_ready'
+                    ? 'bg-amber-400 animate-pulse'
+                    : 'bg-rose-500'
+              }`}
+            />
           </button>
         )}
 
@@ -1122,6 +1147,8 @@ export interface WhatsAppLayoutProps {
   onOpenTemplateDialog?: () => void
   onLogout?: () => void
   onAddChannel?: () => void
+  onOpenWhatsAppPairing?: () => void
+  whatsappConnectionStatus?: 'connected' | 'qr_ready' | 'connecting' | 'disconnected'
   children?: ReactNode
 }
 
@@ -1157,6 +1184,8 @@ export function WhatsAppLayout({
   onOpenTemplateDialog,
   onLogout,
   onAddChannel,
+  onOpenWhatsAppPairing,
+  whatsappConnectionStatus,
   children,
 }: WhatsAppLayoutProps) {
   const selectedConversation = conversations.find((c) => c.id === selectedConversationId) || null
@@ -1174,6 +1203,8 @@ export function WhatsAppLayout({
         onOpenSettings={onOpenSettings}
         onLogout={onLogout}
         onAddChannel={onAddChannel}
+        onOpenWhatsAppPairing={onOpenWhatsAppPairing}
+        whatsappConnectionStatus={whatsappConnectionStatus}
       />
 
       {activeTab === 'reports' ? (
