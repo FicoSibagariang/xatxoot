@@ -31,4 +31,7 @@ app.get('/webhook', (c) => {
 app.route('/', graphMessagesRoutes)
 app.route('/', generatorRoutes)
 
+const simPort = Number(process.env.PORT_SIMULATOR || process.env.PORT_WA_SIMULATOR || 3002)
+;(app as unknown as { port: number }).port = simPort
+
 export default app
