@@ -145,4 +145,17 @@ describe('Deployment & Administrator Guide Verification (Issue #263)', () => {
       expect(envContent).not.toContain('accountId')
     })
   })
+
+  describe('8. Native / Bare-Metal Deployment Coverage (Non-Docker)', () => {
+    it('should document native installation steps with systemd, reverse proxies, troubleshooting, and security', () => {
+      const content = readFileSync(deploymentGuidePath, 'utf-8')
+      expect(content).toMatch(/Native|Bare-Metal|Non-Docker/i)
+      expect(content).toContain('xatxoot-api.service')
+      expect(content).toContain('xatxoot-wa-gateway.service')
+      expect(content).toMatch(/systemctl enable|systemctl status/i)
+      expect(content).toMatch(/nginx/i)
+      expect(content).toMatch(/Troubleshooting/i)
+      expect(content).toMatch(/Security Hardening/i)
+    })
+  })
 })

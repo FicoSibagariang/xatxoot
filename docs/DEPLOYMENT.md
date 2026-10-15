@@ -7,13 +7,16 @@
 
 ## Daftar Isi
 1. [Spesifikasi Sistem & Prasyarat](#1-spesifikasi-sistem--prasyarat-system-requirements)
-2. [Arsitektur Kontainer & Orkestrasi Docker Compose](#2-arsitektur-kontainer--orkestrasi-docker-compose)
-3. [Langkah Instalasi Mandiri (Quick Start Deployment)](#3-langkah-instalasi-mandiri-quick-start-deployment)
-4. [Kamus Lengkap Variabel Lingkungan (`.env.production.example`)](#4-kamus-lengkap-variabel-lingkungan-envproductionexample)
-5. [Panduan Administrator (First-time Setup & Onboarding)](#5-panduan-administrator-first-time-setup--onboarding)
-6. [Konfigurasi Saluran Komunikasi (Omnichannel Inboxes)](#6-konfigurasi-saluran-komunikasi-omnichannel-inboxes)
-7. [Operasional, Pemeliharaan, Backup & Pemulihan](#7-operasional-pemeliharaan-backup--pemulihan)
-8. [Prinsip Single Organization Guardrail](#8-prinsip-single-organization-guardrail)
+2. [Arsitektur Layanan & Pilihan Metode Deployment](#2-arsitektur-layanan--pilihan-metode-deployment)
+3. [Langkah Instalasi Jalur A: Docker Compose (Direkomendasikan)](#3-langkah-instalasi-jalur-a-docker-compose-direkomendasikan)
+4. [Langkah Instalasi Jalur B: Native Linux / Bare-Metal (Non-Docker)](#4-langkah-instalasi-jalur-b-native-linux--bare-metal-non-docker)
+5. [Kamus Lengkap Variabel Lingkungan (`.env.production.example`)](#5-kamus-lengkap-variabel-lingkungan-envproductionexample)
+6. [Panduan Administrator (First-time Setup & Onboarding)](#6-panduan-administrator-first-time-setup--onboarding)
+7. [Konfigurasi Saluran Komunikasi (Omnichannel Inboxes)](#7-konfigurasi-saluran-komunikasi-omnichannel-inboxes)
+8. [Operasional, Pemeliharaan, Backup & Pemulihan](#8-operasional-pemeliharaan-backup--pemulihan)
+9. [Panduan Pemecahan Masalah (Troubleshooting & Diagnostik)](#9-panduan-pemecahan-masalah-troubleshooting--diagnostik)
+10. [Panduan Pengerasan Keamanan Produksi (Security Hardening Checklist)](#10-panduan-pengerasan-keamanan-produksi-security-hardening-checklist)
+11. [Prinsip Single Organization Guardrail](#11-prinsip-single-organization-guardrail)
 
 ---
 
@@ -47,7 +50,7 @@ Pastikan port-port berikut terbuka di firewall server Anda (misalnya via `ufw` a
 
 ---
 
-## 2. Arsitektur Kontainer & Orkestrasi Docker Compose
+## 2. Arsitektur Layanan & Pilihan Metode Deployment
 
 Xatxoot dirancang menggunakan arsitektur modular yang diisolasi ke dalam 6 komponen layanan utama:
 
@@ -75,11 +78,23 @@ flowchart TD
 5. **`redis`**: In-memory broker untuk sinkronisasi state realtime, antrean pengiriman broadcast anti-ban, dan pesan gateway WhatsApp.
 6. **`caddy`**: Edge web server dan reverse proxy modern dengan otomatisasi penerbitan sertifikat SSL/TLS gratis dari Let's Encrypt / ZeroSSL.
 
+### Matriks Perbandingan: Jalur A (Docker Compose) vs Jalur B (Native Linux)
+Xatxoot mendukung dua jalur deployment resmi sesuai karakteristik infrastruktur server Anda:
+
+| Kriteria Evaluasi | Jalur A: Docker Compose (Direkomendasikan) | Jalur B: Native Linux / Bare-Metal (Non-Docker) |
+| :--- | :--- | :--- |
+| **Kemudahan Instalasi** | Sangat Mudah (1 perintah `docker compose up -d`) | Menengah (instalasi paket PostgreSQL, Redis, Bun secara mandiri) |
+| **Kebutuhan RAM Minimal** | 2 - 4 GB RAM | 1 - 2 GB RAM (Sangat efisien, footprint minimal) |
+| **Isolasi Lingkungan** | Penuh (kontainer mandiri & jaringan bridge terisolasi) | Berbagi langsung dengan sistem operasi host |
+| **Performa Kueri DB** | Standar Docker bridge network | Maksimal (koneksi Unix Domain Socket / TCP lokal langsung) |
+| **Manajemen Proses** | Docker Engine & Docker daemon | Linux `systemd` daemon unit files |
+| **Skenario Penggunaan** | Server VPS cloud standar, DigitalOcean, Linode, AWS | VPS berspesifikasi rendah (1 GB RAM), container LXC/OpenVZ, server fisik |
+
 ---
 
-## 3. Langkah Instalasi Mandiri (Quick Start Deployment)
+## 3. Langkah Instalasi Jalur A: Docker Compose (Direkomendasikan)
 
-Ikuti langkah-langkah di bawah ini untuk meluncurkan instance Xatxoot dalam waktu kurang dari 5 menit:
+Ikuti langkah-langkah di bawah ini untuk meluncurkan instance Xatxoot berbasis kontainer dalam waktu kurang dari 5 menit:
 
 ### Langkah 1: Kloning Repositori
 Masuk ke server produksi Anda melalui SSH dan lakukan clone repositori:
@@ -127,7 +142,230 @@ docker compose ps
 
 ---
 
-## 4. Kamus Lengkap Variabel Lingkungan (`.env.production.example`)
+## 4. Langkah Instalasi Jalur B: Native Linux / Bare-Metal (Non-Docker)
+
+Jalur ini ditujukan bagi Anda yang ingin menjalankan Xatxoot langsung di atas sistem operasi Linux (Ubuntu/Debian) tanpa lapisan virtualisasi kontainer Docker untuk performa maksimal dan penggunaan RAM seminimal mungkin (ideal untuk VPS 1 - 2 GB RAM).
+
+### Langkah 1: Persiapan Sistem & Instalasi Paket Host
+Jalankan perintah berikut di terminal server:
+
+```bash
+# 1. Update paket dan pasang utilitas dasar
+sudo apt update && sudo apt upgrade -y
+sudo apt install -y curl git build-essential ufw
+
+# 2. Pasang PostgreSQL 16 & pgvector
+sudo apt install -y postgresql-common
+sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+sudo apt install -y postgresql-16 postgresql-16-pgvector
+
+# 3. Pasang Redis Server
+sudo apt install -y redis-server
+sudo systemctl enable --now redis-server
+
+# 4. Pasang runtime Bun (untuk backend API Hono & monorepo)
+curl -fsSL https://bun.sh/install | bash
+source ~/.bashrc
+
+# 5. Pasang runtime Node.js 20 LTS (khusus microservice WhatsApp Baileys)
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt install -y nodejs
+```
+
+### Langkah 2: Setup Database PostgreSQL & Ekstensi Vector
+Masuk ke terminal PostgreSQL untuk membuat user, database, dan mengaktifkan ekstensi `pgvector`:
+
+```bash
+sudo -u postgres psql
+```
+
+Eksekusi kueri SQL berikut:
+```sql
+CREATE USER xatxoot_prod WITH PASSWORD 'GantiDenganPasswordKuat123!';
+CREATE DATABASE xatxoot_prod OWNER xatxoot_prod;
+\c xatxoot_prod
+CREATE EXTENSION IF NOT EXISTS vector;
+\q
+```
+
+### Langkah 3: Kloning Repositori & Instalasi Dependensi Monorepo
+```bash
+# Clone ke direktori produksi (misalnya /opt/xatxoot)
+sudo git clone https://github.com/wardix/xatxoot.git /opt/xatxoot
+sudo chown -R $USER:$USER /opt/xatxoot
+cd /opt/xatxoot
+
+# Pasang dependensi monorepo
+bun install
+
+# Siapkan file .env produksi
+cp .env.production.example .env
+nano .env
+```
+
+Pada file `.env`, sesuaikan string koneksi lokal:
+```env
+PORT_API=3000
+PORT_GATEWAY=3001
+DATABASE_URL=postgresql://xatxoot_prod:GantiDenganPasswordKuat123!@localhost:5432/xatxoot_prod
+REDIS_URL=redis://localhost:6379
+```
+
+### Langkah 4: Eksekusi Migrasi Database & Kompilasi Frontend
+```bash
+cd /opt/xatxoot
+
+# 1. Jalankan migrasi database otomatis
+bun run db:migrate
+
+# 2. Build dashboard web produksi (menghasilkan folder static apps/web/dist)
+cd apps/web
+bun run build
+cd ../..
+```
+
+### Langkah 5: Konfigurasi Layanan Latar Belakang Systemd
+Gunakan `systemd` agar backend API dan WhatsApp Gateway berjalan otomatis sebagai daemon latar belakang (*background daemons*):
+
+#### A. Service Backend API (`/etc/systemd/system/xatxoot-api.service`)
+Buat file service menggunakan `sudo nano /etc/systemd/system/xatxoot-api.service`:
+```ini
+[Unit]
+Description=Xatxoot Backend API (Hono on Bun)
+After=network.target postgresql.service redis-server.service
+
+[Service]
+Type=simple
+User=bimasakti
+WorkingDirectory=/opt/xatxoot/apps/api
+EnvironmentFile=/opt/xatxoot/.env
+ExecStart=/home/bimasakti/.bun/bin/bun run src/index.ts
+Restart=always
+RestartSec=5
+LimitNOFILE=65535
+
+[Install]
+WantedBy=multi-user.target
+```
+> [!NOTE]
+> Sesuaikan nilai `User=bimasakti` dan jalur biner `/home/bimasakti/.bun/bin/bun` dengan username dan jalur instalasi `which bun` di server Anda.
+
+#### B. Service WhatsApp Gateway (`/etc/systemd/system/xatxoot-wa-gateway.service`)
+Buat file service menggunakan `sudo nano /etc/systemd/system/xatxoot-wa-gateway.service`:
+```ini
+[Unit]
+Description=Xatxoot WhatsApp Gateway (Baileys on Node.js)
+After=network.target redis-server.service
+
+[Service]
+Type=simple
+User=bimasakti
+WorkingDirectory=/opt/xatxoot/apps/wa-gateway
+EnvironmentFile=/opt/xatxoot/.env
+ExecStart=/usr/bin/npx tsx src/index.ts
+Restart=always
+RestartSec=10
+LimitNOFILE=65535
+
+[Install]
+WantedBy=multi-user.target
+```
+
+#### C. Aktifkan & Jalankan Layanan:
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now xatxoot-api
+sudo systemctl enable --now xatxoot-wa-gateway
+
+# Verifikasi status layanan
+sudo systemctl status xatxoot-api
+sudo systemctl status xatxoot-wa-gateway
+```
+
+### Langkah 6: Konfigurasi Reverse Proxy (Pilihan Caddy atau Nginx)
+
+#### Opsi 1: Menggunakan Caddy (SSL/TLS Otomatis Let's Encrypt)
+Pasang Caddy di server host:
+```bash
+sudo apt install -y debian-keyring debian-archive-keyring apt-transport-https
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | sudo gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | sudo tee /etc/apt/sources.list.d/caddy-stable.list
+sudo apt update && sudo apt install -y caddy
+```
+
+Konfigurasi file `/etc/caddy/Caddyfile`:
+```caddy
+chat.example.com {
+    encode gzip zstd
+
+    # Rute API, WebSocket, dan Help Center ke service Hono
+    reverse_proxy /api/* localhost:3000
+    reverse_proxy /ws* localhost:3000
+    reverse_proxy /healthz* localhost:3000
+    reverse_proxy /portal* localhost:3000
+    reverse_proxy /widget.js* localhost:3000
+
+    # Sajikan Dashboard Web SPA Statis
+    root * /opt/xatxoot/apps/web/dist
+    file_server
+    try_files {path} /index.html
+}
+```
+Terapkan konfigurasi: `sudo systemctl reload caddy`.
+
+#### Opsi 2: Menggunakan Nginx + Certbot
+Jika server Anda sudah memiliki instalasi Nginx eksisting:
+```bash
+sudo apt install -y nginx certbot python3-certbot-nginx
+```
+
+Buat file `/etc/nginx/sites-available/xatxoot`:
+```nginx
+server {
+    server_name chat.example.com;
+
+    root /opt/xatxoot/apps/web/dist;
+    index index.html;
+
+    # Static Frontend SPA
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    # Reverse Proxy REST API, WebSocket & Endpoints Lainnya
+    location ~ ^/(api|ws|healthz|portal|widget.js) {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+Aktifkan situs dan pasang sertifikat SSL gratis:
+```bash
+sudo ln -s /etc/nginx/sites-available/xatxoot /etc/nginx/sites-enabled/
+sudo nginx -t && sudo systemctl reload nginx
+sudo certbot --nginx -d chat.example.com
+```
+
+### Langkah 7: Pembaruan Versi Native (Non-Docker Upgrade)
+```bash
+cd /opt/xatxoot
+git pull origin main
+bun install
+bun run db:migrate
+cd apps/web && bun run build && cd ../..
+sudo systemctl restart xatxoot-api xatxoot-wa-gateway
+```
+
+---
+
+## 5. Kamus Lengkap Variabel Lingkungan (`.env.production.example`)
 
 Berikut adalah daftar variabel lingkungan resmi yang didukung pada sistem produksi Xatxoot:
 
@@ -198,7 +436,7 @@ Berikut adalah daftar variabel lingkungan resmi yang didukung pada sistem produk
 
 ---
 
-## 5. Panduan Administrator (First-time Setup & Onboarding)
+## 6. Panduan Administrator (First-time Setup & Onboarding)
 
 ### Inisialisasi Akun Pertama (Setup Wizard: `/setup`)
 Saat instance baru pertama kali diluncurkan, sistem belum memiliki akun dan profil organisasi:
@@ -224,7 +462,7 @@ Administrator dapat mengundang dan mengatur izin anggota tim melalui menu **Sett
 
 ---
 
-## 6. Konfigurasi Saluran Komunikasi (Omnichannel Inboxes)
+## 7. Konfigurasi Saluran Komunikasi (Omnichannel Inboxes)
 
 Masuk ke menu **Settings > Inboxes > Add Inbox** untuk menghubungkan berbagai saluran:
 
@@ -261,7 +499,7 @@ Masuk ke menu **Settings > Inboxes > Add Inbox** untuk menghubungkan berbagai sa
 
 ---
 
-## 7. Operasional, Pemeliharaan, Backup & Pemulihan
+## 8. Operasional, Pemeliharaan, Backup & Pemulihan
 
 ### Prosedur Backup Database PostgreSQL
 Lakukan backup data secara berkala menggunakan utilitas `pg_dump`:
@@ -329,7 +567,87 @@ docker compose logs api | grep "migration"
 
 ---
 
-## 8. Prinsip Single Organization Guardrail
+## 9. Panduan Pemecahan Masalah (Troubleshooting & Diagnostik)
+
+Berikut adalah panduan penyelesaian untuk masalah umum yang sering dihadapi pada lingkungan produksi:
+
+### 9.1 WhatsApp Cloud API Webhook Challenge Gagal
+- **Gejala**: Portal Meta for Developers menolak pendaftaran webhook dengan pesan error *“The URL couldn't be validated”* atau status HTTP 403 / 502.
+- **Penyebab**:
+  1. Port 443 belum terbuka di firewall server atau sertifikat SSL/TLS domain tidak valid.
+  2. Nilai `WHATSAPP_CLOUD_WEBHOOK_VERIFY_TOKEN` di file `.env` tidak sama persis dengan string verifikasi yang Anda masukkan di portal Meta.
+- **Solusi**:
+  1. Pastikan domain Anda dapat diakses publik via HTTPS browser tanpa peringatan sertifikat (*SSL handshake valid*).
+  2. Uji endpoint challenge secara langsung menggunakan cURL:
+     ```bash
+     curl -i "https://chat.example.com/api/v1/webhooks/whatsapp-cloud?hub.mode=subscribe&hub.challenge=test1234&hub.verify_token=NILAI_VERIFY_TOKEN_ANDA"
+     ```
+     Jika sukses, server akan mengembalikan HTTP 200 OK dengan body string `test1234`.
+
+### 9.2 QR Code Baileys Gateway Tidak Muncul di Dashboard
+- **Gejala**: Saat mengklik *Pair New Device*, modal di dashboard web hanya memuat animasi *spinner* dan QR code tidak muncul.
+- **Penyebab**:
+  1. Service `wa-gateway` tidak dapat terhubung ke Redis broker atau antrean BullMQ terhambat.
+  2. Izin tulis (*write permission*) pada direktori sesi WhatsApp (`WA_GATEWAY_SESSION_PATH`) ditolak oleh sistem file.
+- **Solusi**:
+  1. Periksa log kontainer atau service gateway:
+     ```bash
+     # Jalur Docker:
+     docker compose logs -f wa-gateway
+     # Jalur Native Linux:
+     sudo journalctl -u xatxoot-wa-gateway -f
+     ```
+  2. Pastikan string `REDIS_URL` dapat di-ping dan port 6379 aktif:
+     ```bash
+     redis-cli ping
+     # Output harus: PONG
+     ```
+
+### 9.3 Optimasi Memori & Kueri pgvector
+- **Gejala**: PostgreSQL mengalami *high memory usage* atau *out-of-memory (OOM)* saat melakukan re-indexing embedding Help Center.
+- **Solusi**:
+  Sesuaikan alokasi parameter memori di konfigurasi PostgreSQL (`postgresql.conf`):
+  ```ini
+  shared_buffers = 1GB                  # ~25% dari total RAM host
+  work_mem = 64MB                       # Memori per operasi sorting/vektor
+  maintenance_work_mem = 512MB          # Diperlukan saat membangun indeks HNSW/IVFFlat
+  ```
+  Lalu restart PostgreSQL: `sudo systemctl restart postgresql`.
+
+### 9.4 Koneksi Realtime WebSocket Sering Terputus
+- **Gejala**: Indikator koneksi di web dashboard sering beralih antara *Connecting...* dan *Connected*, atau pesan baru lambat masuk.
+- **Penyebab**: Reverse proxy Nginx atau load balancer memutus koneksi TCP idle terlalu cepat.
+- **Solusi**:
+  Tambahkan timeout WebSocket di konfigurasi Nginx:
+  ```nginx
+  proxy_read_timeout 3600s;
+  proxy_send_timeout 3600s;
+  ```
+
+---
+
+## 10. Panduan Pengerasan Keamanan Produksi (Security Hardening Checklist)
+
+Sebelum meluncurkan instance ke publik, pastikan checklist keamanan berikut terpenuhi:
+
+- [ ] **Firewall Host (UFW)**: Hanya izinkan port yang mutlak diperlukan:
+  ```bash
+  sudo ufw default deny incoming
+  sudo ufw default allow outgoing
+  sudo ufw allow 22/tcp      # SSH (ganti jika menggunakan custom port)
+  sudo ufw allow 80/tcp      # HTTP untuk ACME Let's Encrypt
+  sudo ufw allow 443/tcp     # HTTPS publik
+  sudo ufw enable
+  ```
+- [ ] **Isolasi Database & Redis ke Localhost**: Pastikan PostgreSQL (`listen_addresses = '127.0.0.1'`) dan Redis (`bind 127.0.0.1 -::1`) tidak terekspos langsung ke IP publik server.
+- [ ] **Kunci Rahasia Produksi**: Pastikan `JWT_SECRET`, `REFRESH_TOKEN_SECRET`, dan `SESSION_SECRET` tidak menggunakan nilai default dan telah digenerate secara kriptografis (`openssl rand -base64 64`).
+- [ ] **Enkripsi Kredensial Pihak Ketiga**: Parameter `ENCRYPTION_KEY` berukuran 32-byte hex wajib disimpan aman untuk melindungi enkripsi API Key integrasi di database.
+- [ ] **Pencadangan Otomatis Terjadwal**: Konfigurasikan cron job untuk backup berkala file database `pg_dump` ke penyimpanan cadangan terpisah (off-site S3 / storage eksternal).
+- [ ] **Update Keamanan Rutin**: Terapkan patch keamanan sistem operasi host secara berkala: `sudo apt update && sudo apt upgrade -y`.
+
+---
+
+## 11. Prinsip Single Organization Guardrail
 
 Seluruh arsitektur Xatxoot dibangun atas prinsip **Single Organization** yang ketat:
 1. **Bebas Multi-Tenant Overheads**: Seluruh tabel database relasional, antarmuka JSON REST API, Zod validation schemas, maupun variabel konfigurasi tidak pernah menggunakan konsep multi-tenant (bebas dari pemisahan data per tenant).
