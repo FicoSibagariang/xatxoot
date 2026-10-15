@@ -80,4 +80,7 @@ app.route('/api/v1/sla', slaRoutes)
 app.route('/api/v1/sso', ssoRoutes)
 app.route('/api/v1/capacity', capacityRoutes)
 
+const apiPort = Number(process.env.PORT_API || process.env.PORT || 3000)
+;(app as unknown as { port: number }).port = apiPort
+
 export default app

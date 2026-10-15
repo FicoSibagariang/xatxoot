@@ -13,7 +13,11 @@ app.get('/health', (c) => {
 
 app.get('/webhook', (c) => {
   const query = c.req.query()
-  const expectedToken = process.env.WHATSAPP_CLOUD_WEBHOOK_VERIFY_TOKEN || DEFAULT_VERIFY_TOKEN
+  const expectedToken =
+    process.env.WHATSAPP_CLOUD_WEBHOOK_VERIFY_TOKEN &&
+    !process.env.WHATSAPP_CLOUD_WEBHOOK_VERIFY_TOKEN.startsWith('replace_with_')
+      ? process.env.WHATSAPP_CLOUD_WEBHOOK_VERIFY_TOKEN
+      : DEFAULT_VERIFY_TOKEN
 
   const result = verifyWebhookChallenge(query, expectedToken)
 

@@ -1,9 +1,14 @@
 import { createHmac, timingSafeEqual } from 'node:crypto'
 
 export const DEFAULT_META_SOCIAL_APP_SECRET =
-  process.env.META_APP_SECRET || 'meta_social_secret_99887766'
+  process.env.META_APP_SECRET && !process.env.META_APP_SECRET.startsWith('replace_with_')
+    ? process.env.META_APP_SECRET
+    : 'meta_social_secret_99887766'
 export const DEFAULT_META_SOCIAL_VERIFY_TOKEN =
-  process.env.META_WEBHOOK_VERIFY_TOKEN || 'meta_social_verify_token_12345'
+  process.env.META_WEBHOOK_VERIFY_TOKEN &&
+  !process.env.META_WEBHOOK_VERIFY_TOKEN.startsWith('replace_with_')
+    ? process.env.META_WEBHOOK_VERIFY_TOKEN
+    : 'meta_social_verify_token_12345'
 
 export interface MetaSocialAttachment {
   type: 'image' | 'video' | 'audio' | 'file'
