@@ -7,7 +7,7 @@
     "dev": "bun --watch src/index.ts",
     "start": "bun run src/index.ts",
     "test": "bun test",
-    "db:migrate": "bun run src/db/migrate.ts"
+    "db:migrate": "bun --env-file=../../.env run src/db/migrate.ts"
   },
   "dependencies": {
     "@hono/node-server": "^1.13.7",
