@@ -53,17 +53,17 @@ Xatxoot dirancang menggunakan arsitektur modular yang diisolasi ke dalam 6 kompo
 
 ```mermaid
 flowchart TD
-    Client["Klien Web / WhatsApp / Webhook Eksternal"] -->|HTTPS / WSS (Port 80 & 443)| Caddy["Caddy Reverse Proxy\n(Auto Let's Encrypt TLS)"]
+    Client["Klien Web / WhatsApp / Webhook Eksternal"] -->|"HTTPS / WSS (Port 80 & 443)"| Caddy["Caddy Reverse Proxy (Auto TLS Let's Encrypt)"]
     
-    subgraph Orkestrasi Kontainer Xatxoot
-        Caddy -->|Reverse Proxy /api & /ws| API["`api`\nHono on Bun\n(Port 3000)"]
-        Caddy -->|Static Assets / Dashboard| Web["`web`\nReact 19 Dashboard\n(Port 80)"]
+    subgraph Cluster["Orkestrasi Kontainer Xatxoot"]
+        Caddy -->|"Reverse Proxy /api & /ws"| API["api: Hono on Bun (Port 3000)"]
+        Caddy -->|"Static Assets / Dashboard"| Web["web: React 19 Dashboard (Port 80)"]
         
-        API -->|Database Queries & Vector Search| Postgres["`postgres`\nPostgreSQL 16 + pgvector\n(Port 5432)"]
-        API <-->|Pub/Sub & BullMQ Jobs| Redis["`redis`\nRedis 7.2 Cache & Queue\n(Port 6379)"]
+        API -->|"Database Queries & Vector Search"| Postgres["postgres: PostgreSQL 16 + pgvector (Port 5432)"]
+        API <-->|"Pub/Sub & BullMQ Jobs"| Redis["redis: Redis 7.2 Cache & Queue (Port 6379)"]
         
-        Gateway["`wa-gateway`\nBaileys Node.js 20 LTS\n(Port 3001)"] <-->|Inbound / Outbound Jobs| Redis
-        Gateway -.->|WhatsApp Socket| WAServers["Server WhatsApp Multi-Device"]
+        Gateway["wa-gateway: Baileys Node.js 20 LTS (Port 3001)"] <-->|"Inbound / Outbound Jobs"| Redis
+        Gateway -.->|"WhatsApp Socket"| WAServers["Server WhatsApp Multi-Device"]
     end
 ```
 
