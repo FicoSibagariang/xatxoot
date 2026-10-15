@@ -343,6 +343,58 @@ export class ConversationService {
     }
 
     // 4. Create Message record
+    const convMessages = memoryStore.messages.get(conversation.id) || []
+
+    if (isNewTicket) {
+      const ticketActivityMsg: Message = {
+        id: crypto.randomUUID(),
+        conversationId: conversation.id,
+        ticketId: ticket.id,
+        senderType: 'system',
+        senderId: null,
+        messageType: 'activity',
+        content: `Tiket #${ticket.displayId || 'T-Baru'} dibuat otomatis dari pesan WhatsApp.`,
+        contentType: 'text',
+        status: 'sent',
+        externalSourceId: null,
+        contentAttributes: {},
+        attachments: [],
+        createdAt: new Date(Date.now() - 50).toISOString(),
+        updatedAt: new Date(Date.now() - 50).toISOString(),
+      }
+      convMessages.push(ticketActivityMsg)
+      saveMessageToStore(ticketActivityMsg)
+
+      try {
+        await sql`
+          INSERT INTO messages (
+            id, conversation_id, ticket_id, sender_type, sender_id, message_type, content, content_type,
+            status, external_source_id, content_attributes, created_at, updated_at
+          ) VALUES (
+            ${ticketActivityMsg.id}, ${ticketActivityMsg.conversationId}, ${ticketActivityMsg.ticketId}, ${ticketActivityMsg.senderType},
+            ${null}, ${ticketActivityMsg.messageType}, ${ticketActivityMsg.content}, ${ticketActivityMsg.contentType},
+            ${ticketActivityMsg.status}, ${ticketActivityMsg.externalSourceId}, ${JSON.stringify(ticketActivityMsg.contentAttributes)},
+            ${ticketActivityMsg.createdAt}, ${ticketActivityMsg.updatedAt}
+          )
+        `
+      } catch {
+        // Memory fallback
+      }
+
+      realtimeService.broadcast({
+        event: 'message.created',
+        data: {
+          id: ticketActivityMsg.id,
+          conversationId: conversation.id,
+          content: ticketActivityMsg.content,
+          messageType: 'activity',
+          contentType: 'text',
+          senderType: 'system',
+          timestamp: ticketActivityMsg.createdAt,
+        },
+      })
+    }
+
     const message: Message = {
       id: crypto.randomUUID(),
       conversationId: conversation.id,
@@ -360,7 +412,6 @@ export class ConversationService {
       updatedAt: now,
     }
 
-    const convMessages = memoryStore.messages.get(conversation.id) || []
     convMessages.push(message)
     memoryStore.messages.set(conversation.id, convMessages)
     saveMessageToStore(message)
@@ -475,14 +526,16 @@ export class ConversationService {
     let messages: Message[] = []
     try {
       const dbMsgs = await sql`
-        SELECT id, conversation_id as "conversationId", ticket_id as "ticketId",
-               sender_id as "senderId", sender_type as "senderType",
-               message_type as "messageType", content_type as "contentType",
-               content, status, external_source_id as "externalSourceId",
-               created_at as "createdAt", updated_at as "updatedAt"
-        FROM messages
-        WHERE conversation_id = ${id}
-        ORDER BY created_at ASC
+        SELECT m.id, m.conversation_id as "conversationId", m.ticket_id as "ticketId",
+               t.display_id as "ticketDisplayId",
+               m.sender_id as "senderId", m.sender_type as "senderType",
+               m.message_type as "messageType", m.content_type as "contentType",
+               m.content, m.status, m.external_source_id as "externalSourceId",
+               m.created_at as "createdAt", m.updated_at as "updatedAt"
+        FROM messages m
+        LEFT JOIN tickets t ON m.ticket_id = t.id
+        WHERE m.conversation_id = ${id}
+        ORDER BY m.created_at ASC
       `
       if (dbMsgs && dbMsgs.length > 0) {
         messages = dbMsgs as unknown as Message[]

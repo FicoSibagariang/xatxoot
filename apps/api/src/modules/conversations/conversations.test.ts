@@ -197,6 +197,11 @@ describe('Conversations Module - Automatic Ticket FSM Lifecycle Rules on Message
     // Check old ticket remains resolved
     const oldTicketCheck = await conversationService.getTicketById(oldTicketId)
     expect(oldTicketCheck?.status).toBe('resolved')
+
+    // Check activity messages mark ticket boundary
+    const thread = await conversationService.getConversationById(res2.conversation.id)
+    const activityMsgs = thread?.messages.filter((m) => m.messageType === 'activity') || []
+    expect(activityMsgs.length).toBeGreaterThanOrEqual(1)
   })
 })
 

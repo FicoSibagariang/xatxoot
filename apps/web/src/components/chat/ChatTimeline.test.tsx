@@ -221,5 +221,39 @@ describe('Chat Timeline Component (Task 1.25 - apps/web)', () => {
       expect(html).not.toContain('internal-note-bubble')
       expect(html).not.toContain('Sticky Internal Note')
     })
+
+    it('should render ticket separator boundary pill when messages transition to a new ticket', () => {
+      const multiTicketMessages: TimelineMessage[] = [
+        {
+          id: 'msg-t1006-1',
+          conversationId: 'conv-multi',
+          ticketId: 'uuid-1006',
+          ticketDisplayId: '1006',
+          senderType: 'contact',
+          messageType: 'incoming',
+          contentType: 'text',
+          content: 'Pesan untuk tiket 1006',
+          timestamp: '11:00',
+          dateGroup: 'HARI INI',
+        },
+        {
+          id: 'msg-t1003-1',
+          conversationId: 'conv-multi',
+          ticketId: 'uuid-1003',
+          ticketDisplayId: '1003',
+          senderType: 'contact',
+          messageType: 'incoming',
+          contentType: 'text',
+          content: 'Pesan untuk tiket baru 1003',
+          timestamp: '11:30',
+          dateGroup: 'HARI INI',
+        },
+      ]
+
+      const html = renderToStaticMarkup(<ChatTimeline messages={multiTicketMessages} />)
+
+      expect(html).toContain('data-testid="ticket-separator-pill"')
+      expect(html).toContain('1003')
+    })
   })
 })

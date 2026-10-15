@@ -127,6 +127,30 @@ export function DateSeparatorPill({ dateText }: DateSeparatorPillProps) {
 }
 
 // ==========================================
+// TicketSeparatorPill (Visual Boundary Between Tickets)
+// ==========================================
+export interface TicketSeparatorPillProps {
+  ticketNumber?: string
+  text?: string
+}
+
+export function TicketSeparatorPill({ ticketNumber, text }: TicketSeparatorPillProps) {
+  return (
+    <div
+      data-testid="ticket-separator-pill"
+      className="flex items-center justify-center my-4 select-none px-4"
+    >
+      <div className="flex-1 border-t border-slate-300/80 max-w-xs" />
+      <span className="mx-3 px-3 py-1 bg-emerald-50 text-emerald-800 font-semibold text-xs rounded-full border border-emerald-300 shadow-2xs flex items-center gap-1.5">
+        <span>🎫</span>
+        <span>{text || (ticketNumber ? `Tiket #${ticketNumber} Dimulai` : 'Batas Tiket')}</span>
+      </span>
+      <div className="flex-1 border-t border-slate-300/80 max-w-xs" />
+    </div>
+  )
+}
+
+// ==========================================
 // ChatBubble (Incoming, Outgoing, Activity)
 // ==========================================
 export interface ChatBubbleProps {
@@ -141,9 +165,10 @@ export function ChatBubble({ message, onRetry }: ChatBubbleProps) {
       <div className="flex justify-center my-2 select-none px-4">
         <span
           data-testid="activity-pill"
-          className="px-3 py-1 bg-slate-200/80 backdrop-blur-xs text-[11px] font-medium text-slate-700 rounded-lg shadow-2xs text-center border border-slate-300/60 max-w-md"
+          className="px-3.5 py-1.5 bg-[#f0f2f5] text-[#54656f] text-xs font-medium rounded-lg shadow-2xs text-center border border-[#e9edef] max-w-md flex items-center justify-center gap-1.5"
         >
-          {message.content}
+          <span>ℹ️</span>
+          <span>{message.content}</span>
         </span>
       </div>
     )
@@ -262,6 +287,7 @@ export interface ChatTimelineProps {
 
 export function ChatTimeline({ messages, onRetryMessage, className = '' }: ChatTimelineProps) {
   let lastDateGroup = ''
+  let lastTicketId = ''
 
   return (
     <div data-testid="chat-timeline" className={`flex flex-col py-2 w-full ${className}`}>
@@ -271,9 +297,25 @@ export function ChatTimeline({ messages, onRetryMessage, className = '' }: ChatT
           lastDateGroup = msg.dateGroup
         }
 
+        const showTicketSeparator = Boolean(
+          msg.ticketId &&
+            lastTicketId &&
+            msg.ticketId !== lastTicketId &&
+            msg.messageType !== 'activity',
+        )
+        if (msg.ticketId) {
+          lastTicketId = msg.ticketId
+        }
+
         return (
           <Fragment key={msg.id}>
             {showDateSeparator && msg.dateGroup && <DateSeparatorPill dateText={msg.dateGroup} />}
+            {showTicketSeparator && (
+              <TicketSeparatorPill
+                ticketNumber={msg.ticketDisplayId}
+                text={msg.ticketDisplayId ? `Tiket #${msg.ticketDisplayId} Dimulai` : undefined}
+              />
+            )}
             <ChatBubble message={msg} onRetry={onRetryMessage} />
           </Fragment>
         )

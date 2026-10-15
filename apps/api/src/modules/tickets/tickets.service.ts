@@ -1,5 +1,6 @@
 import {
   type CreateTicketInput,
+  type Message,
   type Ticket,
   type TicketPriority,
   type TicketStatus,
@@ -8,6 +9,7 @@ import {
 import { sql } from '../../db'
 import { analyticsService } from '../analytics/analytics.service'
 import { csatService } from '../csat/csat.service'
+import { saveMessageToStore } from '../messages/message-store'
 import { realtimeService } from '../realtime/realtime.service'
 
 export type { Ticket, TicketStatus, TicketPriority, CreateTicketInput }
@@ -249,6 +251,63 @@ export class TicketService {
       event: 'ticket.updated',
       data: { ticket: updated },
     })
+
+    let activityContent: string | null = null
+    if (validatedStatus === 'resolved' && existing.status !== 'resolved') {
+      activityContent = `Tiket #${existing.displayId || 'T-Baru'} diselesaikan.`
+    } else if (validatedStatus === 'open' && existing.status === 'resolved') {
+      activityContent = `Tiket #${existing.displayId || 'T-Baru'} dibuka kembali.`
+    }
+
+    if (activityContent && existing.conversationId) {
+      const activityMsg: Message = {
+        id: crypto.randomUUID(),
+        conversationId: existing.conversationId,
+        ticketId: existing.id,
+        senderType: 'system',
+        senderId: null,
+        messageType: 'activity',
+        content: activityContent,
+        contentType: 'text',
+        status: 'sent',
+        externalSourceId: null,
+        contentAttributes: {},
+        attachments: [],
+        createdAt: now,
+        updatedAt: now,
+      }
+
+      saveMessageToStore(activityMsg)
+
+      try {
+        await sql`
+          INSERT INTO messages (
+            id, conversation_id, ticket_id, sender_type, sender_id, message_type, content, content_type,
+            status, external_source_id, content_attributes, created_at, updated_at
+          ) VALUES (
+            ${activityMsg.id}, ${activityMsg.conversationId}, ${activityMsg.ticketId}, ${activityMsg.senderType},
+            ${null}, ${activityMsg.messageType}, ${activityMsg.content}, ${activityMsg.contentType},
+            ${activityMsg.status}, ${activityMsg.externalSourceId}, ${JSON.stringify(activityMsg.contentAttributes)},
+            ${activityMsg.createdAt}, ${activityMsg.updatedAt}
+          )
+        `
+      } catch {
+        // Memory fallback
+      }
+
+      realtimeService.broadcast({
+        event: 'message.created',
+        data: {
+          id: activityMsg.id,
+          conversationId: existing.conversationId,
+          content: activityMsg.content,
+          messageType: 'activity',
+          contentType: 'text',
+          senderType: 'system',
+          timestamp: activityMsg.createdAt,
+        },
+      })
+    }
 
     if (validatedStatus === 'resolved') {
       csatService.onTicketResolved(updated).catch(() => {})

@@ -539,6 +539,8 @@ export function App({ initialAuthenticated }: AppProps = {}) {
               return {
                 id: m.id,
                 conversationId: m.conversationId,
+                ticketId: m.ticketId,
+                ticketDisplayId: m.ticketDisplayId,
                 senderId: m.senderId || (isCustomer ? 'customer' : user.id),
                 senderType: isCustomer ? 'contact' : 'user',
                 senderName: isCustomer
@@ -591,7 +593,12 @@ export function App({ initialAuthenticated }: AppProps = {}) {
         messageType: anyEvt.message?.messageType || anyEvt.messageType || 'incoming',
         contentType: anyEvt.message?.contentType || anyEvt.contentType || 'text',
         senderId: anyEvt.message?.senderId || anyEvt.contact?.id || anyEvt.senderId,
-        senderType: anyEvt.message?.senderType || anyEvt.senderType || 'contact',
+        senderType:
+          anyEvt.message?.senderType ||
+          anyEvt.senderType ||
+          (anyEvt.message?.messageType === 'activity' || anyEvt.messageType === 'activity'
+            ? 'system'
+            : 'contact'),
         senderName: anyEvt.contact?.name || anyEvt.senderName || 'Pelanggan WhatsApp',
         timestamp: anyEvt.message?.createdAt || anyEvt.timestamp,
       }
