@@ -61,6 +61,12 @@ export function LoginPage({ onSuccess }: LoginPageProps) {
       }
 
       setIsLoading(false)
+      if (typeof window !== 'undefined' && data?.tokens?.accessToken) {
+        localStorage.setItem('auth_token', data.tokens.accessToken)
+      }
+      if (typeof window !== 'undefined' && data?.user) {
+        localStorage.setItem('auth_user', JSON.stringify(data.user))
+      }
       if (onSuccess) {
         onSuccess(data)
       } else {

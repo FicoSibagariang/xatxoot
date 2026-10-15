@@ -22,6 +22,8 @@ import {
   applyRealtimeTicket,
   useRealtimeStream,
 } from './hooks'
+import { LoginPage } from './pages/LoginPage'
+import { SetupPage } from './pages/SetupPage'
 
 const INITIAL_USER: LayoutUser = {
   id: 'usr_default_agent',
@@ -322,8 +324,38 @@ const INITIAL_TEMPLATES: WhatsAppTemplate[] = [
   },
 ]
 
-export function App() {
-  const [user, setUser] = useState<LayoutUser>(INITIAL_USER)
+export interface AppProps {
+  initialAuthenticated?: boolean
+}
+
+export function App({ initialAuthenticated }: AppProps = {}) {
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
+    if (typeof initialAuthenticated === 'boolean') return initialAuthenticated
+    if (typeof window === 'undefined') return true
+    return Boolean(localStorage.getItem('auth_token'))
+  })
+
+  const [user, setUser] = useState<LayoutUser>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('auth_user')
+        if (stored) {
+          const u = JSON.parse(stored)
+          return {
+            id: u.id,
+            name: u.displayName || u.email,
+            email: u.email,
+            role: u.role || 'agent',
+            status: 'online',
+          }
+        }
+      } catch {
+        // ignore JSON parse error
+      }
+    }
+    return INITIAL_USER
+  })
+
   const [conversations, setConversations] = useState<ConversationItem[]>(INITIAL_CONVERSATIONS)
   const [messagesMap, setMessagesMap] =
     useState<Record<string, TimelineMessage[]>>(INITIAL_MESSAGES_MAP)
@@ -494,6 +526,63 @@ export function App() {
     setConversations((prev) => prev.map((c) => (c.id === id ? { ...c, unreadCount: 0 } : c)))
   }
 
+  const currentPath = typeof window !== 'undefined' ? window.location.pathname : '/'
+
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/v1/auth/logout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      })
+    } catch {
+      // Ignore network error on logout
+    }
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('auth_token')
+      localStorage.removeItem('auth_user')
+    }
+    setIsAuthenticated(false)
+  }
+
+  // 1. First-time Setup page route
+  if (currentPath === '/setup') {
+    return (
+      <SetupPage
+        onSuccess={() => {
+          if (typeof window !== 'undefined') {
+            window.location.href = '/login'
+          }
+        }}
+      />
+    )
+  }
+
+  // 2. Login Page route or unauthenticated state
+  if (!isAuthenticated || currentPath === '/login') {
+    return (
+      <LoginPage
+        onSuccess={(data: unknown) => {
+          const authData = data as {
+            user?: { id: string; email: string; displayName?: string; role?: string }
+          }
+          if (authData?.user) {
+            setUser({
+              id: authData.user.id,
+              name: authData.user.displayName || authData.user.email,
+              email: authData.user.email,
+              role: authData.user.role || 'agent',
+              status: 'online',
+            })
+          }
+          setIsAuthenticated(true)
+          if (typeof window !== 'undefined' && window.location.pathname === '/login') {
+            window.history.pushState({}, '', '/')
+          }
+        }}
+      />
+    )
+  }
+
   return (
     <>
       <WhatsAppLayout
@@ -529,6 +618,7 @@ export function App() {
           }
         }}
         onOpenTemplateDialog={() => setIsTemplateDialogOpen(true)}
+        onLogout={handleLogout}
       />
 
       <BaileysPairingDialog

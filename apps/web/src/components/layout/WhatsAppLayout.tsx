@@ -40,6 +40,7 @@ export interface NavRailProps {
   onChannelFilterChange: (channel: LayoutChannelFilter) => void
   onPresenceChange: (status: PresenceStatus) => void
   onOpenSettings?: () => void
+  onLogout?: () => void
 }
 
 export function NavRail({
@@ -50,6 +51,7 @@ export function NavRail({
   onChannelFilterChange,
   onPresenceChange,
   onOpenSettings,
+  onLogout,
 }: NavRailProps) {
   const [showPresenceMenu, setShowPresenceMenu] = useState(false)
 
@@ -175,6 +177,18 @@ export function NavRail({
           >
             ⚙️
           </button>
+
+          {onLogout && (
+            <button
+              type="button"
+              data-testid="nav-tab-logout"
+              onClick={onLogout}
+              title="Keluar (Logout)"
+              className="w-10 h-10 rounded-xl flex items-center justify-center text-slate-400 hover:text-rose-400 hover:bg-rose-950/40 transition-all cursor-pointer"
+            >
+              🚪
+            </button>
+          )}
         </div>
       </div>
 
@@ -1092,6 +1106,7 @@ export interface WhatsAppLayoutProps {
   onRetryMessage?: (message: TimelineMessage) => void
   onOpenSettings?: () => void
   onOpenTemplateDialog?: () => void
+  onLogout?: () => void
   children?: ReactNode
 }
 
@@ -1125,6 +1140,7 @@ export function WhatsAppLayout({
   onRetryMessage,
   onOpenSettings,
   onOpenTemplateDialog,
+  onLogout,
   children,
 }: WhatsAppLayoutProps) {
   const selectedConversation = conversations.find((c) => c.id === selectedConversationId) || null
@@ -1140,6 +1156,7 @@ export function WhatsAppLayout({
         onChannelFilterChange={onChannelFilterChange}
         onPresenceChange={onPresenceChange}
         onOpenSettings={onOpenSettings}
+        onLogout={onLogout}
       />
 
       {activeTab === 'reports' ? (
