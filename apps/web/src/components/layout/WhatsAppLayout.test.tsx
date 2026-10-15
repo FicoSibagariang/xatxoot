@@ -120,9 +120,45 @@ describe('WhatsApp 3.5-Column Layout (Task 1.24 - apps/web)', () => {
       expect(html).toContain('Tautkan WhatsApp Web / Scan QR Baileys')
       expect(html).toContain('bg-amber-400')
     })
+
+    it('should render distinct WA badge for WhatsApp channel filter and channel-section container', () => {
+      const html = renderToStaticMarkup(
+        <NavRail
+          currentUser={mockUser}
+          activeTab="inbox"
+          activeChannelFilter="whatsapp"
+          onTabChange={() => {}}
+          onChannelFilterChange={() => {}}
+          onPresenceChange={() => {}}
+        />,
+      )
+
+      expect(html).toContain('data-testid="channel-section"')
+      expect(html).toContain('WA')
+    })
   })
 
   describe('ChatListPanel (Kolom 2: 360px - 400px Resizable/Bounded Panel)', () => {
+    it('should render empty state with reset button when filtered and empty', () => {
+      const html = renderToStaticMarkup(
+        <ChatListPanel
+          conversations={[]}
+          selectedConversationId={null}
+          activeFilter="all"
+          searchQuery=""
+          activeChannelFilter="widget"
+          onResetChannelFilter={() => {}}
+          onSelectConversation={() => {}}
+          onFilterChange={() => {}}
+          onSearchChange={() => {}}
+          onNewChat={() => {}}
+        />,
+      )
+
+      expect(html).toContain('data-testid="empty-channel-filter-reset"')
+      expect(html).toContain('Tampilkan Semua Saluran')
+    })
+
     it('should render chat list header with wa-header-bg and search bar pill', () => {
       const html = renderToStaticMarkup(
         <ChatListPanel

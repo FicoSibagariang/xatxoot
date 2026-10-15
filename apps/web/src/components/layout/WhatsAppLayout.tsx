@@ -199,103 +199,116 @@ export function NavRail({
       </div>
 
       {/* Bottom Section: Quick Channel Filters */}
-      <div className="flex flex-col items-center gap-2 w-full pt-3 border-t border-slate-800">
-        <div className="text-[10px] uppercase tracking-wider text-slate-500 font-bold mb-0.5">
-          CH
+      <div
+        data-testid="channel-section"
+        className="flex flex-col items-center gap-1.5 w-full pt-2.5 border-t border-slate-800"
+      >
+        <div className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">CH</div>
+
+        {/* Action Buttons: Add Channel & QR Pairing */}
+        {(onAddChannel || onOpenWhatsAppPairing) && (
+          <div className="flex items-center gap-1 p-1 bg-slate-900/60 rounded-lg border border-slate-800/80 mb-0.5">
+            {onAddChannel && (
+              <button
+                type="button"
+                data-testid="channel-add-button"
+                onClick={onAddChannel}
+                title="Tambah / Kelola Saluran (Channels)"
+                className="w-5 h-5 rounded text-[11px] flex items-center justify-center bg-slate-800 text-slate-300 hover:bg-emerald-600 hover:text-white transition-all cursor-pointer font-bold"
+              >
+                ➕
+              </button>
+            )}
+
+            {onOpenWhatsAppPairing && (
+              <button
+                type="button"
+                data-testid="channel-whatsapp-qr-button"
+                onClick={onOpenWhatsAppPairing}
+                title="Tautkan WhatsApp Web / Scan QR Baileys"
+                className="relative w-5 h-5 rounded text-[11px] flex items-center justify-center bg-slate-800 text-emerald-400 hover:bg-emerald-600 hover:text-white transition-all cursor-pointer font-bold"
+              >
+                📲
+                <span
+                  className={`absolute -top-1 -right-1 w-2 h-2 rounded-full border border-[#111b21] ${
+                    whatsappConnectionStatus === 'connected'
+                      ? 'bg-emerald-500'
+                      : whatsappConnectionStatus === 'qr_ready'
+                        ? 'bg-amber-400 animate-pulse'
+                        : 'bg-rose-500'
+                  }`}
+                />
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Quick Channel Filters (Pill Group) */}
+        <div className="flex flex-col items-center gap-1 p-1 bg-slate-900/40 rounded-xl border border-slate-800/60">
+          <button
+            type="button"
+            data-testid="channel-filter-all"
+            data-active={activeChannelFilter === 'all'}
+            onClick={() => onChannelFilterChange('all')}
+            title="Semua Saluran (Klik untuk reset)"
+            className={`w-8 h-7 rounded-lg text-[10px] font-bold flex items-center justify-center transition-all cursor-pointer ${
+              activeChannelFilter === 'all'
+                ? 'bg-wa-teal-primary text-white shadow-xs'
+                : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+            }`}
+          >
+            ALL
+          </button>
+
+          <button
+            type="button"
+            data-testid="channel-filter-whatsapp"
+            data-active={activeChannelFilter === 'whatsapp'}
+            onClick={() =>
+              onChannelFilterChange(activeChannelFilter === 'whatsapp' ? 'all' : 'whatsapp')
+            }
+            title="Filter WhatsApp (Klik lagi untuk batal)"
+            className={`w-8 h-7 rounded-lg text-[11px] font-extrabold flex items-center justify-center transition-all cursor-pointer ${
+              activeChannelFilter === 'whatsapp'
+                ? 'bg-[#25d366] text-white shadow-xs'
+                : 'text-emerald-400 hover:bg-slate-800 hover:text-emerald-300'
+            }`}
+          >
+            WA
+          </button>
+
+          <button
+            type="button"
+            data-testid="channel-filter-widget"
+            data-active={activeChannelFilter === 'widget'}
+            onClick={() =>
+              onChannelFilterChange(activeChannelFilter === 'widget' ? 'all' : 'widget')
+            }
+            title="Filter Live Chat Widget (Klik lagi untuk batal)"
+            className={`w-8 h-7 rounded-lg text-xs flex items-center justify-center transition-all cursor-pointer ${
+              activeChannelFilter === 'widget'
+                ? 'bg-sky-500 text-white font-bold shadow-xs'
+                : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+            }`}
+          >
+            🌐
+          </button>
+
+          <button
+            type="button"
+            data-testid="channel-filter-api"
+            data-active={activeChannelFilter === 'api'}
+            onClick={() => onChannelFilterChange(activeChannelFilter === 'api' ? 'all' : 'api')}
+            title="Filter API Channel (Klik lagi untuk batal)"
+            className={`w-8 h-7 rounded-lg text-xs flex items-center justify-center transition-all cursor-pointer ${
+              activeChannelFilter === 'api'
+                ? 'bg-amber-500 text-white font-bold shadow-xs'
+                : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+            }`}
+          >
+            ⚡
+          </button>
         </div>
-
-        {onAddChannel && (
-          <button
-            type="button"
-            data-testid="channel-add-button"
-            onClick={onAddChannel}
-            title="Tambah / Kelola Saluran (Channels)"
-            className="w-8 h-8 rounded-lg text-xs flex items-center justify-center bg-slate-800 text-slate-300 hover:bg-emerald-600 hover:text-white transition-all cursor-pointer font-bold mb-0.5"
-          >
-            ➕
-          </button>
-        )}
-
-        {onOpenWhatsAppPairing && (
-          <button
-            type="button"
-            data-testid="channel-whatsapp-qr-button"
-            onClick={onOpenWhatsAppPairing}
-            title="Tautkan WhatsApp Web / Scan QR Baileys"
-            className="relative w-8 h-8 rounded-lg text-xs flex items-center justify-center bg-slate-800 text-emerald-400 hover:bg-emerald-600 hover:text-white transition-all cursor-pointer font-bold mb-1"
-          >
-            📲
-            <span
-              className={`absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-[#111b21] ${
-                whatsappConnectionStatus === 'connected'
-                  ? 'bg-emerald-500'
-                  : whatsappConnectionStatus === 'qr_ready'
-                    ? 'bg-amber-400 animate-pulse'
-                    : 'bg-rose-500'
-              }`}
-            />
-          </button>
-        )}
-
-        <button
-          type="button"
-          data-testid="channel-filter-all"
-          data-active={activeChannelFilter === 'all'}
-          onClick={() => onChannelFilterChange('all')}
-          title="Semua Channel"
-          className={`w-8 h-8 rounded-lg text-xs flex items-center justify-center transition-all cursor-pointer ${
-            activeChannelFilter === 'all'
-              ? 'bg-wa-teal-primary text-white font-bold'
-              : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-          }`}
-        >
-          ALL
-        </button>
-
-        <button
-          type="button"
-          data-testid="channel-filter-whatsapp"
-          data-active={activeChannelFilter === 'whatsapp'}
-          onClick={() => onChannelFilterChange('whatsapp')}
-          title="Filter WhatsApp"
-          className={`w-8 h-8 rounded-lg text-xs flex items-center justify-center transition-all cursor-pointer ${
-            activeChannelFilter === 'whatsapp'
-              ? 'bg-wa-teal-primary text-white font-bold'
-              : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-          }`}
-        >
-          💬
-        </button>
-
-        <button
-          type="button"
-          data-testid="channel-filter-widget"
-          data-active={activeChannelFilter === 'widget'}
-          onClick={() => onChannelFilterChange('widget')}
-          title="Filter Live Chat Widget"
-          className={`w-8 h-8 rounded-lg text-xs flex items-center justify-center transition-all cursor-pointer ${
-            activeChannelFilter === 'widget'
-              ? 'bg-wa-teal-primary text-white font-bold'
-              : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-          }`}
-        >
-          🌐
-        </button>
-
-        <button
-          type="button"
-          data-testid="channel-filter-api"
-          data-active={activeChannelFilter === 'api'}
-          onClick={() => onChannelFilterChange('api')}
-          title="Filter API Channel"
-          className={`w-8 h-8 rounded-lg text-xs flex items-center justify-center transition-all cursor-pointer ${
-            activeChannelFilter === 'api'
-              ? 'bg-wa-teal-primary text-white font-bold'
-              : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-          }`}
-        >
-          ⚡
-        </button>
       </div>
     </aside>
   )
@@ -309,11 +322,13 @@ export interface ChatListPanelProps {
   selectedConversationId?: string | null
   activeFilter: ChatFilter
   searchQuery: string
+  activeChannelFilter?: LayoutChannelFilter
   now?: Date
   onSelectConversation: (id: string) => void
   onFilterChange: (filter: ChatFilter) => void
   onSearchChange: (query: string) => void
   onNewChat: () => void
+  onResetChannelFilter?: () => void
 }
 
 export function ChatListPanel({
@@ -321,11 +336,13 @@ export function ChatListPanel({
   selectedConversationId,
   activeFilter,
   searchQuery,
+  activeChannelFilter,
   now,
   onSelectConversation,
   onFilterChange,
   onSearchChange,
   onNewChat,
+  onResetChannelFilter,
 }: ChatListPanelProps) {
   const getTicketStatusBadgeVariant = (status?: string) => {
     switch (status) {
@@ -439,8 +456,22 @@ export function ChatListPanel({
       {/* Conversation List Scroll Area */}
       <div className="flex-1 overflow-y-auto divide-y divide-[#f0f2f5]">
         {conversations.length === 0 ? (
-          <div className="p-8 text-center text-[#667781] text-sm">
-            Tidak ada percakapan ditemukan.
+          <div className="p-8 text-center text-[#667781] text-sm flex flex-col items-center gap-2">
+            <div>
+              {activeChannelFilter && activeChannelFilter !== 'all'
+                ? 'Tidak ada percakapan untuk filter saluran ini.'
+                : 'Tidak ada percakapan ditemukan.'}
+            </div>
+            {activeChannelFilter && activeChannelFilter !== 'all' && onResetChannelFilter && (
+              <button
+                type="button"
+                data-testid="empty-channel-filter-reset"
+                onClick={onResetChannelFilter}
+                className="text-xs text-wa-teal-primary font-semibold hover:underline cursor-pointer"
+              >
+                Tampilkan Semua Saluran
+              </button>
+            )}
           </div>
         ) : (
           conversations.map((conv) => {
@@ -1219,11 +1250,13 @@ export function WhatsAppLayout({
             selectedConversationId={selectedConversationId}
             activeFilter={activeFilter}
             searchQuery={searchQuery}
+            activeChannelFilter={activeChannelFilter}
             now={now}
             onSelectConversation={onSelectConversation}
             onFilterChange={onFilterChange}
             onSearchChange={onSearchChange}
             onNewChat={onNewChat}
+            onResetChannelFilter={() => onChannelFilterChange('all')}
           />
 
           {/* Kolom 3: ConversationThread */}
