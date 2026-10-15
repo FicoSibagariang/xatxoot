@@ -41,6 +41,7 @@ export interface NavRailProps {
   onPresenceChange: (status: PresenceStatus) => void
   onOpenSettings?: () => void
   onLogout?: () => void
+  onAddChannel?: () => void
 }
 
 export function NavRail({
@@ -52,6 +53,7 @@ export function NavRail({
   onPresenceChange,
   onOpenSettings,
   onLogout,
+  onAddChannel,
 }: NavRailProps) {
   const [showPresenceMenu, setShowPresenceMenu] = useState(false)
 
@@ -197,6 +199,18 @@ export function NavRail({
         <div className="text-[10px] uppercase tracking-wider text-slate-500 font-bold mb-0.5">
           CH
         </div>
+
+        {onAddChannel && (
+          <button
+            type="button"
+            data-testid="channel-add-button"
+            onClick={onAddChannel}
+            title="Tambah / Kelola Saluran (Channels)"
+            className="w-8 h-8 rounded-lg text-xs flex items-center justify-center bg-slate-800 text-slate-300 hover:bg-emerald-600 hover:text-white transition-all cursor-pointer font-bold mb-1"
+          >
+            ➕
+          </button>
+        )}
 
         <button
           type="button"
@@ -1107,6 +1121,7 @@ export interface WhatsAppLayoutProps {
   onOpenSettings?: () => void
   onOpenTemplateDialog?: () => void
   onLogout?: () => void
+  onAddChannel?: () => void
   children?: ReactNode
 }
 
@@ -1141,6 +1156,7 @@ export function WhatsAppLayout({
   onOpenSettings,
   onOpenTemplateDialog,
   onLogout,
+  onAddChannel,
   children,
 }: WhatsAppLayoutProps) {
   const selectedConversation = conversations.find((c) => c.id === selectedConversationId) || null
@@ -1157,6 +1173,7 @@ export function WhatsAppLayout({
         onPresenceChange={onPresenceChange}
         onOpenSettings={onOpenSettings}
         onLogout={onLogout}
+        onAddChannel={onAddChannel}
       />
 
       {activeTab === 'reports' ? (

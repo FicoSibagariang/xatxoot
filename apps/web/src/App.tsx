@@ -619,6 +619,7 @@ export function App({ initialAuthenticated }: AppProps = {}) {
         }}
         onOpenTemplateDialog={() => setIsTemplateDialogOpen(true)}
         onLogout={handleLogout}
+        onAddChannel={() => setIsChannelWizardOpen(true)}
       />
 
       <BaileysPairingDialog
@@ -768,7 +769,30 @@ export function App({ initialAuthenticated }: AppProps = {}) {
       {isChannelWizardOpen && (
         <ChannelWizard
           onClose={() => setIsChannelWizardOpen(false)}
-          onSaveChannel={(_payload) => {
+          onSaveChannel={async (payload) => {
+            try {
+              const token =
+                typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null
+              await fetch('/api/v1/inboxes', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                },
+                body: JSON.stringify({
+                  name: payload.inboxName,
+                  channelType: payload.channelType,
+                  channelConfig:
+                    payload.emailConfig ||
+                    payload.telegramConfig ||
+                    payload.facebookConfig ||
+                    payload.instagramConfig ||
+                    payload.smsConfig,
+                }),
+              })
+            } catch {
+              // ignore network errors
+            }
             setIsChannelWizardOpen(false)
           }}
         />
