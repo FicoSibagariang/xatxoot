@@ -611,6 +611,7 @@ const DEFAULT_SLASH_COMMANDS: CommandItem[] = [
 
 export interface ConversationThreadProps {
   conversation: ConversationItem | null
+  currentUser?: LayoutUser
   isDrawerOpen: boolean
   messages?: TimelineMessage[]
   cannedResponses?: CannedItem[]
@@ -632,6 +633,7 @@ export interface ConversationThreadProps {
 
 export function ConversationThread({
   conversation,
+  currentUser,
   isDrawerOpen,
   messages,
   cannedResponses,
@@ -941,23 +943,44 @@ export function ConversationThread({
             </>
           )}
 
-          <Button
-            data-testid="btn-assign-ticket"
-            variant="secondary"
-            size="sm"
-            onClick={onAssignTicket}
-          >
-            Assign
-          </Button>
+          {(() => {
+            const isTicketAssignedToMe = Boolean(
+              conversation.ticket?.assignedTo &&
+                (!currentUser || conversation.ticket.assignedTo === currentUser.id),
+            )
+            const isTicketAssignedToOther = Boolean(
+              conversation.ticket?.assignedTo &&
+                currentUser &&
+                conversation.ticket.assignedTo !== currentUser.id,
+            )
+            const isTicketResolved = conversation.ticket?.status === 'resolved'
 
-          <Button
-            data-testid="btn-resolve-ticket"
-            variant="teal"
-            size="sm"
-            onClick={onResolveTicket}
-          >
-            Resolve
-          </Button>
+            return (
+              <>
+                <Button
+                  data-testid="btn-assign-ticket"
+                  variant="secondary"
+                  size="sm"
+                  onClick={onAssignTicket}
+                >
+                  {isTicketAssignedToMe
+                    ? 'Unassign'
+                    : isTicketAssignedToOther
+                      ? 'Ditugaskan'
+                      : 'Assign'}
+                </Button>
+
+                <Button
+                  data-testid="btn-resolve-ticket"
+                  variant={isTicketResolved ? 'secondary' : 'teal'}
+                  size="sm"
+                  onClick={onResolveTicket}
+                >
+                  {isTicketResolved ? 'Buka Kembali' : 'Resolve'}
+                </Button>
+              </>
+            )
+          })()}
         </div>
       </header>
 
@@ -1273,6 +1296,7 @@ export function WhatsAppLayout({
           {/* Kolom 3: ConversationThread */}
           <ConversationThread
             conversation={selectedConversation}
+            currentUser={currentUser}
             isDrawerOpen={isDrawerOpen}
             messages={messages}
             cannedResponses={cannedResponses}

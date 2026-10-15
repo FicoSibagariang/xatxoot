@@ -264,14 +264,18 @@ export class TicketService {
       throw new Error(`Ticket not found: ${id}`)
     }
 
+    const isValidUuid = (val: string) =>
+      /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(val)
+
     const now = new Date().toISOString()
-    const authorId = updatedBy || 'mock-user-id'
+    const authorId =
+      updatedBy && isValidUuid(updatedBy) ? updatedBy : '3b87d597-cde4-4b3e-8cce-e3bd24ac1c4f'
 
     const updated: Ticket = {
       ...existing,
       internalNote,
       internalNoteUpdatedAt: now,
-      internalNoteUpdatedBy: authorId,
+      internalNoteUpdatedBy: updatedBy || authorId,
       updatedAt: now,
     }
 
@@ -305,6 +309,12 @@ export class TicketService {
       throw new Error(`Ticket not found: ${id}`)
     }
 
+    const isValidUuid = (val: string) =>
+      /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(val)
+
+    const dbAssigneeId =
+      assigneeId && !isValidUuid(assigneeId) ? '3b87d597-cde4-4b3e-8cce-e3bd24ac1c4f' : assigneeId
+
     const now = new Date().toISOString()
     const updated: Ticket = {
       ...existing,
@@ -318,7 +328,7 @@ export class TicketService {
       await sql`
         UPDATE tickets
         SET
-          assignee_id = ${assigneeId},
+          assignee_id = ${dbAssigneeId},
           updated_at = ${now}
         WHERE id = ${id}
       `

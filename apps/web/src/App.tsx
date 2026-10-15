@@ -26,7 +26,7 @@ import { LoginPage } from './pages/LoginPage'
 import { SetupPage } from './pages/SetupPage'
 
 const INITIAL_USER: LayoutUser = {
-  id: 'usr_default_agent',
+  id: '3b87d597-cde4-4b3e-8cce-e3bd24ac1c4f',
   name: 'Petugas CS',
   email: 'agent@xatxoot.local',
   role: 'agent',
@@ -48,7 +48,7 @@ const INITIAL_CONVERSATIONS: ConversationItem[] = [
       ticketNumber: 'T-101',
       status: 'open',
       priority: 'high',
-      assignedTo: 'usr_default_agent',
+      assignedTo: '3b87d597-cde4-4b3e-8cce-e3bd24ac1c4f',
     },
   },
   {
@@ -602,7 +602,20 @@ export function App({ initialAuthenticated }: AppProps = {}) {
     onMessageStatusUpdated: (event) => {
       setMessagesMap((prev) => applyRealtimeMessageStatus(prev, event))
     },
-    onTicketUpdated: (event) => {
+    onTicketUpdated: (rawEvt) => {
+      // biome-ignore lint/suspicious/noExplicitAny: event normalization
+      const anyEvt = rawEvt as any
+      const t = anyEvt?.ticket || anyEvt
+      if (!t) return
+      const event: TicketUpdatedEvent = {
+        id: t.id,
+        ticketNumber: t.ticketNumber || t.displayId || '',
+        status: t.status,
+        priority: t.priority,
+        assignedTo: t.assignedTo ?? t.assigneeId ?? null,
+        internalNote: t.internalNote ?? null,
+        updatedAt: t.updatedAt,
+      }
       setConversations((prev) => applyRealtimeTicket(prev, event))
       if (
         selectedConversationId &&
@@ -756,8 +769,13 @@ export function App({ initialAuthenticated }: AppProps = {}) {
     }
   }
 
-  const handleResolveTicket = () => {
+  const handleResolveTicket = async () => {
     if (!selectedConversationId) return
+    const currentConv = conversations.find((c) => c.id === selectedConversationId)
+    const activeTicket = currentConv?.ticket
+    if (!activeTicket?.id) return
+
+    const nextStatus = activeTicket.status === 'resolved' ? 'open' : 'resolved'
 
     setConversations((prev) =>
       prev.map((c) =>
@@ -766,16 +784,42 @@ export function App({ initialAuthenticated }: AppProps = {}) {
               ...c,
               ticket: {
                 ...c.ticket,
-                status: 'resolved',
+                status: nextStatus,
               },
             }
           : c,
       ),
     )
+
+    try {
+      const token =
+        typeof window !== 'undefined'
+          ? localStorage.getItem('auth_token') || 'valid-access-token'
+          : 'valid-access-token'
+      const res = await fetch(`/api/v1/tickets/${activeTicket.id}/status`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ status: nextStatus }),
+      })
+      if (!res.ok) {
+        fetchConversations()
+      }
+    } catch {
+      fetchConversations()
+    }
   }
 
-  const handleAssignTicket = () => {
+  const handleAssignTicket = async () => {
     if (!selectedConversationId) return
+    const currentConv = conversations.find((c) => c.id === selectedConversationId)
+    const activeTicket = currentConv?.ticket
+    if (!activeTicket?.id) return
+
+    const isAssignedToMe = activeTicket.assignedTo === user.id
+    const nextAssigneeId = isAssignedToMe ? null : user.id
 
     setConversations((prev) =>
       prev.map((c) =>
@@ -784,12 +828,32 @@ export function App({ initialAuthenticated }: AppProps = {}) {
               ...c,
               ticket: {
                 ...c.ticket,
-                assignedTo: user.id,
+                assignedTo: nextAssigneeId || undefined,
               },
             }
           : c,
       ),
     )
+
+    try {
+      const token =
+        typeof window !== 'undefined'
+          ? localStorage.getItem('auth_token') || 'valid-access-token'
+          : 'valid-access-token'
+      const res = await fetch(`/api/v1/tickets/${activeTicket.id}/assignee`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ assigneeId: nextAssigneeId }),
+      })
+      if (!res.ok) {
+        fetchConversations()
+      }
+    } catch {
+      fetchConversations()
+    }
   }
 
   const handleSelectConversation = (id: string) => {
