@@ -170,22 +170,24 @@ export function ContactsDashboard({
   return (
     <div
       data-testid="contacts-dashboard"
-      className="flex-1 h-full bg-[#f0f2f5] overflow-y-auto flex flex-col font-sans select-none"
+      className="flex-1 h-full bg-wa-header-bg overflow-y-auto flex flex-col font-sans select-none"
     >
       {/* Header Bar */}
-      <header className="h-16 bg-white border-b border-[#e9edef] px-6 flex items-center justify-between shrink-0 shadow-xs">
+      <header className="h-16 bg-white border-b border-wa-border px-6 flex items-center justify-between shrink-0 shadow-xs">
         <div className="flex items-center gap-3">
           <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-wa-teal-primary/10 text-xl text-wa-teal-primary">
             👥
           </span>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-lg font-bold text-[#111b21]">Kontak & CRM</h1>
+              <h1 className="text-lg font-bold text-wa-text-primary">Kontak & CRM</h1>
               <span className="text-[11px] font-semibold bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full border border-emerald-200">
                 {contacts.length} Kontak Terdaftar
               </span>
             </div>
-            <p className="text-xs text-[#667781]">Basis Data Pelanggan & Profil Omnichannel</p>
+            <p className="text-xs text-wa-text-secondary">
+              Basis Data Pelanggan & Profil Omnichannel
+            </p>
           </div>
         </div>
 
@@ -194,7 +196,7 @@ export function ContactsDashboard({
           variant="primary"
           size="sm"
           onClick={() => setIsAddModalOpen(true)}
-          className="flex items-center gap-1.5 font-bold cursor-pointer bg-wa-teal-primary hover:bg-[#008069] text-white"
+          className="flex items-center gap-1.5 font-bold cursor-pointer bg-wa-teal-primary hover:bg-wa-teal-dark text-white"
         >
           + Tambah Kontak
         </Button>
@@ -203,7 +205,7 @@ export function ContactsDashboard({
       {/* Main Content Area */}
       <main className="flex-1 p-6 max-w-7xl w-full mx-auto flex flex-col gap-5">
         {/* Search & Filter Toolbar */}
-        <div className="bg-white rounded-2xl p-4 border border-[#e9edef] shadow-xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+        <div className="bg-white rounded-2xl p-4 border border-wa-border shadow-xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
           {/* Search Input */}
           <div className="flex-1 max-w-md">
             <Input
@@ -224,7 +226,7 @@ export function ContactsDashboard({
               className={`px-3 py-1.5 text-xs font-semibold rounded-full transition-colors cursor-pointer whitespace-nowrap ${
                 filterTag === 'all'
                   ? 'bg-wa-teal-primary text-white shadow-xs'
-                  : 'bg-[#f0f2f5] text-[#54656f] hover:bg-[#e9edef]'
+                  : 'bg-wa-header-bg text-wa-text-muted hover:bg-wa-border'
               }`}
             >
               Semua ({contacts.length})
@@ -237,7 +239,7 @@ export function ContactsDashboard({
               className={`px-3 py-1.5 text-xs font-semibold rounded-full transition-colors cursor-pointer whitespace-nowrap ${
                 filterTag === 'whatsapp'
                   ? 'bg-emerald-600 text-white shadow-xs'
-                  : 'bg-[#f0f2f5] text-[#54656f] hover:bg-[#e9edef]'
+                  : 'bg-wa-header-bg text-wa-text-muted hover:bg-wa-border'
               }`}
             >
               WhatsApp
@@ -250,7 +252,7 @@ export function ContactsDashboard({
               className={`px-3 py-1.5 text-xs font-semibold rounded-full transition-colors cursor-pointer whitespace-nowrap ${
                 filterTag === 'vip'
                   ? 'bg-amber-600 text-white shadow-xs'
-                  : 'bg-[#f0f2f5] text-[#54656f] hover:bg-[#e9edef]'
+                  : 'bg-wa-header-bg text-wa-text-muted hover:bg-wa-border'
               }`}
             >
               VIP
@@ -263,7 +265,7 @@ export function ContactsDashboard({
               className={`px-3 py-1.5 text-xs font-semibold rounded-full transition-colors cursor-pointer whitespace-nowrap ${
                 filterTag === 'lead'
                   ? 'bg-sky-600 text-white shadow-xs'
-                  : 'bg-[#f0f2f5] text-[#54656f] hover:bg-[#e9edef]'
+                  : 'bg-wa-header-bg text-wa-text-muted hover:bg-wa-border'
               }`}
             >
               Leads
@@ -272,10 +274,10 @@ export function ContactsDashboard({
         </div>
 
         {/* Contacts Table Card */}
-        <div className="bg-white rounded-2xl border border-[#e9edef] shadow-xs overflow-hidden flex flex-col">
+        <div className="bg-white rounded-2xl border border-wa-border shadow-xs overflow-hidden flex flex-col">
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm text-[#111b21] divide-y divide-[#e9edef]">
-              <thead className="bg-[#f0f2f5] text-xs font-bold uppercase tracking-wider text-[#54656f]">
+            <table className="w-full text-left text-sm text-wa-text-primary divide-y divide-wa-border">
+              <thead className="bg-wa-header-bg text-xs font-bold uppercase tracking-wider text-wa-text-muted">
                 <tr>
                   <th className="py-3 px-4">Kontak</th>
                   <th className="py-3 px-4">Nomor HP / WhatsApp</th>
@@ -285,10 +287,10 @@ export function ContactsDashboard({
                   <th className="py-3 px-4 text-right">Aksi</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#f0f2f5] bg-white">
+              <tbody className="divide-y divide-wa-header-bg bg-white">
                 {filteredContacts.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="py-12 text-center text-[#667781] text-sm">
+                    <td colSpan={6} className="py-12 text-center text-wa-text-secondary text-sm">
                       Tidak ada kontak yang cocok dengan pencarian Anda.
                     </td>
                   </tr>
@@ -296,7 +298,7 @@ export function ContactsDashboard({
                   filteredContacts.map((contact) => (
                     <tr
                       key={contact.id}
-                      className="hover:bg-[#f5f6f6] transition-colors cursor-pointer"
+                      className="hover:bg-wa-search-bg transition-colors cursor-pointer"
                       onClick={() => setSelectedContact(contact)}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' || e.key === ' ') {
@@ -314,18 +316,22 @@ export function ContactsDashboard({
                           size="md"
                         />
                         <div>
-                          <div className="font-bold text-sm text-[#111b21]">{contact.name}</div>
-                          <div className="text-[11px] text-[#667781]">{contact.id}</div>
+                          <div className="font-bold text-sm text-wa-text-primary">
+                            {contact.name}
+                          </div>
+                          <div className="text-[11px] text-wa-text-secondary">{contact.id}</div>
                         </div>
                       </td>
 
                       {/* Phone */}
-                      <td className="py-3.5 px-4 text-xs font-mono text-[#54656f]">
+                      <td className="py-3.5 px-4 text-xs font-mono text-wa-text-muted">
                         {contact.phone || '-'}
                       </td>
 
                       {/* Email */}
-                      <td className="py-3.5 px-4 text-xs text-[#54656f]">{contact.email || '-'}</td>
+                      <td className="py-3.5 px-4 text-xs text-wa-text-muted">
+                        {contact.email || '-'}
+                      </td>
 
                       {/* Company */}
                       <td className="py-3.5 px-4 text-xs font-medium text-slate-700">
@@ -537,7 +543,7 @@ export function ContactsDashboard({
                   type="submit"
                   variant="primary"
                   size="sm"
-                  className="bg-wa-teal-primary hover:bg-[#008069] text-white font-bold"
+                  className="bg-wa-teal-primary hover:bg-wa-teal-dark text-white font-bold"
                 >
                   Simpan Kontak
                 </Button>
@@ -565,7 +571,7 @@ export function ContactsDashboard({
               size="xl"
               className="mb-3"
             />
-            <h3 className="font-bold text-lg text-[#111b21]">{selectedContact.name}</h3>
+            <h3 className="font-bold text-lg text-wa-text-primary">{selectedContact.name}</h3>
             {selectedContact.company && (
               <p className="text-xs text-slate-500 font-medium mt-0.5">
                 🏢 {selectedContact.company}
@@ -602,7 +608,7 @@ export function ContactsDashboard({
                   setSelectedContact(null)
                   if (onStartChat) onStartChat(convId)
                 }}
-                className="flex-1 bg-wa-teal-primary hover:bg-[#008069] text-white font-bold"
+                className="flex-1 bg-wa-teal-primary hover:bg-wa-teal-dark text-white font-bold"
               >
                 💬 Buka Chat
               </Button>

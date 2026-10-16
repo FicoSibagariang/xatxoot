@@ -13,7 +13,7 @@ export function AutomationRulesPage() {
   }
 
   return (
-    <div data-testid="automation-rules-page" className="min-h-screen bg-[#f0f2f5] flex flex-col">
+    <div data-testid="automation-rules-page" className="min-h-screen bg-wa-header-bg flex flex-col">
       <main className="flex-1 overflow-y-auto">
         <AutomationRuleBuilder initialRule={currentRule} onSave={handleSave} />
       </main>

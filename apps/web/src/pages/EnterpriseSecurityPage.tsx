@@ -59,7 +59,10 @@ export function EnterpriseSecurityPage() {
   }
 
   return (
-    <div data-testid="enterprise-security-page" className="min-h-screen bg-[#f0f2f5] flex flex-col">
+    <div
+      data-testid="enterprise-security-page"
+      className="min-h-screen bg-wa-header-bg flex flex-col"
+    >
       <header className="bg-white border-b border-slate-200 px-6 py-4">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-2 text-sm text-slate-500">

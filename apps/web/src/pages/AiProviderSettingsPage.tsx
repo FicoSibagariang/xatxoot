@@ -47,7 +47,7 @@ export function AiProviderSettingsPage() {
   return (
     <div
       data-testid="ai-provider-settings-page"
-      className="min-h-screen bg-[#f0f2f5] flex flex-col"
+      className="min-h-screen bg-wa-header-bg flex flex-col"
     >
       <header className="bg-white border-b border-slate-200 px-6 py-4">
         <div className="max-w-5xl mx-auto flex items-center justify-between">

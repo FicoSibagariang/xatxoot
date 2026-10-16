@@ -142,9 +142,9 @@ export function BaileysPairingDialog({
     >
       <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col">
         {/* Header Dialog */}
-        <div className="bg-[#f0f2f5] px-5 py-4 border-b border-[#e9edef] flex items-center justify-between">
+        <div className="bg-wa-header-bg px-5 py-4 border-b border-wa-border flex items-center justify-between">
           <div>
-            <h3 className="font-bold text-base text-[#111b21] flex items-center gap-2">
+            <h3 className="font-bold text-base text-wa-text-primary flex items-center gap-2">
               <span>💬</span>
               <span>Tautkan WhatsApp (Baileys)</span>
             </h3>

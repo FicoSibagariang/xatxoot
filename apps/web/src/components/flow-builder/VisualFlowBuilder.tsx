@@ -278,10 +278,10 @@ export function VisualFlowBuilder({
   return (
     <div
       data-testid="visual-flow-builder"
-      className="flex flex-col h-full w-full bg-[#f0f2f5] select-none overflow-hidden font-sans"
+      className="flex flex-col h-full w-full bg-wa-header-bg select-none overflow-hidden font-sans"
     >
       {/* Top Header Bar */}
-      <header className="h-16 bg-white px-6 flex items-center justify-between border-b border-[#e9edef] shrink-0 z-10">
+      <header className="h-16 bg-white px-6 flex items-center justify-between border-b border-wa-border shrink-0 z-10">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
             <span className="text-xl">🤖</span>
@@ -290,10 +290,10 @@ export function VisualFlowBuilder({
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="font-bold text-base text-[#111b21] bg-transparent border-b border-transparent hover:border-slate-300 focus:border-wa-teal-primary focus:outline-none px-1"
+                className="font-bold text-base text-wa-text-primary bg-transparent border-b border-transparent hover:border-slate-300 focus:border-wa-teal-primary focus:outline-none px-1"
                 placeholder="Nama Bot Flow..."
               />
-              <div className="flex items-center gap-2 text-xs text-[#667781] px-1">
+              <div className="flex items-center gap-2 text-xs text-wa-text-secondary px-1">
                 <span>Trigger:</span>
                 <select
                   value={trigger}
@@ -343,7 +343,7 @@ export function VisualFlowBuilder({
         {/* Left Toolbar Palette */}
         <aside
           data-testid="flow-toolbar"
-          className="w-56 bg-white border-r border-[#e9edef] p-4 flex flex-col gap-3 shrink-0"
+          className="w-56 bg-white border-r border-wa-border p-4 flex flex-col gap-3 shrink-0"
         >
           <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">
             Tambah Node Alur
@@ -418,7 +418,7 @@ export function VisualFlowBuilder({
         {/* Center Node Graph Canvas */}
         <main
           data-testid="flow-builder-canvas"
-          className="flex-1 overflow-y-auto p-6 bg-[#efeae2] wa-doodle-pattern flex flex-col gap-4 relative"
+          className="flex-1 overflow-y-auto p-6 bg-wa-chat-bg wa-doodle-pattern flex flex-col gap-4 relative"
         >
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 auto-rows-max">
             {flow.nodes.map((node, index) => {
@@ -623,11 +623,11 @@ export function VisualFlowBuilder({
         {/* Right Node Inspector Drawer */}
         <aside
           data-testid="node-inspector"
-          className="w-80 bg-white border-l border-[#e9edef] p-5 flex flex-col gap-4 overflow-y-auto shrink-0"
+          className="w-80 bg-white border-l border-wa-border p-5 flex flex-col gap-4 overflow-y-auto shrink-0"
         >
           <div className="border-b border-slate-200 pb-3">
-            <h3 className="font-bold text-sm text-[#111b21]">Konfigurasi Node</h3>
-            <p className="text-xs text-[#667781]">
+            <h3 className="font-bold text-sm text-wa-text-primary">Konfigurasi Node</h3>
+            <p className="text-xs text-wa-text-secondary">
               {selectedNode ? `Tipe: ${selectedNode.type.toUpperCase()}` : 'Pilih node pada canvas'}
             </p>
           </div>

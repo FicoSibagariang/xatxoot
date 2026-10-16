@@ -290,7 +290,7 @@ export function AiProviderConfigPanel({
               data-testid="toggle-active-status"
               checked={formData.active}
               onChange={(e) => setFormData({ ...formData, active: e.target.checked })}
-              className="w-4 h-4 text-[#00a884] rounded border-slate-300 focus:ring-[#00a884]"
+              className="w-4 h-4 text-wa-teal-primary rounded border-slate-300 focus:ring-wa-teal-primary"
             />
             <span
               className={`text-xs font-semibold ${formData.active ? 'text-emerald-600' : 'text-slate-400'}`}
@@ -317,14 +317,14 @@ export function AiProviderConfigPanel({
                   onClick={() => handleProviderSelect(provKey)}
                   className={`text-left p-3.5 rounded-lg border-2 transition-all flex flex-col justify-between ${
                     isSelected
-                      ? 'border-[#00a884] bg-emerald-50/40 shadow-xs'
+                      ? 'border-wa-teal-primary bg-emerald-50/40 shadow-xs'
                       : 'border-slate-200 hover:border-slate-300 bg-white'
                   }`}
                 >
                   <div className="flex items-center justify-between">
                     <span className="text-xl select-none">{info.icon}</span>
                     {isSelected && (
-                      <span className="text-[10px] uppercase font-bold text-[#00a884] bg-emerald-100 px-1.5 py-0.5 rounded">
+                      <span className="text-[10px] uppercase font-bold text-wa-teal-primary bg-emerald-100 px-1.5 py-0.5 rounded">
                         Dipilih
                       </span>
                     )}
@@ -357,7 +357,7 @@ export function AiProviderConfigPanel({
               value={formData.modelName}
               onChange={(e) => setFormData({ ...formData, modelName: e.target.value })}
               placeholder="e.g. gpt-4o"
-              className="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 focus:outline-hidden focus:border-[#00a884]"
+              className="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 focus:outline-hidden focus:border-wa-teal-primary"
               required
             />
             {/* Quick preset badges */}
@@ -404,7 +404,7 @@ export function AiProviderConfigPanel({
               onChange={(e) =>
                 setFormData({ ...formData, temperature: Number.parseFloat(e.target.value) })
               }
-              className="w-full accent-[#00a884] cursor-pointer"
+              className="w-full accent-wa-teal-primary cursor-pointer"
             />
             <div className="flex justify-between text-[10px] text-slate-400 mt-1">
               <span>0.0 (Presisi/Deterministik)</span>
@@ -441,7 +441,7 @@ export function AiProviderConfigPanel({
                     ? 'Tidak memerlukan API Key untuk Ollama lokal'
                     : 'Masukkan API Key Anda (misal sk-...)'
               }
-              className="w-full text-sm border border-slate-300 rounded-lg pl-3 pr-10 py-2 focus:outline-hidden focus:border-[#00a884]"
+              className="w-full text-sm border border-slate-300 rounded-lg pl-3 pr-10 py-2 focus:outline-hidden focus:border-wa-teal-primary"
             />
             <button
               type="button"
@@ -486,7 +486,7 @@ export function AiProviderConfigPanel({
                 ? 'http://localhost:11434'
                 : 'https://api.openai.com/v1 (opsional)'
             }
-            className="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 focus:outline-hidden focus:border-[#00a884]"
+            className="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 focus:outline-hidden focus:border-wa-teal-primary"
           />
           {formData.provider === 'ollama' && (
             <p
@@ -516,7 +516,7 @@ export function AiProviderConfigPanel({
           <button
             type="submit"
             data-testid="btn-save-ai-setting"
-            className="bg-[#00a884] hover:bg-[#008f6f] text-white text-sm font-semibold px-5 py-2.5 rounded-lg transition-colors shadow-xs"
+            className="bg-wa-teal-primary hover:bg-wa-teal-hover text-white text-sm font-semibold px-5 py-2.5 rounded-lg transition-colors shadow-xs"
           >
             Simpan Konfigurasi AI
           </button>
@@ -550,7 +550,7 @@ export function AiProviderConfigPanel({
               value={testPrompt}
               onChange={(e) => setTestPrompt(e.target.value)}
               placeholder="Ketik prompt untuk uji koneksi..."
-              className="flex-1 text-sm border border-slate-300 rounded-lg px-3 py-2 focus:outline-hidden focus:border-[#00a884]"
+              className="flex-1 text-sm border border-slate-300 rounded-lg px-3 py-2 focus:outline-hidden focus:border-wa-teal-primary"
             />
             <button
               type="button"
@@ -641,7 +641,7 @@ export function AiProviderConfigPanel({
             data-testid="btn-sync-embeddings"
             onClick={handleRunSyncEmbeddings}
             disabled={activeSyncStatus.isSyncing}
-            className="bg-[#00a884] hover:bg-[#008f6f] disabled:opacity-50 text-white text-xs font-semibold px-4 py-2 rounded-lg transition-colors shrink-0 flex items-center gap-1.5 self-start sm:self-auto"
+            className="bg-wa-teal-primary hover:bg-wa-teal-hover disabled:opacity-50 text-white text-xs font-semibold px-4 py-2 rounded-lg transition-colors shrink-0 flex items-center gap-1.5 self-start sm:self-auto"
           >
             <span>🔄</span> Sinkronkan Sekarang
           </button>

@@ -17,7 +17,7 @@ export function CampaignsPage() {
   }
 
   return (
-    <div data-testid="campaigns-page" className="min-h-screen bg-[#f0f2f5] flex flex-col">
+    <div data-testid="campaigns-page" className="min-h-screen bg-wa-header-bg flex flex-col">
       <main className="flex-1 overflow-y-auto">
         <CampaignWizard
           campaignData={currentCampaign}

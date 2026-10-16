@@ -85,7 +85,7 @@ export function DeliveryStatusTick({ status = 'sent', className = '' }: Delivery
           data-testid="delivery-status"
           data-status="read"
           title="Dibaca"
-          className={`inline-flex items-center text-[11px] text-[#53bdeb] font-bold tracking-[-3px] mr-1 select-none ${className}`}
+          className={`inline-flex items-center text-[11px] text-wa-tick-blue font-bold tracking-[-3px] mr-1 select-none ${className}`}
         >
           ✓✓
         </span>
@@ -165,7 +165,7 @@ export function ChatBubble({ message, onRetry }: ChatBubbleProps) {
       <div className="flex justify-center my-2 select-none px-4">
         <span
           data-testid="activity-pill"
-          className="px-3.5 py-1.5 bg-[#f0f2f5] text-[#54656f] text-xs font-medium rounded-lg shadow-2xs text-center border border-[#e9edef] max-w-md flex items-center justify-center gap-1.5"
+          className="px-3.5 py-1.5 bg-wa-header-bg text-wa-text-muted text-xs font-medium rounded-lg shadow-2xs text-center border border-wa-border max-w-md flex items-center justify-center gap-1.5"
         >
           <span>ℹ️</span>
           <span>{message.content}</span>
@@ -186,14 +186,14 @@ export function ChatBubble({ message, onRetry }: ChatBubbleProps) {
         data-tail={isIncoming ? 'incoming' : 'outgoing'}
         className={`relative max-w-[85%] sm:max-w-[70%] md:max-w-[60%] rounded-2xl px-3.5 pt-2 pb-1.5 shadow-2xs ${
           isIncoming
-            ? 'bg-[#ffffff] text-[#111b21] rounded-tl-xs border border-black/5'
-            : 'bg-[#d9fdd3] text-[#111b21] rounded-tr-xs border border-emerald-900/5'
+            ? 'bg-wa-bubble-in text-wa-text-primary rounded-tl-xs border border-black/5'
+            : 'bg-wa-bubble-out text-wa-text-primary rounded-tr-xs border border-emerald-900/5'
         }`}
       >
         {/* WhatsApp-style Tail SVG */}
         {isIncoming ? (
           <svg
-            className="absolute top-0 -left-2 w-2.5 h-3 text-[#ffffff]"
+            className="absolute top-0 -left-2 w-2.5 h-3 text-wa-bubble-in"
             viewBox="0 0 8 13"
             fill="currentColor"
             aria-hidden="true"
@@ -202,7 +202,7 @@ export function ChatBubble({ message, onRetry }: ChatBubbleProps) {
           </svg>
         ) : (
           <svg
-            className="absolute top-0 -right-2 w-2.5 h-3 text-[#d9fdd3]"
+            className="absolute top-0 -right-2 w-2.5 h-3 text-wa-bubble-out"
             viewBox="0 0 8 13"
             fill="currentColor"
             aria-hidden="true"
@@ -234,7 +234,7 @@ export function ChatBubble({ message, onRetry }: ChatBubbleProps) {
           <div className="mb-1.5 p-2 rounded-lg bg-black/5 flex items-center gap-2 border border-black/5">
             <span className="text-xl">📄</span>
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-semibold truncate text-[#111b21]">
+              <p className="text-xs font-semibold truncate text-wa-text-primary">
                 {message.fileName || 'Dokumen.pdf'}
               </p>
               {message.fileSize && (
@@ -259,7 +259,9 @@ export function ChatBubble({ message, onRetry }: ChatBubbleProps) {
 
         {/* Bottom Metadata: Timestamp + Outgoing Delivery Tick */}
         <div className="flex items-center justify-end gap-1 mt-0.5 ml-3 float-right select-none">
-          <span className="text-[11px] text-[#667781] leading-none">{message.timestamp}</span>
+          <span className="text-[11px] text-wa-text-secondary leading-none">
+            {message.timestamp}
+          </span>
           {isOutgoing && <DeliveryStatusTick status={message.status} />}
           {message.status === 'failed' && onRetry && (
             <button

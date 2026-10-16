@@ -182,15 +182,17 @@ export function TeamManagement({
   const content = (
     <div
       data-testid="team-management-panel"
-      className="flex flex-col h-full w-full bg-white text-[#111b21] select-none overflow-hidden"
+      className="flex flex-col h-full w-full bg-white text-wa-text-primary select-none overflow-hidden"
     >
       {/* Header Bar */}
-      <header className="h-16 bg-[#f0f2f5] px-6 flex items-center justify-between border-b border-[#e9edef] shrink-0">
+      <header className="h-16 bg-wa-header-bg px-6 flex items-center justify-between border-b border-wa-border shrink-0">
         <div className="flex items-center gap-3">
           <span className="text-2xl">👥</span>
           <div>
-            <h2 className="text-base font-bold text-[#111b21]">Manajemen Tim &amp; Round-Robin</h2>
-            <p className="text-xs text-[#667781]">
+            <h2 className="text-base font-bold text-wa-text-primary">
+              Manajemen Tim &amp; Round-Robin
+            </h2>
+            <p className="text-xs text-wa-text-secondary">
               Kelola pembagian agen dan distribusi penugasan tiket bergilir
             </p>
           </div>
@@ -222,7 +224,7 @@ export function TeamManagement({
       {/* Main Body: Teams List (Left) + Selected Team Details & Members (Right) */}
       <div className="flex-1 flex overflow-hidden">
         {/* Left: Teams List */}
-        <section className="w-1/2 md:w-5/12 border-r border-[#e9edef] flex flex-col overflow-y-auto divide-y divide-slate-100">
+        <section className="w-1/2 md:w-5/12 border-r border-wa-border flex flex-col overflow-y-auto divide-y divide-slate-100">
           {teams.length === 0 ? (
             <div className="p-8 text-center text-xs text-slate-500">
               Belum ada tim yang dibuat. Klik tombol di atas untuk membuat tim pertama Anda.
@@ -248,7 +250,9 @@ export function TeamManagement({
                     className="w-full text-left flex items-start justify-between gap-2 focus:outline-none cursor-pointer"
                   >
                     <div className="min-w-0 flex-1">
-                      <h4 className="font-bold text-sm text-[#111b21] truncate">{team.name}</h4>
+                      <h4 className="font-bold text-sm text-wa-text-primary truncate">
+                        {team.name}
+                      </h4>
                       {team.description && (
                         <p className="text-xs text-slate-500 line-clamp-2 mt-0.5">
                           {team.description}
@@ -327,7 +331,7 @@ export function TeamManagement({
               data-testid="team-form"
               className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 mb-6"
             >
-              <h3 className="font-bold text-sm text-[#111b21] mb-3">
+              <h3 className="font-bold text-sm text-wa-text-primary mb-3">
                 {editingTeamId ? 'Perbarui Tim' : 'Tambah Tim Baru'}
               </h3>
 
@@ -403,7 +407,7 @@ export function TeamManagement({
             >
               <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
                 <div>
-                  <h3 className="font-bold text-sm text-[#111b21] flex items-center gap-2">
+                  <h3 className="font-bold text-sm text-wa-text-primary flex items-center gap-2">
                     <span>Anggota {selectedTeam.name}</span>
                     <Badge variant="ticket-open" size="sm">
                       {selectedTeam.members?.length || 0} Agen

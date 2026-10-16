@@ -14,7 +14,7 @@ export function ContactProfileSection({ contact }: ContactProfileSectionProps) {
   return (
     <div
       data-testid="drawer-contact-profile"
-      className="flex flex-col items-center text-center pb-5 border-b border-[#e9edef]"
+      className="flex flex-col items-center text-center pb-5 border-b border-wa-border"
     >
       {/* Contact Avatar */}
       <Avatar
@@ -26,10 +26,12 @@ export function ContactProfileSection({ contact }: ContactProfileSectionProps) {
       />
 
       {/* Name & Phone */}
-      <h3 className="font-bold text-lg text-[#111b21] leading-tight">{contact.contactName}</h3>
+      <h3 className="font-bold text-lg text-wa-text-primary leading-tight">
+        {contact.contactName}
+      </h3>
 
       {contact.contactPhone && (
-        <p className="text-sm text-[#667781] mt-0.5">{contact.contactPhone}</p>
+        <p className="text-sm text-wa-text-secondary mt-0.5">{contact.contactPhone}</p>
       )}
 
       {contact.contactEmail && (
@@ -112,7 +114,7 @@ export function StickyInternalNoteCard({ ticket, onSaveNote }: StickyInternalNot
   return (
     <div
       data-testid="sticky-internal-note-card"
-      className="bg-[#fef3c7] border border-[#fde68a] rounded-xl p-4 flex flex-col gap-2.5 shadow-2xs"
+      className="bg-wa-note-card-bg border border-wa-note-border rounded-xl p-4 flex flex-col gap-2.5 shadow-2xs"
     >
       {/* Header Kartu */}
       <div className="flex items-center justify-between">
@@ -312,11 +314,11 @@ export function ContactDrawer({
   return (
     <aside
       data-testid="contact-crm-drawer"
-      className="w-[360px] md:w-[380px] h-full bg-white border-l border-[#e9edef] flex flex-col shrink-0 select-none overflow-hidden z-20 shadow-xl"
+      className="w-[360px] md:w-[380px] h-full bg-white border-l border-wa-border flex flex-col shrink-0 select-none overflow-hidden z-20 shadow-xl"
     >
       {/* Header Drawer */}
-      <div className="h-16 bg-[#f0f2f5] px-4 flex items-center justify-between border-b border-[#e9edef] shrink-0">
-        <h3 className="font-bold text-base text-[#111b21]">Info Kontak &amp; CRM</h3>
+      <div className="h-16 bg-wa-header-bg px-4 flex items-center justify-between border-b border-wa-border shrink-0">
+        <h3 className="font-bold text-base text-wa-text-primary">Info Kontak &amp; CRM</h3>
         <button
           type="button"
           data-testid="btn-close-drawer"
@@ -340,7 +342,7 @@ export function ContactDrawer({
         {data.activeTicket && (
           <div
             data-testid="drawer-ticket-info"
-            className="border border-[#e9edef] rounded-xl p-3.5 flex flex-col gap-2 bg-[#f9fafb]"
+            className="border border-wa-border rounded-xl p-3.5 flex flex-col gap-2 bg-wa-hover-light"
           >
             <h5 className="font-semibold text-xs text-slate-700 uppercase tracking-wider">
               Informasi Tiket

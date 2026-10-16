@@ -320,14 +320,14 @@ export function AutomationRuleBuilder({
   return (
     <div
       data-testid="automation-rule-builder"
-      className={`min-h-full w-full bg-[#f0f2f5] p-4 sm:p-6 lg:p-8 flex flex-col space-y-6 ${className}`}
+      className={`min-h-full w-full bg-wa-header-bg p-4 sm:p-6 lg:p-8 flex flex-col space-y-6 ${className}`}
     >
       {/* Top Header Card */}
       <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
             <span className="text-xl">⚙️</span>
-            <h1 className="text-xl sm:text-2xl font-bold text-[#111b21] tracking-tight">
+            <h1 className="text-xl sm:text-2xl font-bold text-wa-text-primary tracking-tight">
               Builder Automation Rules
             </h1>
           </div>
@@ -351,7 +351,7 @@ export function AutomationRuleBuilder({
             type="button"
             data-testid="btn-save-rule"
             onClick={handleSubmit}
-            className="text-xs font-semibold text-white bg-[#00a884] hover:bg-[#008f6f] px-4 py-2 rounded-lg shadow-sm transition-colors cursor-pointer flex items-center gap-1.5"
+            className="text-xs font-semibold text-white bg-wa-teal-primary hover:bg-wa-teal-hover px-4 py-2 rounded-lg shadow-sm transition-colors cursor-pointer flex items-center gap-1.5"
           >
             <span>💾</span>
             <span>Simpan Aturan</span>
@@ -383,7 +383,7 @@ export function AutomationRuleBuilder({
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Contoh: Auto-Assign Tagihan & Invoice ke Tim Finance"
-              className="w-full text-sm font-medium border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#00a884] focus:border-transparent text-gray-800"
+              className="w-full text-sm font-medium border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-wa-teal-primary focus:border-transparent text-gray-800"
             />
           </div>
 
@@ -401,7 +401,7 @@ export function AutomationRuleBuilder({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Jelaskan tujuan atau kondisi spesifik aturan ini..."
-              className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#00a884] focus:border-transparent text-gray-600"
+              className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-wa-teal-primary focus:border-transparent text-gray-600"
             />
           </div>
         </div>
@@ -417,7 +417,7 @@ export function AutomationRuleBuilder({
               onChange={(e) => setActive(e.target.checked)}
               className="sr-only peer"
             />
-            <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#00a884] relative" />
+            <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-wa-teal-primary relative" />
             <span className="text-xs font-medium text-gray-700">
               {active ? 'Aturan Aktif' : 'Aturan Nonaktif'}
             </span>
@@ -461,7 +461,7 @@ export function AutomationRuleBuilder({
               data-testid="trigger-event-select"
               value={eventName}
               onChange={(e) => setEventName(e.target.value as AutomationEventName)}
-              className="w-full text-xs font-medium border border-gray-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#00a884] focus:border-transparent text-gray-800 cursor-pointer bg-white"
+              className="w-full text-xs font-medium border border-gray-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-wa-teal-primary focus:border-transparent text-gray-800 cursor-pointer bg-white"
             >
               {EVENT_TRIGGER_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>
