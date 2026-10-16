@@ -247,14 +247,14 @@ export function HelpCenterEditor({
   return (
     <div
       data-testid="help-center-editor"
-      className={`min-h-full w-full bg-[#f0f2f5] p-4 sm:p-6 lg:p-8 flex flex-col space-y-4 ${className}`}
+      className={`min-h-full w-full bg-wa-header-bg p-4 sm:p-6 lg:p-8 flex flex-col space-y-4 ${className}`}
     >
       {/* Top Header & Action Buttons */}
       <div className="bg-white rounded-xl p-4 sm:p-5 shadow-sm border border-gray-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
             <span className="text-xl">📚</span>
-            <h1 className="text-xl sm:text-2xl font-bold text-[#111b21] tracking-tight">
+            <h1 className="text-xl sm:text-2xl font-bold text-wa-text-primary tracking-tight">
               Editor Artikel Basis Pengetahuan
             </h1>
             <span
@@ -295,7 +295,7 @@ export function HelpCenterEditor({
             type="button"
             data-testid="btn-publish-article"
             onClick={handlePublish}
-            className="text-xs font-semibold text-white bg-[#00a884] hover:bg-[#008f6f] px-4 py-2 rounded-lg shadow-sm transition-colors cursor-pointer flex items-center gap-1.5"
+            className="text-xs font-semibold text-white bg-wa-teal-primary hover:bg-wa-teal-hover px-4 py-2 rounded-lg shadow-sm transition-colors cursor-pointer flex items-center gap-1.5"
           >
             <span>🚀</span>
             <span>Publikasikan</span>
@@ -320,7 +320,7 @@ export function HelpCenterEditor({
             value={title}
             onChange={(e) => handleTitleChange(e.target.value)}
             placeholder="Contoh: Cara Menghubungkan WhatsApp Gateway"
-            className="w-full text-sm font-medium border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#00a884] focus:border-transparent"
+            className="w-full text-sm font-medium border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-wa-teal-primary focus:border-transparent"
           />
         </div>
 
@@ -340,7 +340,7 @@ export function HelpCenterEditor({
               value={slug}
               onChange={(e) => handleSlugChange(e.target.value)}
               placeholder="cara-menghubungkan-whatsapp"
-              className="w-full text-xs font-mono border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#00a884] focus:border-transparent text-gray-700"
+              className="w-full text-xs font-mono border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-wa-teal-primary focus:border-transparent text-gray-700"
             />
             {isSlugAuto && (
               <span className="absolute right-2.5 top-2.5 text-[10px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">
@@ -364,7 +364,7 @@ export function HelpCenterEditor({
               data-testid="article-category-select"
               value={categoryId}
               onChange={(e) => setCategoryId(e.target.value)}
-              className="w-full text-xs font-medium border border-gray-200 rounded-lg px-2.5 py-2 focus:outline-none focus:ring-2 focus:ring-[#00a884] focus:border-transparent text-gray-700 cursor-pointer"
+              className="w-full text-xs font-medium border border-gray-200 rounded-lg px-2.5 py-2 focus:outline-none focus:ring-2 focus:ring-wa-teal-primary focus:border-transparent text-gray-700 cursor-pointer"
             >
               {categories.map((c) => (
                 <option key={c.id} value={c.id}>
@@ -386,7 +386,7 @@ export function HelpCenterEditor({
               data-testid="article-status-select"
               value={status}
               onChange={(e) => setStatus(e.target.value as ArticleStatus)}
-              className="w-full text-xs font-medium border border-gray-200 rounded-lg px-2.5 py-2 focus:outline-none focus:ring-2 focus:ring-[#00a884] focus:border-transparent text-gray-700 cursor-pointer"
+              className="w-full text-xs font-medium border border-gray-200 rounded-lg px-2.5 py-2 focus:outline-none focus:ring-2 focus:ring-wa-teal-primary focus:border-transparent text-gray-700 cursor-pointer"
             >
               <option value="draft">Draft</option>
               <option value="published">Published</option>

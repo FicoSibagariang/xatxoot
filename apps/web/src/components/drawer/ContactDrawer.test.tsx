@@ -92,7 +92,7 @@ describe('Contact CRM Drawer Component (Task 1.26 - apps/web)', () => {
       )
 
       expect(html).toContain('data-testid="sticky-internal-note-card"')
-      expect(html).toContain('bg-[#fef3c7]')
+      expect(html).toContain('bg-wa-note-card-bg')
       expect(html).toContain('1:1 Sticky Case Note')
       expect(html).toContain('#T-101')
       expect(html).toContain('Pelanggan prioritas tinggi')

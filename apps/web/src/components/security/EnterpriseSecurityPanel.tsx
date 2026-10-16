@@ -224,7 +224,7 @@ export function EnterpriseSecurityPanel({
             onClick={() => setTab('sso')}
             className={`pb-3 px-4 text-sm font-semibold border-b-2 transition-colors flex items-center gap-2 ${
               currentTab === 'sso'
-                ? 'border-[#00a884] text-[#00a884]'
+                ? 'border-wa-teal-primary text-wa-teal-primary'
                 : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
@@ -236,7 +236,7 @@ export function EnterpriseSecurityPanel({
             onClick={() => setTab('audit')}
             className={`pb-3 px-4 text-sm font-semibold border-b-2 transition-colors flex items-center gap-2 ${
               currentTab === 'audit'
-                ? 'border-[#00a884] text-[#00a884]'
+                ? 'border-wa-teal-primary text-wa-teal-primary'
                 : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
@@ -264,7 +264,7 @@ export function EnterpriseSecurityPanel({
                 data-testid="radio-protocol-saml"
                 className={`flex items-center gap-2 px-3.5 py-2 rounded-lg border cursor-pointer text-xs font-semibold transition-all ${
                   ssoData.providerType === 'saml'
-                    ? 'border-[#00a884] bg-emerald-50 text-[#00a884]'
+                    ? 'border-wa-teal-primary bg-emerald-50 text-wa-teal-primary'
                     : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
                 }`}
               >
@@ -283,7 +283,7 @@ export function EnterpriseSecurityPanel({
                 data-testid="radio-protocol-oidc"
                 className={`flex items-center gap-2 px-3.5 py-2 rounded-lg border cursor-pointer text-xs font-semibold transition-all ${
                   ssoData.providerType === 'oidc'
-                    ? 'border-[#00a884] bg-emerald-50 text-[#00a884]'
+                    ? 'border-wa-teal-primary bg-emerald-50 text-wa-teal-primary'
                     : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
                 }`}
               >
@@ -316,7 +316,7 @@ export function EnterpriseSecurityPanel({
                 value={ssoData.name}
                 onChange={(e) => setSsoData({ ...ssoData, name: e.target.value })}
                 placeholder="e.g. Okta Corporate SSO"
-                className="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 focus:outline-hidden focus:border-[#00a884]"
+                className="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 focus:outline-hidden focus:border-wa-teal-primary"
                 required
               />
             </div>
@@ -334,7 +334,7 @@ export function EnterpriseSecurityPanel({
                 data-testid="toggle-sso-active"
                 checked={ssoData.active}
                 onChange={(e) => setSsoData({ ...ssoData, active: e.target.checked })}
-                className="w-4 h-4 text-[#00a884] rounded border-slate-300 focus:ring-[#00a884]"
+                className="w-4 h-4 text-wa-teal-primary rounded border-slate-300 focus:ring-wa-teal-primary"
               />
               <span
                 className={`text-xs font-semibold ${
@@ -364,7 +364,7 @@ export function EnterpriseSecurityPanel({
                     value={ssoData.issuerUrl}
                     onChange={(e) => setSsoData({ ...ssoData, issuerUrl: e.target.value })}
                     placeholder="https://idp.example.com/metadata"
-                    className="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 focus:outline-hidden focus:border-[#00a884]"
+                    className="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 focus:outline-hidden focus:border-wa-teal-primary"
                     required
                   />
                 </div>
@@ -383,7 +383,7 @@ export function EnterpriseSecurityPanel({
                     value={ssoData.ssoUrl || ''}
                     onChange={(e) => setSsoData({ ...ssoData, ssoUrl: e.target.value })}
                     placeholder="https://idp.example.com/sso"
-                    className="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 focus:outline-hidden focus:border-[#00a884]"
+                    className="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 focus:outline-hidden focus:border-wa-teal-primary"
                   />
                 </div>
               </div>
@@ -402,7 +402,7 @@ export function EnterpriseSecurityPanel({
                   onChange={(e) => setSsoData({ ...ssoData, certData: e.target.value })}
                   rows={4}
                   placeholder="-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----"
-                  className="w-full text-xs font-mono border border-slate-300 rounded-lg p-3 focus:outline-hidden focus:border-[#00a884]"
+                  className="w-full text-xs font-mono border border-slate-300 rounded-lg p-3 focus:outline-hidden focus:border-wa-teal-primary"
                   required
                 />
               </div>
@@ -419,7 +419,7 @@ export function EnterpriseSecurityPanel({
                     </span>
                     <code
                       data-testid="text-acs-url"
-                      className="text-[#008069] bg-white px-2 py-0.5 rounded border border-slate-200"
+                      className="text-wa-teal-dark bg-white px-2 py-0.5 rounded border border-slate-200"
                     >
                       https://app.xatxoot.com/api/v1/sso/saml/acs/{ssoData.id || 'provider-id'}
                     </code>
@@ -455,7 +455,7 @@ export function EnterpriseSecurityPanel({
                     value={ssoData.issuerUrl}
                     onChange={(e) => setSsoData({ ...ssoData, issuerUrl: e.target.value })}
                     placeholder="https://login.microsoftonline.com/tenant-id/v2.0"
-                    className="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 focus:outline-hidden focus:border-[#00a884]"
+                    className="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 focus:outline-hidden focus:border-wa-teal-primary"
                     required
                   />
                 </div>
@@ -474,7 +474,7 @@ export function EnterpriseSecurityPanel({
                     value={ssoData.clientId || ''}
                     onChange={(e) => setSsoData({ ...ssoData, clientId: e.target.value })}
                     placeholder="e.g. azure-application-client-id"
-                    className="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 focus:outline-hidden focus:border-[#00a884]"
+                    className="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 focus:outline-hidden focus:border-wa-teal-primary"
                     required
                   />
                 </div>
@@ -496,7 +496,7 @@ export function EnterpriseSecurityPanel({
                       value={ssoData.clientSecret || ''}
                       onChange={(e) => setSsoData({ ...ssoData, clientSecret: e.target.value })}
                       placeholder="••••••••••••••••"
-                      className="w-full text-sm border border-slate-300 rounded-lg pl-3 pr-10 py-2 focus:outline-hidden focus:border-[#00a884]"
+                      className="w-full text-sm border border-slate-300 rounded-lg pl-3 pr-10 py-2 focus:outline-hidden focus:border-wa-teal-primary"
                     />
                     <button
                       type="button"
@@ -527,7 +527,7 @@ export function EnterpriseSecurityPanel({
                       })
                     }
                     placeholder="openid profile email"
-                    className="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 focus:outline-hidden focus:border-[#00a884]"
+                    className="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 focus:outline-hidden focus:border-wa-teal-primary"
                   />
                 </div>
               </div>
@@ -539,7 +539,7 @@ export function EnterpriseSecurityPanel({
                 </span>
                 <code
                   data-testid="text-redirect-uri"
-                  className="text-xs text-[#008069] bg-white px-2 py-0.5 rounded border border-slate-200 block truncate"
+                  className="text-xs text-wa-teal-dark bg-white px-2 py-0.5 rounded border border-slate-200 block truncate"
                 >
                   https://app.xatxoot.com/api/v1/sso/oidc/callback/{ssoData.id || 'provider-id'}
                 </code>
@@ -587,7 +587,7 @@ export function EnterpriseSecurityPanel({
               type="submit"
               data-testid="btn-save-sso-config"
               disabled={isSaving}
-              className="bg-[#00a884] hover:bg-[#008f6f] disabled:opacity-50 text-white text-xs font-semibold px-5 py-2.5 rounded-lg transition-colors shadow-xs"
+              className="bg-wa-teal-primary hover:bg-wa-teal-hover disabled:opacity-50 text-white text-xs font-semibold px-5 py-2.5 rounded-lg transition-colors shadow-xs"
             >
               {isSaving ? 'Menyimpan...' : 'Simpan Konfigurasi SSO'}
             </button>
@@ -620,14 +620,14 @@ export function EnterpriseSecurityPanel({
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Cari aksi, aktor, atau IP..."
-                className="text-xs border border-slate-300 rounded-lg px-3 py-1.5 focus:outline-hidden focus:border-[#00a884] w-48"
+                className="text-xs border border-slate-300 rounded-lg px-3 py-1.5 focus:outline-hidden focus:border-wa-teal-primary w-48"
               />
 
               <select
                 data-testid="select-audit-type"
                 value={selectedType}
                 onChange={(e) => setSelectedType(e.target.value)}
-                className="text-xs border border-slate-300 rounded-lg px-2.5 py-1.5 focus:outline-hidden focus:border-[#00a884] bg-white text-slate-700"
+                className="text-xs border border-slate-300 rounded-lg px-2.5 py-1.5 focus:outline-hidden focus:border-wa-teal-primary bg-white text-slate-700"
               >
                 <option value="ALL">Semua Entitas</option>
                 <option value="SSOPROVIDER">SsoProvider</option>
@@ -702,7 +702,7 @@ export function EnterpriseSecurityPanel({
                                   : { id: log.id, changes: log.changes || {} },
                               )
                             }
-                            className="text-[11px] font-semibold text-[#008069] hover:underline"
+                            className="text-[11px] font-semibold text-wa-teal-dark hover:underline"
                           >
                             {selectedLogChanges?.id === log.id ? 'Tutup' : 'Lihat'}
                           </button>

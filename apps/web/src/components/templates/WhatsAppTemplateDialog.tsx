@@ -258,14 +258,16 @@ export function WhatsAppTemplateDialog({
     >
       <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-4xl h-[90vh] max-h-[750px] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
         {/* Header Modal */}
-        <header className="px-6 py-4 bg-[#f0f2f5] border-b border-slate-200 flex items-center justify-between shrink-0">
+        <header className="px-6 py-4 bg-wa-header-bg border-b border-slate-200 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-full bg-emerald-100 text-wa-teal-primary flex items-center justify-center font-bold text-lg">
               💬
             </div>
             <div>
-              <h3 className="text-base font-bold text-[#111b21]">Kirim Template WhatsApp Resmi</h3>
-              <p className="text-xs text-[#667781]">
+              <h3 className="text-base font-bold text-wa-text-primary">
+                Kirim Template WhatsApp Resmi
+              </h3>
+              <p className="text-xs text-wa-text-secondary">
                 Pilih template pesan resmi yang telah disetujui Meta dan isi variabel dinamis.
               </p>
             </div>
@@ -283,7 +285,7 @@ export function WhatsAppTemplateDialog({
         {/* Modal Body: 2 Kolom (Daftar Template & Isian Variabel/Preview) */}
         <div className="flex-1 flex flex-col md:flex-row overflow-hidden divide-y md:divide-y-0 md:divide-x divide-slate-200">
           {/* Kolom Kiri: Pemilih Template & Filter */}
-          <div className="w-full md:w-80 flex flex-col bg-[#fcfdfd] shrink-0 overflow-hidden">
+          <div className="w-full md:w-80 flex flex-col bg-wa-card-highlight shrink-0 overflow-hidden">
             {/* Search Bar & Filter */}
             <div className="p-3 border-b border-slate-200 flex flex-col gap-2">
               <input
@@ -292,7 +294,7 @@ export function WhatsAppTemplateDialog({
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Cari nama template..."
-                className="w-full text-xs px-3 py-2 bg-white rounded-lg border border-slate-300 focus:outline-none focus:border-wa-teal-primary text-[#111b21]"
+                className="w-full text-xs px-3 py-2 bg-white rounded-lg border border-slate-300 focus:outline-none focus:border-wa-teal-primary text-wa-text-primary"
               />
 
               <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
@@ -371,7 +373,7 @@ export function WhatsAppTemplateDialog({
                       }`}
                     >
                       <div className="flex items-center justify-between gap-1">
-                        <span className="font-semibold text-xs text-[#111b21] truncate">
+                        <span className="font-semibold text-xs text-wa-text-primary truncate">
                           {template.name}
                         </span>
                         <Badge
@@ -382,7 +384,7 @@ export function WhatsAppTemplateDialog({
                         </Badge>
                       </div>
 
-                      <p className="text-[11px] text-[#667781] line-clamp-2 leading-relaxed">
+                      <p className="text-[11px] text-wa-text-secondary line-clamp-2 leading-relaxed">
                         {bodyText}
                       </p>
 
@@ -409,10 +411,10 @@ export function WhatsAppTemplateDialog({
                 <div className="flex-1 overflow-y-auto p-6 space-y-6">
                   {/* Dynamic Variables Section */}
                   <div>
-                    <h4 className="text-sm font-bold text-[#111b21] mb-1 flex items-center gap-1.5">
+                    <h4 className="text-sm font-bold text-wa-text-primary mb-1 flex items-center gap-1.5">
                       <span>✏️</span> Parameter & Variabel Dinamis
                     </h4>
-                    <p className="text-xs text-[#667781] mb-4">
+                    <p className="text-xs text-wa-text-secondary mb-4">
                       Isi variabel dengan data pelanggan atau pesanan. Teks akan diperbarui di
                       pratinjau secara langsung.
                     </p>
@@ -434,7 +436,7 @@ export function WhatsAppTemplateDialog({
                           value={formValues.headerMediaUrl || ''}
                           onChange={(e) => handleHeaderMediaUrlChange(e.target.value)}
                           placeholder={`https://domain.com/file.${headerComponent?.format?.toLowerCase() === 'image' ? 'jpg' : 'pdf'}`}
-                          className="w-full text-xs px-3 py-2 bg-white rounded-lg border border-slate-300 focus:outline-none focus:border-wa-teal-primary text-[#111b21]"
+                          className="w-full text-xs px-3 py-2 bg-white rounded-lg border border-slate-300 focus:outline-none focus:border-wa-teal-primary text-wa-text-primary"
                         />
                       </div>
                     )}
@@ -461,7 +463,7 @@ export function WhatsAppTemplateDialog({
                               value={formValues.headerVars?.[varNum] || ''}
                               onChange={(e) => handleHeaderVarChange(varNum, e.target.value)}
                               placeholder={`Nilai untuk {{${varNum}}} di Header`}
-                              className="w-full text-xs px-3 py-2 bg-white rounded-lg border border-slate-300 focus:outline-none focus:border-wa-teal-primary text-[#111b21]"
+                              className="w-full text-xs px-3 py-2 bg-white rounded-lg border border-slate-300 focus:outline-none focus:border-wa-teal-primary text-wa-text-primary"
                             />
                           </div>
                         ))}
@@ -490,7 +492,7 @@ export function WhatsAppTemplateDialog({
                               value={formValues.bodyVars?.[varNum] || ''}
                               onChange={(e) => handleBodyVarChange(varNum, e.target.value)}
                               placeholder={`Nilai untuk {{${varNum}}} di Body`}
-                              className="w-full text-xs px-3 py-2 bg-white rounded-lg border border-slate-300 focus:outline-none focus:border-wa-teal-primary text-[#111b21]"
+                              className="w-full text-xs px-3 py-2 bg-white rounded-lg border border-slate-300 focus:outline-none focus:border-wa-teal-primary text-wa-text-primary"
                             />
                           </div>
                         ))}
@@ -514,21 +516,21 @@ export function WhatsAppTemplateDialog({
 
                   {/* Live WhatsApp Preview Section */}
                   <div>
-                    <h4 className="text-sm font-bold text-[#111b21] mb-2 flex items-center gap-1.5">
+                    <h4 className="text-sm font-bold text-wa-text-primary mb-2 flex items-center gap-1.5">
                       <span>📱</span> Pratinjau Pesan WhatsApp (Live Preview)
                     </h4>
 
                     <div
                       data-testid="template-live-preview"
-                      className="bg-[#efeae2] p-4 rounded-xl wa-doodle-pattern border border-slate-300"
+                      className="bg-wa-chat-bg p-4 rounded-xl wa-doodle-pattern border border-slate-300"
                     >
                       {/* WhatsApp Chat Bubble */}
-                      <div className="bg-white rounded-lg shadow-sm max-w-md p-3 text-xs text-[#111b21] space-y-2 border border-slate-200/80">
+                      <div className="bg-white rounded-lg shadow-sm max-w-md p-3 text-xs text-wa-text-primary space-y-2 border border-slate-200/80">
                         {/* Header Preview */}
                         {headerComponent && (
                           <div
                             data-testid="preview-header"
-                            className="font-bold text-sm text-[#111b21] pb-1 border-b border-slate-100"
+                            className="font-bold text-sm text-wa-text-primary pb-1 border-b border-slate-100"
                           >
                             {isHeaderMedia ? (
                               <div className="bg-slate-100 rounded p-2 text-center text-xs text-slate-500 font-normal">
@@ -548,7 +550,7 @@ export function WhatsAppTemplateDialog({
                         {bodyComponent && (
                           <div
                             data-testid="preview-body"
-                            className="whitespace-pre-wrap leading-relaxed text-[#111b21]"
+                            className="whitespace-pre-wrap leading-relaxed text-wa-text-primary"
                           >
                             {replaceTemplateVariables(
                               bodyComponent.text || '',
@@ -561,7 +563,7 @@ export function WhatsAppTemplateDialog({
                         {footerComponent?.text && (
                           <div
                             data-testid="preview-footer"
-                            className="text-[10px] text-[#667781] pt-1"
+                            className="text-[10px] text-wa-text-secondary pt-1"
                           >
                             {footerComponent.text}
                           </div>
@@ -589,7 +591,7 @@ export function WhatsAppTemplateDialog({
                 </div>
 
                 {/* Footer Modal Actions */}
-                <footer className="px-6 py-4 bg-[#f0f2f5] border-t border-slate-200 flex items-center justify-end gap-3 shrink-0">
+                <footer className="px-6 py-4 bg-wa-header-bg border-t border-slate-200 flex items-center justify-end gap-3 shrink-0">
                   <Button
                     type="button"
                     variant="default"

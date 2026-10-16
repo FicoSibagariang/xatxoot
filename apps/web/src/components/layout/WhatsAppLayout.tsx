@@ -65,7 +65,7 @@ export function NavRail({
   return (
     <aside
       data-testid="nav-rail"
-      className="w-[60px] h-full bg-[#111b21] text-slate-300 flex flex-col items-center py-3.5 justify-between shrink-0 select-none z-20 border-r border-slate-800"
+      className="w-[60px] h-full bg-wa-rail-bg text-slate-300 flex flex-col items-center py-3.5 justify-between shrink-0 select-none z-20 border-r border-slate-800"
     >
       {/* Top Section: User Avatar & Main Navigation Tabs */}
       <div className="flex flex-col items-center gap-4 w-full">
@@ -86,7 +86,7 @@ export function NavRail({
           </button>
 
           {showPresenceMenu && (
-            <div className="absolute left-14 top-0 bg-[#202c33] text-white text-xs rounded-xl shadow-xl border border-slate-700 py-1.5 w-32 z-50">
+            <div className="absolute left-14 top-0 bg-wa-surface-dark text-white text-xs rounded-xl shadow-xl border border-slate-700 py-1.5 w-32 z-50">
               <div className="px-3 py-1 font-semibold text-slate-400 border-b border-slate-700/60 mb-1">
                 Ubah Status
               </div>
@@ -130,7 +130,7 @@ export function NavRail({
             title="Inbox Percakapan"
             className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
               activeTab === 'inbox'
-                ? 'bg-[#202c33] text-wa-teal-primary font-bold shadow-xs'
+                ? 'bg-wa-surface-dark text-wa-teal-primary font-bold shadow-xs'
                 : 'text-slate-400 hover:text-white hover:bg-slate-800/80'
             }`}
           >
@@ -145,7 +145,7 @@ export function NavRail({
             title="Kontak & CRM"
             className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
               activeTab === 'contacts'
-                ? 'bg-[#202c33] text-wa-teal-primary font-bold shadow-xs'
+                ? 'bg-wa-surface-dark text-wa-teal-primary font-bold shadow-xs'
                 : 'text-slate-400 hover:text-white hover:bg-slate-800/80'
             }`}
           >
@@ -160,7 +160,7 @@ export function NavRail({
             title="Laporan & Metrik"
             className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
               activeTab === 'reports'
-                ? 'bg-[#202c33] text-wa-teal-primary font-bold shadow-xs'
+                ? 'bg-wa-surface-dark text-wa-teal-primary font-bold shadow-xs'
                 : 'text-slate-400 hover:text-white hover:bg-slate-800/80'
             }`}
           >
@@ -178,7 +178,7 @@ export function NavRail({
             title="Pengaturan Instance"
             className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
               activeTab === 'settings'
-                ? 'bg-[#202c33] text-wa-teal-primary font-bold shadow-xs'
+                ? 'bg-wa-surface-dark text-wa-teal-primary font-bold shadow-xs'
                 : 'text-slate-400 hover:text-white hover:bg-slate-800/80'
             }`}
           >
@@ -231,7 +231,7 @@ export function NavRail({
               >
                 📲
                 <span
-                  className={`absolute -top-1 -right-1 w-2 h-2 rounded-full border border-[#111b21] ${
+                  className={`absolute -top-1 -right-1 w-2 h-2 rounded-full border border-wa-rail-bg ${
                     whatsappConnectionStatus === 'connected'
                       ? 'bg-emerald-500'
                       : whatsappConnectionStatus === 'qr_ready'
@@ -271,7 +271,7 @@ export function NavRail({
             title="Filter WhatsApp (Klik lagi untuk batal)"
             className={`w-8 h-7 rounded-lg text-[11px] font-extrabold flex items-center justify-center transition-all cursor-pointer ${
               activeChannelFilter === 'whatsapp'
-                ? 'bg-[#25d366] text-white shadow-xs'
+                ? 'bg-wa-badge-unread text-white shadow-xs'
                 : 'text-emerald-400 hover:bg-slate-800 hover:text-emerald-300'
             }`}
           >
@@ -368,14 +368,14 @@ export function ChatListPanel({
   return (
     <section
       data-testid="chat-list-panel"
-      className="w-[360px] md:w-[380px] h-full bg-white border-r border-[#e9edef] flex flex-col shrink-0 select-none overflow-hidden"
+      className="w-[360px] md:w-[380px] h-full bg-white border-r border-wa-border flex flex-col shrink-0 select-none overflow-hidden"
     >
       {/* Header Bar (#f0f2f5) */}
       <div
         data-testid="chat-list-header"
-        className="h-16 bg-[#f0f2f5] px-4 flex items-center justify-between border-b border-[#e9edef] shrink-0"
+        className="h-16 bg-wa-header-bg px-4 flex items-center justify-between border-b border-wa-border shrink-0"
       >
-        <h2 className="text-xl font-bold text-[#111b21]">Chat</h2>
+        <h2 className="text-xl font-bold text-wa-text-primary">Chat</h2>
         <div className="flex items-center gap-2">
           <Button variant="icon" size="icon" onClick={onNewChat} title="Chat Baru / Broadcast">
             ✏️
@@ -384,7 +384,7 @@ export function ChatListPanel({
       </div>
 
       {/* Search Bar Pill */}
-      <div className="p-2.5 bg-white border-b border-[#f0f2f5] shrink-0">
+      <div className="p-2.5 bg-white border-b border-wa-header-bg shrink-0">
         <Input
           data-testid="chat-search-input"
           placeholder="Cari atau mulai chat baru (/)"
@@ -396,7 +396,7 @@ export function ChatListPanel({
       </div>
 
       {/* Quick Filter Pills */}
-      <div className="flex items-center gap-1.5 px-3 py-2 bg-white overflow-x-auto border-b border-[#f0f2f5] shrink-0 scrollbar-none">
+      <div className="flex items-center gap-1.5 px-3 py-2 bg-white overflow-x-auto border-b border-wa-header-bg shrink-0 scrollbar-none">
         <button
           type="button"
           data-testid="filter-pill-all"
@@ -404,8 +404,8 @@ export function ChatListPanel({
           onClick={() => onFilterChange('all')}
           className={`px-3 py-1 text-xs font-semibold rounded-full transition-colors whitespace-nowrap cursor-pointer ${
             activeFilter === 'all'
-              ? 'bg-[#e7fce3] text-[#008069]'
-              : 'bg-[#f0f2f5] text-[#54656f] hover:bg-[#e9edef]'
+              ? 'bg-wa-bubble-light text-wa-teal-dark'
+              : 'bg-wa-header-bg text-wa-text-muted hover:bg-wa-border'
           }`}
         >
           Semua
@@ -418,8 +418,8 @@ export function ChatListPanel({
           onClick={() => onFilterChange('unread')}
           className={`px-3 py-1 text-xs font-semibold rounded-full transition-colors whitespace-nowrap cursor-pointer ${
             activeFilter === 'unread'
-              ? 'bg-[#e7fce3] text-[#008069]'
-              : 'bg-[#f0f2f5] text-[#54656f] hover:bg-[#e9edef]'
+              ? 'bg-wa-bubble-light text-wa-teal-dark'
+              : 'bg-wa-header-bg text-wa-text-muted hover:bg-wa-border'
           }`}
         >
           Belum Dibaca
@@ -432,8 +432,8 @@ export function ChatListPanel({
           onClick={() => onFilterChange('assigned_me')}
           className={`px-3 py-1 text-xs font-semibold rounded-full transition-colors whitespace-nowrap cursor-pointer ${
             activeFilter === 'assigned_me'
-              ? 'bg-[#e7fce3] text-[#008069]'
-              : 'bg-[#f0f2f5] text-[#54656f] hover:bg-[#e9edef]'
+              ? 'bg-wa-bubble-light text-wa-teal-dark'
+              : 'bg-wa-header-bg text-wa-text-muted hover:bg-wa-border'
           }`}
         >
           Ditugaskan ke Saya
@@ -446,8 +446,8 @@ export function ChatListPanel({
           onClick={() => onFilterChange('unassigned')}
           className={`px-3 py-1 text-xs font-semibold rounded-full transition-colors whitespace-nowrap cursor-pointer ${
             activeFilter === 'unassigned'
-              ? 'bg-[#e7fce3] text-[#008069]'
-              : 'bg-[#f0f2f5] text-[#54656f] hover:bg-[#e9edef]'
+              ? 'bg-wa-bubble-light text-wa-teal-dark'
+              : 'bg-wa-header-bg text-wa-text-muted hover:bg-wa-border'
           }`}
         >
           Belum Ditugaskan
@@ -455,9 +455,9 @@ export function ChatListPanel({
       </div>
 
       {/* Conversation List Scroll Area */}
-      <div className="flex-1 overflow-y-auto divide-y divide-[#f0f2f5]">
+      <div className="flex-1 overflow-y-auto divide-y divide-wa-header-bg">
         {conversations.length === 0 ? (
-          <div className="p-8 text-center text-[#667781] text-sm flex flex-col items-center gap-2">
+          <div className="p-8 text-center text-wa-text-secondary text-sm flex flex-col items-center gap-2">
             <div>
               {activeChannelFilter && activeChannelFilter !== 'all'
                 ? 'Tidak ada percakapan untuk filter saluran ini.'
@@ -483,7 +483,7 @@ export function ChatListPanel({
                 key={conv.id}
                 onClick={() => onSelectConversation(conv.id)}
                 className={`w-full px-4 py-3 flex items-center gap-3 text-left transition-colors cursor-pointer ${
-                  isSelected ? 'bg-[#f0f2f5]' : 'hover:bg-[#f5f6f6]'
+                  isSelected ? 'bg-wa-header-bg' : 'hover:bg-wa-search-bg'
                 }`}
               >
                 {/* Contact Avatar */}
@@ -497,11 +497,11 @@ export function ChatListPanel({
                 {/* Info Container */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between mb-0.5">
-                    <span className="font-semibold text-sm text-[#111b21] truncate">
+                    <span className="font-semibold text-sm text-wa-text-primary truncate">
                       {conv.contactName}
                     </span>
                     {conv.lastMessageTimestamp && (
-                      <span className="text-[11px] text-[#667781] shrink-0 ml-2">
+                      <span className="text-[11px] text-wa-text-secondary shrink-0 ml-2">
                         {conv.lastMessageTimestamp}
                       </span>
                     )}
@@ -512,7 +512,7 @@ export function ChatListPanel({
                     <div className="flex items-center gap-1.5 truncate">
                       {conv.ticket && (
                         <>
-                          <span className="text-[11px] font-semibold text-[#008069] shrink-0">
+                          <span className="text-[11px] font-semibold text-wa-teal-dark shrink-0">
                             #{conv.ticket.ticketNumber} [{formatTicketStatus(conv.ticket.status)}]
                           </span>
                           {conv.ticket.slaStatus ? (
@@ -534,7 +534,7 @@ export function ChatListPanel({
                           )}
                         </>
                       )}
-                      <p className="text-xs text-[#667781] truncate">
+                      <p className="text-xs text-wa-text-secondary truncate">
                         {conv.lastMessage || 'Tidak ada pesan'}
                       </p>
                     </div>
@@ -677,17 +677,17 @@ export function ConversationThread({
     return (
       <main
         data-testid="conversation-empty-state"
-        className="flex-1 h-full bg-[#f0f2f5] flex flex-col items-center justify-center p-8 text-center select-none border-b-6 border-[#00a884]"
+        className="flex-1 h-full bg-wa-header-bg flex flex-col items-center justify-center p-8 text-center select-none border-b-6 border-wa-teal-primary"
       >
         <div className="w-20 h-20 rounded-full bg-emerald-100 text-wa-teal-primary text-4xl flex items-center justify-center mb-6 shadow-sm">
           💬
         </div>
-        <h2 className="text-2xl font-semibold text-[#41525d] mb-2">Xatxoot Customer Support</h2>
-        <p className="text-sm text-[#667781] max-w-md leading-relaxed mb-6">
+        <h2 className="text-2xl font-semibold text-wa-text-meta mb-2">Xatxoot Customer Support</h2>
+        <p className="text-sm text-wa-text-secondary max-w-md leading-relaxed mb-6">
           Pilih percakapan di bilah kiri untuk membaca pesan dan menangani tiket pelanggan secara
           real-time.
         </p>
-        <div className="flex items-center gap-2 text-xs text-[#8696a0]">
+        <div className="flex items-center gap-2 text-xs text-wa-text-subtle">
           <span>🔒</span>
           <span>End-to-end encrypted dengan WhatsApp Cloud & Baileys Gateway</span>
         </div>
@@ -876,12 +876,12 @@ export function ConversationThread({
   return (
     <main
       data-testid="conversation-thread"
-      className="flex-1 h-full flex flex-col bg-[#efeae2] overflow-hidden"
+      className="flex-1 h-full flex flex-col bg-wa-chat-bg overflow-hidden"
     >
       {/* Header Percakapan */}
       <header
         data-testid="thread-header"
-        className="h-16 bg-[#f0f2f5] px-4 flex items-center justify-between border-b border-[#e9edef] shrink-0 z-10"
+        className="h-16 bg-wa-header-bg px-4 flex items-center justify-between border-b border-wa-border shrink-0 z-10"
       >
         {/* Contact info pill (Click to open Drawer) */}
         <button
@@ -897,15 +897,15 @@ export function ConversationThread({
             size="md"
           />
           <div>
-            <h3 className="font-semibold text-sm text-[#111b21] flex items-center gap-1.5 leading-tight">
+            <h3 className="font-semibold text-sm text-wa-text-primary flex items-center gap-1.5 leading-tight">
               <span>{conversation.contactName}</span>
               {conversation.contactPhone && (
-                <span className="text-xs font-normal text-[#667781]">
+                <span className="text-xs font-normal text-wa-text-secondary">
                   ({conversation.contactPhone})
                 </span>
               )}
             </h3>
-            <p className="text-[11px] text-[#00a884] font-medium leading-tight">
+            <p className="text-[11px] text-wa-teal-primary font-medium leading-tight">
               {conversation.presence === 'typing'
                 ? 'mengetik...'
                 : conversation.presence || 'online'}
@@ -917,7 +917,7 @@ export function ConversationThread({
         <div className="flex items-center gap-2">
           {conversation.ticket && (
             <>
-              <span className="text-xs font-semibold px-2 py-1 rounded bg-[#e7fce3] text-[#008069] border border-[#c1f7b7]">
+              <span className="text-xs font-semibold px-2 py-1 rounded bg-wa-bubble-light text-wa-teal-dark border border-wa-bubble-active">
                 #{conversation.ticket.ticketNumber}
               </span>
               {conversation.ticket.slaStatus ? (
@@ -991,7 +991,7 @@ export function ConversationThread({
             <ChatTimeline messages={messages} onRetryMessage={onRetryMessage} />
           ) : (
             <div className="h-full flex flex-col items-center justify-center text-center">
-              <div className="bg-[#ffffff]/90 backdrop-blur-xs px-4 py-2 rounded-lg shadow-xs text-xs text-[#54656f] border border-[#e9edef] max-w-sm">
+              <div className="bg-white/90 backdrop-blur-xs px-4 py-2 rounded-lg shadow-xs text-xs text-wa-text-muted border border-wa-border max-w-sm">
                 <span className="font-semibold text-emerald-800">Tiket Aktif: </span>
                 {conversation.ticket?.ticketNumber || 'T-Baru'} &bull; Mulai percakapan di bawah
                 ini.
@@ -1003,7 +1003,7 @@ export function ConversationThread({
       {/* Bottom Input Bar */}
       <footer
         data-testid="thread-input-bar"
-        className="bg-[#f0f2f5] px-4 py-2.5 flex items-center gap-2.5 border-t border-[#e9edef] shrink-0 relative"
+        className="bg-wa-header-bg px-4 py-2.5 flex items-center gap-2.5 border-t border-wa-border shrink-0 relative"
       >
         <button
           type="button"
@@ -1077,7 +1077,7 @@ export function ConversationThread({
             value={inputText}
             onChange={(e) => handleInputChange(e.target.value)}
             onKeyDown={handleKeyDown}
-            className="w-full bg-white text-sm text-[#111b21] rounded-lg px-4 py-2 border border-[#e9edef] focus:outline-none focus:border-wa-teal-primary"
+            className="w-full bg-white text-sm text-wa-text-primary rounded-lg px-4 py-2 border border-wa-border focus:outline-none focus:border-wa-teal-primary"
           />
         </div>
 
@@ -1246,7 +1246,7 @@ export function WhatsAppLayout({
   const selectedConversation = conversations.find((c) => c.id === selectedConversationId) || null
 
   return (
-    <div className="flex h-screen w-full overflow-hidden bg-[#efeae2] text-[#111b21] antialiased">
+    <div className="flex h-screen w-full overflow-hidden bg-wa-chat-bg text-wa-text-primary antialiased">
       {/* Kolom 1: NavRail */}
       <NavRail
         currentUser={currentUser}

@@ -48,11 +48,11 @@ describe('Chat Timeline Component (Task 1.25 - apps/web)', () => {
       expect(html).toContain('title="Diterima"')
     })
 
-    it('should render double blue check (#53bdeb) for read status', () => {
+    it('should render double blue check (wa-tick-blue) for read status', () => {
       const html = renderToStaticMarkup(<DeliveryStatusTick status="read" />)
       expect(html).toContain('data-status="read"')
       expect(html).toContain('title="Dibaca"')
-      expect(html).toContain('text-[#53bdeb]')
+      expect(html).toContain('text-wa-tick-blue')
     })
 
     it('should render red error icon for failed status', () => {
@@ -111,7 +111,7 @@ describe('Chat Timeline Component (Task 1.25 - apps/web)', () => {
     it('should render incoming message with white background, left tail, and no delivery tick', () => {
       const html = renderToStaticMarkup(<ChatBubble message={mockIncoming} />)
       expect(html).toContain('data-testid="chat-bubble-incoming"')
-      expect(html).toContain('bg-[#ffffff]')
+      expect(html).toContain('bg-wa-bubble-in')
       expect(html).toContain('data-tail="incoming"')
       expect(html).toContain('14:20')
       expect(html).toContain('<strong>stok</strong>')
@@ -122,7 +122,7 @@ describe('Chat Timeline Component (Task 1.25 - apps/web)', () => {
     it('should render outgoing message with pastel green background, right tail, and double check tick', () => {
       const html = renderToStaticMarkup(<ChatBubble message={mockOutgoing} />)
       expect(html).toContain('data-testid="chat-bubble-outgoing"')
-      expect(html).toContain('bg-[#d9fdd3]')
+      expect(html).toContain('bg-wa-bubble-out')
       expect(html).toContain('data-tail="outgoing"')
       expect(html).toContain('14:21')
       expect(html).toContain('<em>tersedia</em>')

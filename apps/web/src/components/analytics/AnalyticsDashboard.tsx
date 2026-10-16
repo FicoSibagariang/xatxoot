@@ -283,7 +283,9 @@ export function KpiCardsView({ overview }: { overview: AnalyticsOverviewData }) 
             <span className="text-xl p-1.5 bg-gray-50 rounded-lg">{card.icon}</span>
           </div>
           <div>
-            <div className="text-2xl font-bold text-[#111b21] tracking-tight">{card.value}</div>
+            <div className="text-2xl font-bold text-wa-text-primary tracking-tight">
+              {card.value}
+            </div>
             <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-50 text-xs">
               <span className="text-gray-500 truncate">{card.subtext}</span>
               <span
@@ -325,7 +327,7 @@ export function HourlyVolumeChart({
     >
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-4 border-b border-gray-100 gap-2">
         <div>
-          <h3 className="text-base font-semibold text-[#111b21] flex items-center gap-2">
+          <h3 className="text-base font-semibold text-wa-text-primary flex items-center gap-2">
             <span>📊</span> Volume Percakapan per Jam
           </h3>
           <p className="text-xs text-gray-500 mt-0.5">
@@ -365,8 +367,8 @@ export function HourlyVolumeChart({
                   style={{ height: `${heightPercent}%` }}
                   className={`w-full rounded-t-md transition-all duration-300 group-hover:opacity-90 ${
                     isPeak
-                      ? 'bg-gradient-to-t from-[#00a884] to-emerald-400 shadow-sm'
-                      : 'bg-[#00a884]/80 group-hover:bg-[#00a884]'
+                      ? 'bg-gradient-to-t from-wa-teal-primary to-emerald-400 shadow-sm'
+                      : 'bg-wa-teal-primary/80 group-hover:bg-wa-teal-primary'
                   }`}
                 />
               </div>
@@ -411,7 +413,7 @@ export function ActivityHeatmap({ slots }: { slots: HeatmapSlotData[] }) {
     >
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-4 border-b border-gray-100 gap-2">
         <div>
-          <h3 className="text-base font-semibold text-[#111b21] flex items-center gap-2">
+          <h3 className="text-base font-semibold text-wa-text-primary flex items-center gap-2">
             <span>🔥</span> Heatmap Aktivitas Chat Mingguan
           </h3>
           <p className="text-xs text-gray-500 mt-0.5">
@@ -498,7 +500,7 @@ export function AgentPerformanceView({
     >
       <div className="flex items-center justify-between pb-4 border-b border-gray-100">
         <div>
-          <h3 className="text-base font-semibold text-[#111b21] flex items-center gap-2">
+          <h3 className="text-base font-semibold text-wa-text-primary flex items-center gap-2">
             <span>👥</span> Performa Agen & Tim
           </h3>
           <p className="text-xs text-gray-500 mt-0.5">
@@ -541,7 +543,7 @@ export function AgentPerformanceView({
                       <div className="w-16 h-1.5 bg-gray-100 rounded-full overflow-hidden hidden sm:block">
                         <div
                           style={{ width: `${barPercent}%` }}
-                          className="h-full bg-[#00a884] rounded-full"
+                          className="h-full bg-wa-teal-primary rounded-full"
                         />
                       </div>
                     </div>
@@ -580,7 +582,7 @@ export function CsatBreakdownView({ csatData }: { csatData: CsatMetricData }) {
     >
       <div className="flex items-center justify-between pb-4 border-b border-gray-100">
         <div>
-          <h3 className="text-base font-semibold text-[#111b21] flex items-center gap-2">
+          <h3 className="text-base font-semibold text-wa-text-primary flex items-center gap-2">
             <span>⭐</span> Kepuasan Pelanggan (CSAT)
           </h3>
           <p className="text-xs text-gray-500 mt-0.5">
@@ -592,7 +594,7 @@ export function CsatBreakdownView({ csatData }: { csatData: CsatMetricData }) {
       <div className="mt-5 grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
         {/* Kolom 1: Skor Besar */}
         <div className="flex flex-col items-center justify-center p-4 bg-emerald-50/60 rounded-xl border border-emerald-100 text-center">
-          <div className="text-4xl font-extrabold text-[#00a884] tracking-tight">
+          <div className="text-4xl font-extrabold text-wa-teal-primary tracking-tight">
             {csatData.avgScore.toFixed(1)}
           </div>
           <div className="flex items-center gap-1 text-amber-400 text-lg my-1">
@@ -621,7 +623,7 @@ export function CsatBreakdownView({ csatData }: { csatData: CsatMetricData }) {
                   style={{ width: `${tier.percentage}%` }}
                   className={`h-full rounded-full transition-all duration-300 ${
                     tier.rating >= 4
-                      ? 'bg-[#00a884]'
+                      ? 'bg-wa-teal-primary'
                       : tier.rating === 3
                         ? 'bg-amber-400'
                         : 'bg-rose-500'
@@ -673,12 +675,12 @@ export function AnalyticsDashboard({
   return (
     <div
       data-testid="analytics-dashboard"
-      className={`min-h-full w-full bg-[#f0f2f5] p-4 sm:p-6 lg:p-8 space-y-6 ${className}`}
+      className={`min-h-full w-full bg-wa-header-bg p-4 sm:p-6 lg:p-8 space-y-6 ${className}`}
     >
       {/* Top Header & Filters Toolbar */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 bg-white p-4 sm:p-5 rounded-xl shadow-sm border border-gray-100">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-[#111b21] tracking-tight flex items-center gap-2">
+          <h1 className="text-xl sm:text-2xl font-bold text-wa-text-primary tracking-tight flex items-center gap-2">
             <span>📈</span> Visual Analytics Dashboard
           </h1>
           <p className="text-xs sm:text-sm text-gray-500 mt-1">
@@ -694,7 +696,7 @@ export function AnalyticsDashboard({
             data-testid="filter-date-range"
             value={range}
             onChange={(e) => handleRangeChange(e.target.value as DateRangeOption)}
-            className="text-xs font-medium bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#00a884] focus:border-transparent cursor-pointer"
+            className="text-xs font-medium bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-wa-teal-primary focus:border-transparent cursor-pointer"
           >
             <option value="today">Hari Ini</option>
             <option value="last_7_days">7 Hari Terakhir</option>
@@ -707,7 +709,7 @@ export function AnalyticsDashboard({
             data-testid="filter-channel"
             value={channel}
             onChange={(e) => handleChannelChange(e.target.value as ChannelFilterOption)}
-            className="text-xs font-medium bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#00a884] focus:border-transparent cursor-pointer"
+            className="text-xs font-medium bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-wa-teal-primary focus:border-transparent cursor-pointer"
           >
             <option value="all">Semua Saluran</option>
             <option value="whatsapp">WhatsApp Gateway</option>
@@ -719,7 +721,7 @@ export function AnalyticsDashboard({
             type="button"
             data-testid="btn-export-csv"
             onClick={() => onExportCsv('summary')}
-            className="inline-flex items-center gap-1.5 text-xs font-semibold bg-[#00a884] text-white px-3.5 py-2 rounded-lg hover:bg-[#008f6f] active:bg-[#007a5e] transition-colors shadow-sm cursor-pointer ml-auto md:ml-0"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold bg-wa-teal-primary text-white px-3.5 py-2 rounded-lg hover:bg-wa-teal-hover active:bg-wa-teal-active transition-colors shadow-sm cursor-pointer ml-auto md:ml-0"
           >
             <span>📥</span>
             <span>Unduh CSV</span>

@@ -314,14 +314,14 @@ export function CampaignWizard({
   return (
     <div
       data-testid="campaign-wizard"
-      className={`min-h-full w-full bg-[#f0f2f5] p-4 sm:p-6 lg:p-8 flex flex-col space-y-6 ${className}`}
+      className={`min-h-full w-full bg-wa-header-bg p-4 sm:p-6 lg:p-8 flex flex-col space-y-6 ${className}`}
     >
       {/* Top Header Card */}
       <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
             <span className="text-xl">📢</span>
-            <h1 className="text-xl sm:text-2xl font-bold text-[#111b21] tracking-tight">
+            <h1 className="text-xl sm:text-2xl font-bold text-wa-text-primary tracking-tight">
               Wizard Pembuatan Campaign Broadcast
             </h1>
           </div>
@@ -370,7 +370,7 @@ export function CampaignWizard({
             }}
             className={`flex items-center gap-2 p-2.5 rounded-lg text-xs font-semibold transition-all cursor-pointer text-left ${
               currentStep === s.step
-                ? 'bg-[#00a884] text-white shadow-xs'
+                ? 'bg-wa-teal-primary text-white shadow-xs'
                 : currentStep > s.step
                   ? 'bg-emerald-50 text-emerald-800'
                   : 'bg-gray-50 text-gray-500 hover:bg-gray-100'
@@ -396,7 +396,7 @@ export function CampaignWizard({
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Left Form: Title, Inbox, Message Text */}
           <div className="lg:col-span-7 bg-white rounded-xl p-5 shadow-sm border border-gray-100 space-y-4">
-            <h2 className="text-base font-bold text-[#111b21] flex items-center gap-2">
+            <h2 className="text-base font-bold text-wa-text-primary flex items-center gap-2">
               <span>✍️</span> Detail & Konten Pesan
             </h2>
 
@@ -414,7 +414,7 @@ export function CampaignWizard({
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="Contoh: Flash Sale Akhir Pekan 50%"
-                className="w-full text-xs font-medium border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#00a884] focus:border-transparent"
+                className="w-full text-xs font-medium border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-wa-teal-primary focus:border-transparent"
               />
             </div>
 
@@ -430,7 +430,7 @@ export function CampaignWizard({
                 data-testid="campaign-inbox-select"
                 value={inboxId}
                 onChange={(e) => setInboxId(e.target.value)}
-                className="w-full text-xs font-medium border border-gray-200 rounded-lg px-3 py-2 bg-white text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#00a884] focus:border-transparent cursor-pointer"
+                className="w-full text-xs font-medium border border-gray-200 rounded-lg px-3 py-2 bg-white text-gray-800 focus:outline-none focus:ring-2 focus:ring-wa-teal-primary focus:border-transparent cursor-pointer"
               >
                 {inboxes.map((ib) => (
                   <option key={ib.id} value={ib.id}>
@@ -457,7 +457,7 @@ export function CampaignWizard({
                 onChange={(e) => setMessageContent(e.target.value)}
                 rows={6}
                 placeholder="Tulis pesan promosi atau pengumuman Anda di sini..."
-                className="w-full text-xs font-medium border border-gray-200 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-[#00a884] focus:border-transparent leading-relaxed"
+                className="w-full text-xs font-medium border border-gray-200 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-wa-teal-primary focus:border-transparent leading-relaxed"
               />
               <div className="flex items-center gap-1.5 mt-1.5 text-[11px] text-gray-500">
                 <span>Variabel dinamis:</span>
@@ -480,7 +480,7 @@ export function CampaignWizard({
           </div>
 
           {/* Right Preview: Live WhatsApp Chat Bubble Preview */}
-          <div className="lg:col-span-5 bg-[#efeae2] rounded-xl p-5 shadow-sm border border-gray-200 flex flex-col justify-between relative overflow-hidden">
+          <div className="lg:col-span-5 bg-wa-chat-bg rounded-xl p-5 shadow-sm border border-gray-200 flex flex-col justify-between relative overflow-hidden">
             <div className="flex items-center justify-between pb-3 border-b border-gray-300/50 mb-4">
               <span className="text-xs font-bold text-gray-700 uppercase tracking-wider flex items-center gap-1.5">
                 <span>📱</span> Live WhatsApp Bubble Preview
@@ -494,14 +494,14 @@ export function CampaignWizard({
             <div className="flex-1 flex flex-col justify-end py-4">
               <div
                 data-testid="whatsapp-live-preview-bubble"
-                className="self-end max-w-[90%] bg-[#d9fdd3] text-[#111b21] p-3 rounded-lg rounded-tr-none shadow-xs text-xs leading-relaxed relative"
+                className="self-end max-w-[90%] bg-wa-bubble-out text-wa-text-primary p-3 rounded-lg rounded-tr-none shadow-xs text-xs leading-relaxed relative"
               >
                 <p className="whitespace-pre-wrap break-words">
                   {messageContent || 'Ketik pesan di sebelah kiri untuk melihat simulasi visual...'}
                 </p>
                 <div className="flex items-center justify-end gap-1 mt-1 text-[10px] text-gray-500 select-none">
                   <span>10:45</span>
-                  <span className="text-[#53bdeb]">✓✓</span>
+                  <span className="text-wa-tick-blue">✓✓</span>
                 </div>
               </div>
             </div>
@@ -522,7 +522,7 @@ export function CampaignWizard({
           className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 space-y-5"
         >
           <div>
-            <h2 className="text-base font-bold text-[#111b21] flex items-center gap-2">
+            <h2 className="text-base font-bold text-wa-text-primary flex items-center gap-2">
               <span>🎯</span> Pilih Target Audiens Penerima
             </h2>
             <p className="text-xs text-gray-500 mt-0.5">
@@ -536,7 +536,7 @@ export function CampaignWizard({
               data-testid="radio-audience-all"
               className={`p-4 rounded-xl border-2 flex flex-col justify-between cursor-pointer transition-all ${
                 audienceType === 'all_contacts'
-                  ? 'border-[#00a884] bg-emerald-50/40'
+                  ? 'border-wa-teal-primary bg-emerald-50/40'
                   : 'border-gray-200 hover:border-gray-300 bg-white'
               }`}
             >
@@ -552,11 +552,11 @@ export function CampaignWizard({
                   <span className="text-xl">🌐</span>
                   <span
                     className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
-                      audienceType === 'all_contacts' ? 'border-[#00a884]' : 'border-gray-300'
+                      audienceType === 'all_contacts' ? 'border-wa-teal-primary' : 'border-gray-300'
                     }`}
                   >
                     {audienceType === 'all_contacts' && (
-                      <div className="w-2 h-2 rounded-full bg-[#00a884]" />
+                      <div className="w-2 h-2 rounded-full bg-wa-teal-primary" />
                     )}
                   </span>
                 </div>
@@ -574,7 +574,7 @@ export function CampaignWizard({
               data-testid="radio-audience-labels"
               className={`p-4 rounded-xl border-2 flex flex-col justify-between cursor-pointer transition-all ${
                 audienceType === 'labels'
-                  ? 'border-[#00a884] bg-emerald-50/40'
+                  ? 'border-wa-teal-primary bg-emerald-50/40'
                   : 'border-gray-200 hover:border-gray-300 bg-white'
               }`}
             >
@@ -590,11 +590,11 @@ export function CampaignWizard({
                   <span className="text-xl">🏷️</span>
                   <span
                     className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
-                      audienceType === 'labels' ? 'border-[#00a884]' : 'border-gray-300'
+                      audienceType === 'labels' ? 'border-wa-teal-primary' : 'border-gray-300'
                     }`}
                   >
                     {audienceType === 'labels' && (
-                      <div className="w-2 h-2 rounded-full bg-[#00a884]" />
+                      <div className="w-2 h-2 rounded-full bg-wa-teal-primary" />
                     )}
                   </span>
                 </div>
@@ -612,7 +612,7 @@ export function CampaignWizard({
               data-testid="radio-audience-custom"
               className={`p-4 rounded-xl border-2 flex flex-col justify-between cursor-pointer transition-all ${
                 audienceType === 'custom_list'
-                  ? 'border-[#00a884] bg-emerald-50/40'
+                  ? 'border-wa-teal-primary bg-emerald-50/40'
                   : 'border-gray-200 hover:border-gray-300 bg-white'
               }`}
             >
@@ -628,11 +628,11 @@ export function CampaignWizard({
                   <span className="text-xl">📋</span>
                   <span
                     className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
-                      audienceType === 'custom_list' ? 'border-[#00a884]' : 'border-gray-300'
+                      audienceType === 'custom_list' ? 'border-wa-teal-primary' : 'border-gray-300'
                     }`}
                   >
                     {audienceType === 'custom_list' && (
-                      <div className="w-2 h-2 rounded-full bg-[#00a884]" />
+                      <div className="w-2 h-2 rounded-full bg-wa-teal-primary" />
                     )}
                   </span>
                 </div>
@@ -696,7 +696,7 @@ export function CampaignWizard({
                           type="checkbox"
                           checked={isChecked}
                           onChange={() => toggleContact(cnt.id)}
-                          className="rounded text-[#00a884] focus:ring-[#00a884]"
+                          className="rounded text-wa-teal-primary focus:ring-wa-teal-primary"
                         />
                         <span className="font-semibold text-gray-800">{cnt.name}</span>
                       </div>
@@ -725,7 +725,7 @@ export function CampaignWizard({
           className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 space-y-5"
         >
           <div>
-            <h2 className="text-base font-bold text-[#111b21] flex items-center gap-2">
+            <h2 className="text-base font-bold text-wa-text-primary flex items-center gap-2">
               <span>🛡️</span> Proteksi Anti-Ban Meta & Throttle Kecepatan
             </h2>
             <p className="text-xs text-gray-500 mt-0.5">
@@ -750,7 +750,7 @@ export function CampaignWizard({
                 min={5}
                 max={120}
                 onChange={(e) => setAntiBanDelayMin(Number(e.target.value))}
-                className="w-full text-xs font-medium border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#00a884] focus:border-transparent"
+                className="w-full text-xs font-medium border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-wa-teal-primary focus:border-transparent"
               />
               <span className="text-[11px] text-gray-400 mt-1 block">
                 Rekomendasi aman: 15 detik
@@ -772,7 +772,7 @@ export function CampaignWizard({
                 min={10}
                 max={300}
                 onChange={(e) => setAntiBanDelayMax(Number(e.target.value))}
-                className="w-full text-xs font-medium border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#00a884] focus:border-transparent"
+                className="w-full text-xs font-medium border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-wa-teal-primary focus:border-transparent"
               />
               <span className="text-[11px] text-gray-400 mt-1 block">
                 Rekomendasi aman: 45 detik
@@ -799,7 +799,7 @@ export function CampaignWizard({
                 onChange={(e) => setRandomizeJitter(e.target.checked)}
                 className="sr-only peer"
               />
-              <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#00a884] relative" />
+              <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-wa-teal-primary relative" />
             </label>
           </div>
 
@@ -813,7 +813,7 @@ export function CampaignWizard({
                   name="scheduleChoice"
                   checked={!isScheduled}
                   onChange={() => setIsScheduled(false)}
-                  className="text-[#00a884] focus:ring-[#00a884]"
+                  className="text-wa-teal-primary focus:ring-wa-teal-primary"
                 />
                 <span>Kirim Langsung Sekarang</span>
               </label>
@@ -823,7 +823,7 @@ export function CampaignWizard({
                   name="scheduleChoice"
                   checked={isScheduled}
                   onChange={() => setIsScheduled(true)}
-                  className="text-[#00a884] focus:ring-[#00a884]"
+                  className="text-wa-teal-primary focus:ring-wa-teal-primary"
                 />
                 <span>Jadwalkan Waktu Tertentu</span>
               </label>
@@ -833,7 +833,7 @@ export function CampaignWizard({
                 type="datetime-local"
                 value={scheduledAt}
                 onChange={(e) => setScheduledAt(e.target.value)}
-                className="text-xs border border-gray-200 rounded-lg p-2 bg-white text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#00a884]"
+                className="text-xs border border-gray-200 rounded-lg p-2 bg-white text-gray-800 focus:outline-none focus:ring-2 focus:ring-wa-teal-primary"
               />
             )}
           </div>
@@ -859,7 +859,7 @@ export function CampaignWizard({
         >
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 pb-4 border-b border-gray-100">
             <div>
-              <h2 className="text-base font-bold text-[#111b21] flex items-center gap-2">
+              <h2 className="text-base font-bold text-wa-text-primary flex items-center gap-2">
                 <span>🚀</span> Progress Pengiriman Live
               </h2>
               <p className="text-xs text-gray-500 mt-0.5">
@@ -889,7 +889,7 @@ export function CampaignWizard({
               <div
                 data-testid="campaign-progress-bar"
                 style={{ width: `${progress.percentage}%` }}
-                className="h-full bg-gradient-to-r from-[#00a884] to-emerald-400 rounded-full transition-all duration-500"
+                className="h-full bg-gradient-to-r from-wa-teal-primary to-emerald-400 rounded-full transition-all duration-500"
               />
             </div>
           </div>
@@ -927,7 +927,7 @@ export function CampaignWizard({
                 type="button"
                 data-testid="btn-dispatch-campaign"
                 onClick={handleDispatchCampaign}
-                className="inline-flex items-center gap-1.5 text-xs font-semibold text-white bg-[#00a884] hover:bg-[#008f6f] px-5 py-2.5 rounded-lg shadow-sm transition-colors cursor-pointer"
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-white bg-wa-teal-primary hover:bg-wa-teal-hover px-5 py-2.5 rounded-lg shadow-sm transition-colors cursor-pointer"
               >
                 <span>🚀</span>
                 <span>Mulai Kirim Broadcast</span>
@@ -956,7 +956,7 @@ export function CampaignWizard({
           <button
             type="button"
             onClick={handleNextStep}
-            className="text-xs font-semibold text-white bg-[#00a884] hover:bg-[#008f6f] px-5 py-2 rounded-lg shadow-sm transition-colors cursor-pointer flex items-center gap-1"
+            className="text-xs font-semibold text-white bg-wa-teal-primary hover:bg-wa-teal-hover px-5 py-2 rounded-lg shadow-sm transition-colors cursor-pointer flex items-center gap-1"
           >
             <span>Langkah Berikutnya</span>
             <span>→</span>

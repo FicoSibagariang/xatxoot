@@ -15,7 +15,7 @@ export function AnalyticsPage() {
   }
 
   return (
-    <div data-testid="analytics-page" className="min-h-screen bg-[#f0f2f5] flex flex-col">
+    <div data-testid="analytics-page" className="min-h-screen bg-wa-header-bg flex flex-col">
       <main className="flex-1 overflow-y-auto">
         <AnalyticsDashboard
           selectedRange={range}

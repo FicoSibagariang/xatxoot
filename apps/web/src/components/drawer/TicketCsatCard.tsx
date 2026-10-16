@@ -42,7 +42,7 @@ export function TicketCsatCard({ csat, className = '' }: TicketCsatCardProps) {
     return (
       <div
         data-testid="ticket-csat-card"
-        className={`border border-[#e9edef] rounded-xl p-3.5 bg-[#f9fafb] flex flex-col gap-1.5 ${className}`}
+        className={`border border-wa-border rounded-xl p-3.5 bg-wa-hover-light flex flex-col gap-1.5 ${className}`}
       >
         <div className="flex items-center justify-between">
           <h5 className="font-semibold text-xs text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
