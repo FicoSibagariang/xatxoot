@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, mock } from 'bun:test'
+import type { TimelineMessage } from '../chat'
 import { api } from '../services/apiClient'
+import { areMessagesIdentical } from './useConversationChat'
 
 describe('Conversation Chat Hook & Realtime Reconciliation (Task #272 - apps/web)', () => {
   const originalFetch = globalThis.fetch
@@ -101,5 +103,35 @@ describe('Conversation Chat Hook & Realtime Reconciliation (Task #272 - apps/web
   it('should strictly NOT contain or require account_id in chat services', () => {
     expect(api).toBeDefined()
     expect(typeof api.request).toBe('function')
+  })
+
+  describe('areMessagesIdentical helper', () => {
+    it('should return true when two message arrays have identical IDs, statuses, and content', () => {
+      const msgsA = [
+        { id: '1', status: 'delivered', content: 'Halo' },
+        { id: '2', status: 'sent', content: 'Hai' },
+      ] as unknown as TimelineMessage[]
+      const msgsB = [
+        { id: '1', status: 'delivered', content: 'Halo' },
+        { id: '2', status: 'sent', content: 'Hai' },
+      ] as unknown as TimelineMessage[]
+
+      expect(areMessagesIdentical(msgsA, msgsB)).toBe(true)
+    })
+
+    it('should return false when lengths differ or statuses change', () => {
+      const msgsA = [{ id: '1', status: 'sent', content: 'Halo' }] as unknown as TimelineMessage[]
+      const msgsB = [
+        { id: '1', status: 'delivered', content: 'Halo' },
+      ] as unknown as TimelineMessage[]
+      const msgsC = [
+        { id: '1', status: 'sent', content: 'Halo' },
+        { id: '2', status: 'sent', content: 'Pesan baru' },
+      ] as unknown as TimelineMessage[]
+
+      expect(areMessagesIdentical(msgsA, msgsB)).toBe(false)
+      expect(areMessagesIdentical(msgsA, msgsC)).toBe(false)
+      expect(areMessagesIdentical(undefined, msgsA)).toBe(false)
+    })
   })
 })

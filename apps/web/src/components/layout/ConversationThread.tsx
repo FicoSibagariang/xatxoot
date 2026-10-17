@@ -80,13 +80,34 @@ export function ConversationThread({
   const [aiResultType, setAiResultType] = useState<CopilotResultType | null>(null)
   const [aiArticles, setAiArticles] = useState<SuggestedArticle[]>([])
   const [aiError, setAiError] = useState<string | null>(null)
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null)
   const messagesEndRef = useRef<HTMLDivElement | null>(null)
+  const isAtBottomRef = useRef(true)
+  const prevConvIdRef = useRef<string | null>(null)
+  const prevMsgCountRef = useRef<number>(0)
+
+  const handleScroll = () => {
+    const el = scrollContainerRef.current
+    if (!el) return
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
+    isAtBottomRef.current = distanceFromBottom <= 100
+  }
 
   useEffect(() => {
-    if (messages && messages.length > 0) {
+    const convChanged = conversation?.id !== prevConvIdRef.current
+    prevConvIdRef.current = conversation?.id || null
+
+    const msgCount = messages?.length || 0
+    const msgCountIncreased = msgCount > prevMsgCountRef.current
+    prevMsgCountRef.current = msgCount
+
+    if (convChanged) {
+      isAtBottomRef.current = true
+      messagesEndRef.current?.scrollIntoView({ behavior: 'auto' })
+    } else if (msgCountIncreased && isAtBottomRef.current) {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
     }
-  }, [messages])
+  }, [conversation?.id, messages])
 
   const activeCanned = cannedResponses ?? DEFAULT_CANNED_RESPONSES
   const activeCommands = slashCommands ?? DEFAULT_SLASH_COMMANDS
@@ -140,28 +161,23 @@ export function ConversationThread({
     if (isAutocompleteOpen && slashInfo.isActive && filteredEntries.length > 0) {
       if (e.key === 'ArrowDown') {
         e.preventDefault()
-        setSelectedAutocompleteIndex((prev) => (prev + 1) % filteredEntries.length)
-        return
+        return setSelectedAutocompleteIndex((prev) => (prev + 1) % filteredEntries.length)
       }
       if (e.key === 'ArrowUp') {
         e.preventDefault()
-        setSelectedAutocompleteIndex(
+        return setSelectedAutocompleteIndex(
           (prev) => (prev - 1 + filteredEntries.length) % filteredEntries.length,
         )
-        return
       }
       if (e.key === 'Enter' || e.key === 'Tab') {
         e.preventDefault()
         const selected = filteredEntries[selectedAutocompleteIndex]
-        if (selected) {
-          handleSelectEntry(selected)
-        }
+        if (selected) handleSelectEntry(selected)
         return
       }
       if (e.key === 'Escape') {
         e.preventDefault()
-        setIsAutocompleteOpen(false)
-        return
+        return setIsAutocompleteOpen(false)
       }
     }
 
@@ -175,16 +191,11 @@ export function ConversationThread({
     setAiLoadingAction('Sedang merangkum percakapan...')
     setAiError(null)
     try {
-      if (onAiSummarize) {
-        const res = await onAiSummarize()
-        if (res) {
-          setAiResultText(res)
-          setAiResultType('summary')
-        }
-      } else {
-        setAiResultText(
-          `Ringkasan Percakapan: Pelanggan ${conversation.contactName} menanyakan kendala terkait ${conversation.lastMessage || 'layanan'}.`,
-        )
+      const res = onAiSummarize
+        ? await onAiSummarize()
+        : `Ringkasan Percakapan: Pelanggan ${conversation.contactName} menanyakan kendala terkait ${conversation.lastMessage || 'layanan'}.`
+      if (res) {
+        setAiResultText(res)
         setAiResultType('summary')
       }
     } catch {
@@ -204,16 +215,11 @@ export function ConversationThread({
     setAiLoadingAction('Sedang memperbaiki bahasa draf...')
     setAiError(null)
     try {
-      if (onAiImproveWriting) {
-        const res = await onAiImproveWriting(targetText)
-        if (res) {
-          setAiResultText(res)
-          setAiResultType('improve')
-        }
-      } else {
-        setAiResultText(
-          `Halo Kak, ${targetText.trim().charAt(0).toUpperCase() + targetText.trim().slice(1)}. Terima kasih telah menghubungi kami.`,
-        )
+      const res = onAiImproveWriting
+        ? await onAiImproveWriting(targetText)
+        : `Halo Kak, ${targetText.trim().charAt(0).toUpperCase() + targetText.trim().slice(1)}. Terima kasih telah menghubungi kami.`
+      if (res) {
+        setAiResultText(res)
         setAiResultType('improve')
       }
     } catch {
@@ -264,22 +270,16 @@ export function ConversationThread({
     setAiLoadingAction(`Menyesuaikan gaya bahasa (${tone})...`)
     setAiError(null)
     try {
-      if (onAiChangeTone) {
-        const res = await onAiChangeTone(inputText, tone)
-        if (res) {
-          setAiResultText(res)
-          setAiResultType('tone')
-        }
-      } else {
-        const prefix =
-          tone === 'formal'
-            ? 'Yth. Pelanggan, dengan hormat kami sampaikan bahwa '
-            : tone === 'polite'
-              ? 'Mohon maaf atas ketidaknyamanannya kak, '
-              : tone === 'friendly'
-                ? 'Halo sahabat! Senang bisa membantu, '
-                : ''
-        setAiResultText(`${prefix}${inputText.trim()}`)
+      const tonePrefixes: Record<string, string> = {
+        formal: 'Yth. Pelanggan, dengan hormat kami sampaikan bahwa ',
+        polite: 'Mohon maaf atas ketidaknyamanannya kak, ',
+        friendly: 'Halo sahabat! Senang bisa membantu, ',
+      }
+      const res = onAiChangeTone
+        ? await onAiChangeTone(inputText, tone)
+        : `${tonePrefixes[tone] || ''}${inputText.trim()}`
+      if (res) {
+        setAiResultText(res)
         setAiResultType('tone')
       }
     } catch {
@@ -380,7 +380,12 @@ export function ConversationThread({
       </header>
 
       {/* Canvas Obrolan (Doodle Wallpaper Background) */}
-      <div data-testid="doodle-canvas" className="flex-1 overflow-y-auto p-4 wa-doodle-pattern">
+      <div
+        ref={scrollContainerRef}
+        onScroll={handleScroll}
+        data-testid="doodle-canvas"
+        className="flex-1 overflow-y-auto p-4 wa-doodle-pattern"
+      >
         {messages && messages.length > 0 ? (
           <>
             <ChatTimeline messages={messages} onRetryMessage={onRetryMessage} />

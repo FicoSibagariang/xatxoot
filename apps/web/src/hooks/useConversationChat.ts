@@ -49,6 +49,20 @@ function formatDateGroup(dateStr?: string | Date): string {
     .toUpperCase()
 }
 
+export function areMessagesIdentical(
+  current?: TimelineMessage[],
+  incoming?: TimelineMessage[],
+): boolean {
+  if (!current || !incoming) return false
+  if (current.length !== incoming.length) return false
+  return current.every(
+    (msg, i) =>
+      msg.id === incoming[i]?.id &&
+      msg.status === incoming[i]?.status &&
+      msg.content === incoming[i]?.content,
+  )
+}
+
 export function useConversationChat({ user, initialConversationId }: UseConversationChatOptions) {
   const [conversations, setConversations] = useState<ConversationItem[]>([])
   const [messagesMap, setMessagesMap] = useState<Record<string, TimelineMessage[]>>({})
@@ -208,10 +222,15 @@ export function useConversationChat({ user, initialConversationId }: UseConversa
               status: m.status || (isCustomer ? 'delivered' : 'read'),
             }
           })
-          setMessagesMap((prev) => ({
-            ...prev,
-            [targetId]: mappedMsgs,
-          }))
+          setMessagesMap((prev) => {
+            if (areMessagesIdentical(prev[targetId], mappedMsgs)) {
+              return prev
+            }
+            return {
+              ...prev,
+              [targetId]: mappedMsgs,
+            }
+          })
         }
       } catch {
         // preserve memory messages on error
