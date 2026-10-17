@@ -7,6 +7,7 @@ import type {
   LayoutNavTab,
   LayoutUser,
 } from '../components/layout/types'
+import { api } from '../services/apiClient'
 import type { MessageCreatedEvent, TicketUpdatedEvent } from './types'
 import {
   applyRealtimeMessage,
@@ -36,59 +37,49 @@ export function useConversationChat({ user }: UseConversationChatOptions) {
   // Initial load: Fetch conversations from backend API
   const fetchConversations = useCallback(async () => {
     try {
-      const token =
-        typeof window !== 'undefined'
-          ? localStorage.getItem('auth_token') || 'valid-access-token'
-          : 'valid-access-token'
-      const res = await fetch('/api/v1/conversations', {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      if (res.ok) {
-        // biome-ignore lint/suspicious/noExplicitAny: backend conversation item
-        const data = (await res.json()) as any[]
-        if (Array.isArray(data)) {
-          if (data.length > 0) {
-            const currentSelected = selectedIdRef.current
-            // biome-ignore lint/suspicious/noExplicitAny: mapping backend schema
-            const mapped: ConversationItem[] = data.map((item: any) => {
-              const isSelected = item.id === currentSelected
-              return {
-                id: item.id,
-                contactName:
-                  item.contact?.name || item.contact?.phoneNumber || 'Pelanggan WhatsApp',
-                contactPhone: item.contact?.phoneNumber,
-                // biome-ignore lint/suspicious/noExplicitAny: channel type
-                channel: (item.channelType as any) || 'whatsapp',
-                lastMessage:
-                  item.lastMessage ||
-                  (item.lastMessageAt ? 'Pesan baru diterima' : 'Percakapan baru'),
-                lastMessageTimestamp: item.lastMessageAt
-                  ? new Date(item.lastMessageAt).toLocaleTimeString('id-ID', {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })
-                  : 'Baru saja',
-                unreadCount: isSelected ? 0 : item.unreadCount || 0,
-                ticket: item.activeTicket
-                  ? {
-                      id: item.activeTicket.id,
-                      ticketNumber: item.activeTicket.displayId || 'T-000',
-                      status: item.activeTicket.status || 'open',
-                      priority: item.activeTicket.priority || 'medium',
-                      assignedTo: item.activeTicket.assigneeId,
-                    }
-                  : undefined,
-              }
-            })
+      // biome-ignore lint/suspicious/noExplicitAny: backend conversation item
+      const data = await api.get<any[]>('/api/v1/conversations')
+      if (Array.isArray(data)) {
+        if (data.length > 0) {
+          const currentSelected = selectedIdRef.current
+          // biome-ignore lint/suspicious/noExplicitAny: mapping backend schema
+          const mapped: ConversationItem[] = data.map((item: any) => {
+            const isSelected = item.id === currentSelected
+            return {
+              id: item.id,
+              contactName: item.contact?.name || item.contact?.phoneNumber || 'Pelanggan WhatsApp',
+              contactPhone: item.contact?.phoneNumber,
+              // biome-ignore lint/suspicious/noExplicitAny: channel type
+              channel: (item.channelType as any) || 'whatsapp',
+              lastMessage:
+                item.lastMessage ||
+                (item.lastMessageAt ? 'Pesan baru diterima' : 'Percakapan baru'),
+              lastMessageTimestamp: item.lastMessageAt
+                ? new Date(item.lastMessageAt).toLocaleTimeString('id-ID', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })
+                : 'Baru saja',
+              unreadCount: isSelected ? 0 : item.unreadCount || 0,
+              ticket: item.activeTicket
+                ? {
+                    id: item.activeTicket.id,
+                    ticketNumber: item.activeTicket.displayId || 'T-000',
+                    status: item.activeTicket.status || 'open',
+                    priority: item.activeTicket.priority || 'medium',
+                    assignedTo: item.activeTicket.assigneeId,
+                  }
+                : undefined,
+            }
+          })
 
-            setConversations(mapped)
-            setSelectedConversationId((prev) =>
-              prev && mapped.some((m) => m.id === prev) ? prev : mapped[0].id,
-            )
-          } else {
-            setConversations([])
-            setSelectedConversationId(null)
-          }
+          setConversations(mapped)
+          setSelectedConversationId((prev) =>
+            prev && mapped.some((m) => m.id === prev) ? prev : mapped[0].id,
+          )
+        } else {
+          setConversations([])
+          setSelectedConversationId(null)
         }
       }
     } catch (err) {
@@ -96,89 +87,59 @@ export function useConversationChat({ user }: UseConversationChatOptions) {
     }
   }, [])
 
-  useEffect(() => {
-    fetchConversations()
-    const timer = setInterval(() => {
-      fetchConversations()
-    }, 2500)
-    return () => clearInterval(timer)
-  }, [fetchConversations])
-
   // Fetch messages when conversation is selected
-  useEffect(() => {
+  const fetchMessages = useCallback(async () => {
     if (!selectedConversationId) return
-    setConversations((prev) =>
-      prev.map((c) => (c.id === selectedConversationId ? { ...c, unreadCount: 0 } : c)),
-    )
-    const fetchMessages = async () => {
-      try {
-        const token =
-          typeof window !== 'undefined'
-            ? localStorage.getItem('auth_token') || 'valid-access-token'
-            : 'valid-access-token'
-        const res = await fetch(`/api/v1/conversations/${selectedConversationId}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        })
-        if (res.ok) {
-          // biome-ignore lint/suspicious/noExplicitAny: backend conversation detail
-          const data = (await res.json()) as any
-          if (data.messages && Array.isArray(data.messages)) {
-            // biome-ignore lint/suspicious/noExplicitAny: message mapping
-            const mappedMsgs: TimelineMessage[] = data.messages.map((m: any) => {
-              const isCustomer = m.senderType === 'contact' || m.senderType === 'customer'
-              const msgType: MessageType =
-                m.messageType === 'activity' || m.senderType === 'system'
-                  ? 'activity'
-                  : isCustomer
-                    ? 'incoming'
-                    : 'outgoing'
+    try {
+      // biome-ignore lint/suspicious/noExplicitAny: backend conversation detail
+      const data = await api.get<any>(`/api/v1/conversations/${selectedConversationId}`)
+      if (data?.messages && Array.isArray(data.messages)) {
+        // biome-ignore lint/suspicious/noExplicitAny: message mapping
+        const mappedMsgs: TimelineMessage[] = data.messages.map((m: any) => {
+          const isCustomer = m.senderType === 'contact' || m.senderType === 'customer'
+          const msgType: MessageType =
+            m.messageType === 'activity' || m.senderType === 'system'
+              ? 'activity'
+              : isCustomer
+                ? 'incoming'
+                : 'outgoing'
 
-              return {
-                id: m.id,
-                conversationId: m.conversationId,
-                ticketId: m.ticketId,
-                ticketDisplayId: m.ticketDisplayId,
-                senderId: m.senderId || (isCustomer ? 'customer' : user.id),
-                senderType: isCustomer ? 'contact' : 'user',
-                senderName: isCustomer
-                  ? data.contact?.name || data.contact?.phoneNumber || 'Pelanggan'
-                  : user.name,
-                messageType: msgType,
-                contentType: (m.contentType as ContentType) || 'text',
-                content: m.content || '',
-                timestamp: m.createdAt
-                  ? new Date(m.createdAt).toLocaleTimeString('id-ID', {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })
-                  : 'Baru saja',
-                dateGroup: 'HARI INI',
-                status: m.status || (isCustomer ? 'delivered' : 'read'),
-              }
-            })
-            setMessagesMap((prev) => ({
-              ...prev,
-              [selectedConversationId]: mappedMsgs,
-            }))
+          return {
+            id: m.id,
+            conversationId: m.conversationId,
+            ticketId: m.ticketId,
+            ticketDisplayId: m.ticketDisplayId,
+            senderId: m.senderId || (isCustomer ? 'customer' : user.id),
+            senderType: isCustomer ? 'contact' : 'user',
+            senderName: isCustomer
+              ? data.contact?.name || data.contact?.phoneNumber || 'Pelanggan'
+              : user.name,
+            messageType: msgType,
+            contentType: (m.contentType as ContentType) || 'text',
+            content: m.content || '',
+            timestamp: m.createdAt
+              ? new Date(m.createdAt).toLocaleTimeString('id-ID', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })
+              : 'Baru saja',
+            dateGroup: 'HARI INI',
+            status: m.status || (isCustomer ? 'delivered' : 'read'),
           }
-        }
-      } catch {
-        // preserve memory messages on error
+        })
+        setMessagesMap((prev) => ({
+          ...prev,
+          [selectedConversationId]: mappedMsgs,
+        }))
       }
+    } catch {
+      // preserve memory messages on error
     }
-    fetchMessages()
-    const timer = setInterval(fetchMessages, 2000)
-    return () => clearInterval(timer)
-  }, [selectedConversationId, user.name, user.id])
+  }, [selectedConversationId, user.id, user.name])
 
   // Real-time SSE updates without page refresh
-  const sseToken =
-    typeof window !== 'undefined'
-      ? localStorage.getItem('auth_token') || 'valid-access-token'
-      : 'valid-access-token'
-
-  useRealtimeStream({
-    token: sseToken,
+  const realtime = useRealtimeStream({
+    token: api.getToken() || 'valid-access-token',
     onMessageCreated: (rawEvent) => {
       // biome-ignore lint/suspicious/noExplicitAny: event normalization
       const anyEvt = rawEvent as any
@@ -231,6 +192,28 @@ export function useConversationChat({ user }: UseConversationChatOptions) {
     },
   })
 
+  // Reconciled Polling Lifecycle: When SSE is connected, avoid redundant periodic polling!
+  useEffect(() => {
+    fetchConversations()
+    if (realtime.isConnected) return
+    const timer = setInterval(() => {
+      fetchConversations()
+    }, 5000)
+    return () => clearInterval(timer)
+  }, [fetchConversations, realtime.isConnected])
+
+  // Fetch messages when conversation is selected, with fallback polling only if SSE is disconnected
+  useEffect(() => {
+    if (!selectedConversationId) return
+    setConversations((prev) =>
+      prev.map((c) => (c.id === selectedConversationId ? { ...c, unreadCount: 0 } : c)),
+    )
+    fetchMessages()
+    if (realtime.isConnected) return
+    const timer = setInterval(fetchMessages, 5000)
+    return () => clearInterval(timer)
+  }, [selectedConversationId, realtime.isConnected, fetchMessages])
+
   // Filter conversations
   const filteredConversations = conversations.filter((c) => {
     // Channel filter
@@ -239,41 +222,40 @@ export function useConversationChat({ user }: UseConversationChatOptions) {
     }
 
     // Search query filter
-    if (searchQuery.trim()) {
+    if (searchQuery.trim() !== '') {
       const q = searchQuery.toLowerCase()
       const matchName = c.contactName.toLowerCase().includes(q)
       const matchPhone = c.contactPhone?.toLowerCase().includes(q)
-      const matchMsg = c.lastMessage?.toLowerCase().includes(q)
-      if (!matchName && !matchPhone && !matchMsg) return false
+      const matchMsg = c.lastMessage.toLowerCase().includes(q)
+      const matchTicket = c.ticket?.ticketNumber.toLowerCase().includes(q)
+      if (!matchName && !matchPhone && !matchMsg && !matchTicket) {
+        return false
+      }
     }
 
-    // Status / Assignment filter
-    if (activeFilter === 'unread' && (!c.unreadCount || c.unreadCount === 0)) {
-      return false
+    // Quick filter pills
+    if (activeFilter === 'unread' && c.unreadCount === 0) return false
+    if (activeFilter === 'assigned_me') {
+      return Boolean(c.ticket?.assignedTo && c.ticket.assignedTo === user.id)
     }
-    if (activeFilter === 'assigned_me' && c.ticket?.assignedTo !== user.id) {
-      return false
-    }
-    if (activeFilter === 'unassigned' && Boolean(c.ticket?.assignedTo)) {
-      return false
+    if (activeFilter === 'unassigned') {
+      return Boolean(c.ticket && !c.ticket.assignedTo)
     }
 
     return true
   })
 
+  const selectedConversation = conversations.find((c) => c.id === selectedConversationId)
   const currentMessages = selectedConversationId ? messagesMap[selectedConversationId] || [] : []
 
   const handleSendMessage = async (text: string) => {
-    if (!selectedConversationId || !text.trim()) return
+    if (!text.trim() || !selectedConversationId) return
 
-    const tempId = `msg-${Date.now()}`
     const now = new Date()
-    const timeStr = now.toLocaleTimeString('id-ID', {
-      hour: '2-digit',
-      minute: '2-digit',
-    })
+    const timeStr = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+    const tempId = `temp-${Date.now()}`
 
-    const newMsg: TimelineMessage = {
+    const optimisticMsg: TimelineMessage = {
       id: tempId,
       conversationId: selectedConversationId,
       senderId: user.id,
@@ -284,14 +266,16 @@ export function useConversationChat({ user }: UseConversationChatOptions) {
       content: text.trim(),
       timestamp: timeStr,
       dateGroup: 'HARI INI',
-      status: 'pending',
+      status: 'sending',
     }
 
+    // Optimistic UI update
     setMessagesMap((prev) => ({
       ...prev,
-      [selectedConversationId]: [...(prev[selectedConversationId] || []), newMsg],
+      [selectedConversationId]: [...(prev[selectedConversationId] || []), optimisticMsg],
     }))
 
+    // Update last message in conversation list
     setConversations((prev) =>
       prev.map((c) =>
         c.id === selectedConversationId
@@ -306,54 +290,39 @@ export function useConversationChat({ user }: UseConversationChatOptions) {
     )
 
     try {
-      const token =
-        typeof window !== 'undefined'
-          ? localStorage.getItem('auth_token') || 'valid-access-token'
-          : 'valid-access-token'
-
-      const res = await fetch(`/api/v1/conversations/${selectedConversationId}/messages`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          content: text.trim(),
-          contentType: 'text',
-        }),
+      // biome-ignore lint/suspicious/noExplicitAny: backend message response
+      const data = await api.post<any>(`/api/v1/conversations/${selectedConversationId}/messages`, {
+        content: text.trim(),
+        contentType: 'text',
       })
 
-      if (res.ok) {
-        // biome-ignore lint/suspicious/noExplicitAny: backend message response
-        const data = (await res.json()) as any
-        const m = data?.message
-        if (m) {
-          const sentMsg: TimelineMessage = {
-            id: m.id || tempId,
-            conversationId: selectedConversationId,
-            senderId: m.senderId || user.id,
-            senderType: 'user',
-            senderName: user.name,
-            messageType: 'outgoing',
-            contentType: (m.contentType as ContentType) || 'text',
-            content: m.content || text.trim(),
-            timestamp: m.createdAt
-              ? new Date(m.createdAt).toLocaleTimeString('id-ID', {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })
-              : timeStr,
-            dateGroup: 'HARI INI',
-            status: m.status || 'sent',
-          }
-
-          setMessagesMap((prev) => ({
-            ...prev,
-            [selectedConversationId]: (prev[selectedConversationId] || []).map((msg) =>
-              msg.id === tempId ? sentMsg : msg,
-            ),
-          }))
+      const m = data?.message
+      if (m) {
+        const sentMsg: TimelineMessage = {
+          id: m.id || tempId,
+          conversationId: selectedConversationId,
+          senderId: m.senderId || user.id,
+          senderType: 'user',
+          senderName: user.name,
+          messageType: 'outgoing',
+          contentType: (m.contentType as ContentType) || 'text',
+          content: m.content || text.trim(),
+          timestamp: m.createdAt
+            ? new Date(m.createdAt).toLocaleTimeString('id-ID', {
+                hour: '2-digit',
+                minute: '2-digit',
+              })
+            : timeStr,
+          dateGroup: 'HARI INI',
+          status: m.status || 'sent',
         }
+
+        setMessagesMap((prev) => ({
+          ...prev,
+          [selectedConversationId]: (prev[selectedConversationId] || []).map((msg) =>
+            msg.id === tempId ? sentMsg : msg,
+          ),
+        }))
       } else {
         setMessagesMap((prev) => ({
           ...prev,
@@ -396,21 +365,7 @@ export function useConversationChat({ user }: UseConversationChatOptions) {
     )
 
     try {
-      const token =
-        typeof window !== 'undefined'
-          ? localStorage.getItem('auth_token') || 'valid-access-token'
-          : 'valid-access-token'
-      const res = await fetch(`/api/v1/tickets/${activeTicket.id}/status`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ status: nextStatus }),
-      })
-      if (!res.ok) {
-        fetchConversations()
-      }
+      await api.patch(`/api/v1/tickets/${activeTicket.id}/status`, { status: nextStatus })
     } catch {
       fetchConversations()
     }
@@ -440,21 +395,7 @@ export function useConversationChat({ user }: UseConversationChatOptions) {
     )
 
     try {
-      const token =
-        typeof window !== 'undefined'
-          ? localStorage.getItem('auth_token') || 'valid-access-token'
-          : 'valid-access-token'
-      const res = await fetch(`/api/v1/tickets/${activeTicket.id}/assignee`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ assigneeId: nextAssigneeId }),
-      })
-      if (!res.ok) {
-        fetchConversations()
-      }
+      await api.patch(`/api/v1/tickets/${activeTicket.id}/assignee`, { assigneeId: nextAssigneeId })
     } catch {
       fetchConversations()
     }
@@ -466,24 +407,14 @@ export function useConversationChat({ user }: UseConversationChatOptions) {
     // Clear unread in local state
     setConversations((prev) => prev.map((c) => (c.id === id ? { ...c, unreadCount: 0 } : c)))
 
-    try {
-      const token =
-        typeof window !== 'undefined'
-          ? localStorage.getItem('auth_token') || 'valid-access-token'
-          : 'valid-access-token'
-      fetch(`/api/v1/conversations/${id}/read`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-      }).catch(() => {})
-    } catch {
-      // Ignore
-    }
+    api.post(`/api/v1/conversations/${id}/read`).catch(() => {})
   }
 
   return {
     conversations,
-    filteredConversations,
-    currentMessages,
+    setConversations,
+    messagesMap,
+    setMessagesMap,
     selectedConversationId,
     setSelectedConversationId,
     isDrawerOpen,
@@ -498,10 +429,14 @@ export function useConversationChat({ user }: UseConversationChatOptions) {
     setSearchQuery,
     internalNote,
     setInternalNote,
-    setMessagesMap,
+    filteredConversations,
+    selectedConversation,
+    currentMessages,
+    fetchConversations,
     handleSendMessage,
     handleResolveTicket,
     handleAssignTicket,
     handleSelectConversation,
+    realtime,
   }
 }

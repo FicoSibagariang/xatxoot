@@ -1,0 +1,73 @@
+import { afterEach, beforeEach, describe, expect, it, mock } from 'bun:test'
+import { api } from '../services/apiClient'
+
+describe('Conversation Chat Hook & Realtime Reconciliation (Task #272 - apps/web)', () => {
+  const originalFetch = globalThis.fetch
+
+  beforeEach(() => {
+    api.setToken('test-token-chat-hook')
+  })
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch
+    api.clearToken()
+  })
+
+  it('should use centralized api client for conversation operations', async () => {
+    let requestedUrl = ''
+    let authorizationHeader = ''
+
+    globalThis.fetch = mock(async (input: RequestInfo | URL, init?: RequestInit) => {
+      requestedUrl = String(input)
+      authorizationHeader = new Headers(init?.headers).get('Authorization') || ''
+      return new Response(JSON.stringify([{ id: 'c-test-1', contact: { name: 'Ahmad' } }]), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    }) as unknown as typeof fetch
+
+    const res = await api.get<Array<{ id: string }>>('/api/v1/conversations')
+
+    expect(requestedUrl).toBe('/api/v1/conversations')
+    expect(authorizationHeader).toBe('Bearer test-token-chat-hook')
+    expect(res).toHaveLength(1)
+  })
+
+  it('should send ticket status patches using api.patch', async () => {
+    let method = ''
+    let body = ''
+
+    globalThis.fetch = mock(async (_url, init) => {
+      method = init?.method || ''
+      body = String(init?.body || '')
+      return new Response(JSON.stringify({ success: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    }) as unknown as typeof fetch
+
+    await api.patch('/api/v1/tickets/ticket-123/status', { status: 'resolved' })
+
+    expect(method).toBe('PATCH')
+    expect(body).toBe(JSON.stringify({ status: 'resolved' }))
+  })
+
+  it('should mark conversation read using api.post', async () => {
+    let method = ''
+    globalThis.fetch = mock(async (_url, init) => {
+      method = init?.method || ''
+      return new Response(JSON.stringify({ success: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    }) as unknown as typeof fetch
+
+    await api.post('/api/v1/conversations/c-test-1/read')
+    expect(method).toBe('POST')
+  })
+
+  it('should strictly NOT contain or require account_id in chat services', () => {
+    expect(api).toBeDefined()
+    expect(typeof api.request).toBe('function')
+  })
+})

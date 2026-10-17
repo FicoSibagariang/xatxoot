@@ -7,6 +7,7 @@ import { INITIAL_USER } from './data/mockData'
 import { useAppModals, useConversationChat } from './hooks'
 import { LoginPage } from './pages/LoginPage'
 import { SetupPage } from './pages/SetupPage'
+import { api } from './services/apiClient'
 
 export interface AppProps {
   initialAuthenticated?: boolean
@@ -71,15 +72,12 @@ export function App({ initialAuthenticated }: AppProps = {}) {
 
   const handleLogout = async () => {
     try {
-      await fetch('/api/v1/auth/logout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-      })
+      await api.post('/api/v1/auth/logout')
     } catch {
       // Ignore network error on logout
     }
+    api.clearToken()
     if (typeof window !== 'undefined') {
-      localStorage.removeItem('auth_token')
       localStorage.removeItem('auth_user')
     }
     setIsAuthenticated(false)

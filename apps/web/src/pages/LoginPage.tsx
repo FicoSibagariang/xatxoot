@@ -1,5 +1,6 @@
 import { type LoginInput, LoginInputSchema } from '@xatxoot/shared'
 import { useState } from 'react'
+import { api } from '../services/apiClient'
 
 export interface LoginPageProps {
   onSuccess?: (data: unknown) => void
@@ -46,23 +47,12 @@ export function LoginPage({ onSuccess }: LoginPageProps) {
 
     setIsLoading(true)
     try {
-      const response = await fetch('/api/v1/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(parseResult.data),
-      })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        setGlobalError(data.error || 'Email atau kata sandi tidak sesuai')
-        setIsLoading(false)
-        return
-      }
+      // biome-ignore lint/suspicious/noExplicitAny: login response payload
+      const data = await api.post<any>('/api/v1/auth/login', parseResult.data, { skipAuth: true })
 
       setIsLoading(false)
-      if (typeof window !== 'undefined' && data?.tokens?.accessToken) {
-        localStorage.setItem('auth_token', data.tokens.accessToken)
+      if (data?.tokens?.accessToken) {
+        api.setToken(data.tokens.accessToken)
       }
       if (typeof window !== 'undefined' && data?.user) {
         localStorage.setItem('auth_user', JSON.stringify(data.user))
@@ -73,9 +63,10 @@ export function LoginPage({ onSuccess }: LoginPageProps) {
         // Redirect to dashboard
         window.location.href = '/'
       }
-    } catch {
-      setGlobalError('Terjadi kesalahan koneksi ke server API')
+    } catch (err) {
       setIsLoading(false)
+      const msg = err instanceof Error ? err.message : 'Terjadi kesalahan koneksi ke server API'
+      setGlobalError(msg)
     }
   }
 

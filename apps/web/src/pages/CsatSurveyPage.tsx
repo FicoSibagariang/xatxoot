@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { CsatSurveyWidget, type CsatWidgetSubmission } from '../components/csat'
+import { ApiClientError, api } from '../services/apiClient'
 
 export interface CsatSurveyPageProps {
   token?: string
@@ -44,24 +45,23 @@ export function CsatSurveyPage({
     let isMounted = true
     const checkTokenStatus = async () => {
       try {
-        const res = await fetch(`/api/v1/csat/${token}`)
-        if (!res.ok) {
-          if (res.status === 410) {
-            if (isMounted) setWidgetState('expired')
-          } else if (res.status === 409) {
-            if (isMounted) setWidgetState('already_submitted')
-          }
-          return
-        }
-        const data = await res.json()
-        if (data.ok && isMounted) {
-          if (data.data.isSubmitted) {
+        // biome-ignore lint/suspicious/noExplicitAny: csat token status payload
+        const data = await api.get<any>(`/api/v1/csat/${token}`, { skipAuth: true })
+        if (data?.ok && isMounted) {
+          if (data.data?.isSubmitted) {
             setWidgetState('already_submitted')
           }
-          if (data.data.agentName) setResolvedAgent(data.data.agentName)
-          if (data.data.ticketDisplayId) setResolvedTicketId(data.data.ticketDisplayId)
+          if (data.data?.agentName) setResolvedAgent(data.data.agentName)
+          if (data.data?.ticketDisplayId) setResolvedTicketId(data.data.ticketDisplayId)
         }
-      } catch {
+      } catch (err) {
+        if (err instanceof ApiClientError && isMounted) {
+          if (err.status === 410) {
+            setWidgetState('expired')
+          } else if (err.status === 409) {
+            setWidgetState('already_submitted')
+          }
+        }
         // Fallback to form state
       }
     }
@@ -73,23 +73,20 @@ export function CsatSurveyPage({
   }, [token])
 
   const handleSubmit = async (submission: CsatWidgetSubmission) => {
-    const res = await fetch(`/api/v1/csat/${token}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(submission),
-    })
-
-    if (!res.ok) {
-      const errData = await res.json().catch(() => ({}))
-      if (res.status === 409) {
-        setWidgetState('already_submitted')
-        return
+    try {
+      await api.post(`/api/v1/csat/${token}`, submission, { skipAuth: true })
+    } catch (err) {
+      if (err instanceof ApiClientError) {
+        if (err.status === 409) {
+          setWidgetState('already_submitted')
+          return
+        }
+        if (err.status === 410) {
+          setWidgetState('expired')
+          return
+        }
       }
-      if (res.status === 410) {
-        setWidgetState('expired')
-        return
-      }
-      throw new Error(errData.error || 'Gagal mengirim survei CSAT')
+      throw err instanceof Error ? err : new Error('Gagal mengirim survei CSAT')
     }
   }
 
