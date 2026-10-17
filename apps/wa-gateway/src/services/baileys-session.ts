@@ -9,6 +9,7 @@ import type { ConnectionEventHandlers, GatewayConnectionStatus } from '../types/
 import type { WaInboundMessageEvent } from '../types/events'
 import { mapDisconnectReasonToStatus } from './disconnect-handler'
 import { extractInboundMessage } from './message-parser'
+import { rawMessageDumper } from './raw-message-dumper'
 import type { RedisEventPublisher } from './redis-publisher'
 import { DEFAULT_BROWSER } from './socket-config'
 
@@ -345,6 +346,12 @@ export class BaileysSession {
       // 4. Messages Upsert
       if (events['messages.upsert']) {
         const upsert = events['messages.upsert']
+
+        // Asynchronously dump messages to daily JSONL file for forensic and R&D analysis
+        rawMessageDumper.dumpMessages(this.sessionId, upsert.messages).catch((err) => {
+          console.error(`[wa-gateway] [${this.sessionId}] Failed to dump raw messages:`, err)
+        })
+
         console.log(
           `[wa-gateway] [${this.sessionId}] [DUMP messages.upsert] RAW:\n`,
           JSON.stringify(upsert, null, 2),

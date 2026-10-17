@@ -55,6 +55,11 @@ export {
   createGatewayServer,
   type GatewayServerOptions,
 } from './services/gateway-server'
+export {
+  RawMessageDumper,
+  rawMessageDumper,
+  type RawMessageDumperOptions,
+} from './services/raw-message-dumper'
 
 // Global error handlers to prevent daemon crash on socket timeouts
 process.on('uncaughtException', (err) => {
@@ -94,6 +99,19 @@ if (isDirectRun) {
   const server = createGatewayServer(baileysConnectionManager, { dispatcher: outboundDispatcher })
   server.listen(port, host, async () => {
     console.log(`[wa-gateway] WhatsApp Gateway server running at http://${host}:${port}`)
+
+    // Purge expired raw message dumps
+    const { rawMessageDumper } = await import('./services/raw-message-dumper')
+    rawMessageDumper
+      .purgeExpiredDumps()
+      .then((purged) => {
+        if (purged > 0) {
+          console.log(`[wa-gateway] Purged ${purged} expired raw dump file(s)`)
+        }
+      })
+      .catch((err) => {
+        console.warn('[wa-gateway] Failed to purge expired raw dumps:', err)
+      })
 
     // Auto-resume existing authenticated sessions
     const sessionsDir = './data/sessions'
