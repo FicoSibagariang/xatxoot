@@ -141,44 +141,47 @@ export class MessageService {
     }
   }
 
-  async updateDeliveryStatus(externalId: string, status: MessageStatus): Promise<Message | null> {
-    let targetMessage: Message | undefined
+  async getMessageByExternalId(externalId: string): Promise<Message | null> {
+    if (!externalId) return null
     for (const msg of messageStore.messages.values()) {
       if (msg.externalSourceId === externalId) {
-        targetMessage = msg
-        break
+        return msg
       }
     }
 
-    if (!targetMessage) {
-      try {
-        const rows = await sql`
-          SELECT
-            id,
-            conversation_id as "conversationId",
-            ticket_id as "ticketId",
-            sender_type as "senderType",
-            sender_id as "senderId",
-            message_type as "messageType",
-            content,
-            content_type as "contentType",
-            status,
-            external_source_id as "externalSourceId",
-            content_attributes as "contentAttributes",
-            created_at as "createdAt",
-            updated_at as "updatedAt"
-          FROM messages
-          WHERE external_source_id = ${externalId}
-          LIMIT 1
-        `
-        if (rows.length > 0) {
-          targetMessage = rows[0] as unknown as Message
-        }
-      } catch {
-        // Memory fallback
+    try {
+      const rows = await sql`
+        SELECT
+          id,
+          conversation_id as "conversationId",
+          ticket_id as "ticketId",
+          sender_type as "senderType",
+          sender_id as "senderId",
+          message_type as "messageType",
+          content,
+          content_type as "contentType",
+          status,
+          external_source_id as "externalSourceId",
+          content_attributes as "contentAttributes",
+          created_at as "createdAt",
+          updated_at as "updatedAt"
+        FROM messages
+        WHERE external_source_id = ${externalId}
+        LIMIT 1
+      `
+      if (rows.length > 0) {
+        const msg = rows[0] as unknown as Message
+        saveMessageToStore(msg)
+        return msg
       }
+    } catch {
+      // Memory fallback
     }
+    return null
+  }
 
+  async updateDeliveryStatus(externalId: string, status: MessageStatus): Promise<Message | null> {
+    const targetMessage = await this.getMessageByExternalId(externalId)
     if (!targetMessage) {
       return null
     }

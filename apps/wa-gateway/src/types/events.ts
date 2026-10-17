@@ -42,6 +42,7 @@ export const WaInboundMessageEventSchema = z.object({
     .optional(),
   replyToExternalId: z.string().optional(),
   timestamp: z.string().min(1, 'Timestamp wajib diisi'),
+  isEcho: z.boolean().optional(),
 })
 
 export type WaInboundMessageEvent = z.infer<typeof WaInboundMessageEventSchema>

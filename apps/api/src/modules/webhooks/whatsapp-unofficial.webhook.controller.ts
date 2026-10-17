@@ -1,6 +1,7 @@
 import type { Context } from 'hono'
 import { conversationService } from '../conversations/conversations.service'
 import { inboxService } from '../inboxes/inboxes.service'
+import { messageService } from '../messages/messages.service'
 
 export interface WhatsAppUnofficialInboundBody {
   channelId?: string
@@ -12,6 +13,7 @@ export interface WhatsAppUnofficialInboundBody {
   content?: string
   mediaUrl?: string
   timestamp?: string
+  isEcho?: boolean
 }
 
 export async function handleWhatsAppUnofficialInbound(c: Context) {
@@ -27,6 +29,24 @@ export async function handleWhatsAppUnofficialInbound(c: Context) {
     if (!body || !body.senderNumber) {
       console.warn('[api-webhook] [DEBUG] Rejected: senderNumber is required')
       return c.json({ error: 'senderNumber is required' }, 400)
+    }
+
+    // 0. Idempotency check on externalMessageId
+    if (body.externalMessageId) {
+      const existing = await messageService.getMessageByExternalId(body.externalMessageId)
+      if (existing) {
+        console.log(
+          `[api-webhook] [DEBUG] Message with externalMessageId=${body.externalMessageId} already exists, skipping.`,
+        )
+        return c.json({
+          success: true,
+          skipped: true,
+          isEcho: Boolean(body.isEcho),
+          messageId: existing.id,
+          conversationId: existing.conversationId,
+          ticketId: existing.ticketId,
+        })
+      }
     }
 
     let inboxId = body.inboxId
@@ -60,6 +80,44 @@ export async function handleWhatsAppUnofficialInbound(c: Context) {
     console.log(
       `[api-webhook] [DEBUG] Processing message for sender=${formattedPhone}, inboxId=${inboxId}`,
     )
+
+    if (body.isEcho) {
+      const result = await conversationService.handleOutboundEcho({
+        inboxId,
+        sourceId: cleanSenderNumber,
+        senderPhone: formattedPhone,
+        senderName: body.senderName || formattedPhone,
+        content: body.content || '',
+        externalId: body.externalMessageId || `wa_${Date.now()}`,
+        messageType: body.messageType || 'text',
+        mediaUrl: body.mediaUrl,
+      })
+
+      if (result.isDuplicate) {
+        return c.json({
+          success: true,
+          skipped: true,
+          isEcho: true,
+          messageId: result.message.id,
+          conversationId: result.conversation.id,
+          ticketId: result.ticket?.id,
+          contactId: result.contact.id,
+        })
+      }
+
+      console.log(
+        `[api-webhook] [DEBUG] Echo outgoing message processed successfully! conversationId=${result.conversation.id}, ticketId=${result.ticket?.id}, messageId=${result.message.id}`,
+      )
+
+      return c.json({
+        success: true,
+        isEcho: true,
+        conversationId: result.conversation.id,
+        ticketId: result.ticket?.id,
+        messageId: result.message.id,
+        contactId: result.contact.id,
+      })
+    }
 
     const result = await conversationService.handleInboundMessage({
       inboxId,

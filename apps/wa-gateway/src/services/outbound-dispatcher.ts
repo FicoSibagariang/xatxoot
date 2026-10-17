@@ -5,6 +5,7 @@ import {
   SendWaReactionJobPayloadSchema,
 } from '../types/queue'
 import type { BaileysConnectionManager } from './baileys-connection-manager'
+import { outboundTracker } from './outbound-tracker'
 import type { RedisEventPublisher } from './redis-publisher'
 
 export interface OutboundDispatcherOptions {
@@ -91,6 +92,10 @@ export class OutboundMessageDispatcher {
 
     const sent = await socket.sendMessage(jid, content)
     const externalMessageId = sent?.key?.id || `WAM_OUT_${Date.now()}`
+
+    if (sent?.key?.id) {
+      outboundTracker.track(sent.key.id)
+    }
 
     if (this.redisPublisher) {
       await this.redisPublisher.publishMessageStatus({

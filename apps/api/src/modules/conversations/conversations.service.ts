@@ -34,6 +34,26 @@ export interface InboundMessageResult {
   message: Message
 }
 
+export interface OutboundEchoPayload {
+  inboxId: string
+  sourceId: string
+  senderPhone?: string | null
+  senderName?: string | null
+  content?: string | null
+  messageType?: string
+  externalId?: string | null
+  contentType?: string
+  mediaUrl?: string | null
+}
+
+export interface OutboundEchoResult {
+  contact: Contact
+  conversation: Conversation
+  ticket: Ticket | null
+  message: Message
+  isDuplicate?: boolean
+}
+
 export interface FindOrCreateContactDto {
   inboxId: string
   sourceId: string
@@ -458,6 +478,252 @@ export class ConversationService {
         contact,
         ticket,
         isNewTicket,
+      },
+    })
+
+    return result
+  }
+
+  async handleOutboundEcho(payload: OutboundEchoPayload): Promise<OutboundEchoResult> {
+    const now = new Date().toISOString()
+
+    // 1. Idempotency Check: check if message with externalId already exists
+    if (payload.externalId) {
+      for (const msg of messageStore.messages.values()) {
+        if (msg.externalSourceId === payload.externalId) {
+          const conv = await this.getConversationById(msg.conversationId)
+          if (conv?.contact) {
+            return {
+              contact: conv.contact,
+              conversation: conv.conversation,
+              ticket: conv.activeTicket,
+              message: msg,
+              isDuplicate: true,
+            }
+          }
+        }
+      }
+
+      try {
+        const rows = await sql`
+          SELECT
+            id,
+            conversation_id as "conversationId",
+            ticket_id as "ticketId",
+            sender_type as "senderType",
+            sender_id as "senderId",
+            message_type as "messageType",
+            content,
+            content_type as "contentType",
+            status,
+            external_source_id as "externalSourceId",
+            content_attributes as "contentAttributes",
+            created_at as "createdAt",
+            updated_at as "updatedAt"
+          FROM messages
+          WHERE external_source_id = ${payload.externalId}
+          LIMIT 1
+        `
+        if (rows.length > 0) {
+          const existingMsg = rows[0] as unknown as Message
+          saveMessageToStore(existingMsg)
+          const conv = await this.getConversationById(existingMsg.conversationId)
+          if (conv?.contact) {
+            return {
+              contact: conv.contact,
+              conversation: conv.conversation,
+              ticket: conv.activeTicket,
+              message: existingMsg,
+              isDuplicate: true,
+            }
+          }
+        }
+      } catch {
+        // Fallback
+      }
+    }
+
+    // 2. Find or create Contact & ContactInbox for customer
+    const { contact, contactInbox } = await this.findOrCreateContact({
+      inboxId: payload.inboxId,
+      sourceId: payload.sourceId,
+      phone: payload.senderPhone,
+      name: payload.senderName,
+    })
+
+    // 3. Find or create persistent Conversation thread
+    let conversation = Array.from(memoryStore.conversations.values()).find(
+      (c) => c.inboxId === payload.inboxId && c.contactId === contact.id,
+    )
+
+    if (!conversation) {
+      try {
+        const rows = await sql`
+          SELECT
+            id,
+            inbox_id as "inboxId",
+            contact_id as "contactId",
+            contact_inbox_id as "contactInboxId",
+            active_ticket_id as "activeTicketId",
+            unread_count as "unreadCount",
+            last_message_at as "lastMessageAt",
+            created_at as "createdAt",
+            updated_at as "updatedAt"
+          FROM conversations
+          WHERE inbox_id = ${payload.inboxId} AND contact_id = ${contact.id}
+          LIMIT 1
+        `
+        if (rows.length > 0) {
+          conversation = rows[0] as unknown as Conversation
+          memoryStore.conversations.set(conversation.id, conversation)
+        }
+      } catch {
+        // Memory fallback
+      }
+    }
+
+    if (!conversation) {
+      conversation = {
+        id: crypto.randomUUID(),
+        inboxId: payload.inboxId,
+        contactId: contact.id,
+        contactInboxId: contactInbox.id,
+        activeTicketId: null,
+        unreadCount: 0,
+        lastMessageAt: now,
+        createdAt: now,
+        updatedAt: now,
+      }
+      memoryStore.conversations.set(conversation.id, conversation)
+
+      try {
+        await sql`
+          INSERT INTO conversations (
+            id, inbox_id, contact_id, contact_inbox_id, active_ticket_id, unread_count, last_message_at, created_at, updated_at
+          ) VALUES (
+            ${conversation.id}, ${conversation.inboxId}, ${conversation.contactId}, ${conversation.contactInboxId},
+            ${conversation.activeTicketId}, ${conversation.unreadCount}, ${conversation.lastMessageAt},
+            ${conversation.createdAt}, ${conversation.updatedAt}
+          )
+        `
+      } catch {
+        // Memory fallback
+      }
+    }
+
+    // 4. Ticket handling
+    let ticket: Ticket | null = null
+    if (conversation.activeTicketId) {
+      ticket = await ticketService.getTicketById(conversation.activeTicketId)
+    }
+
+    if (!ticket || ticket.status === 'resolved') {
+      ticket = await ticketService.createTicket({
+        conversationId: conversation.id,
+        status: 'open',
+        priority: 'medium',
+      })
+      try {
+        const assignResult = await assignmentService.assignTicketRoundRobin(ticket.id, {
+          inboxId: conversation.inboxId,
+        })
+        if (assignResult.success && assignResult.assignedAgentId) {
+          ticket = assignResult.ticket
+        }
+      } catch {
+        // Fallback
+      }
+    } else {
+      await ticketService.recordFirstReply(ticket.id)
+    }
+
+    // Update conversation (agent replied -> unreadCount remains 0)
+    conversation = {
+      ...conversation,
+      activeTicketId: ticket.id,
+      unreadCount: 0,
+      lastMessageAt: now,
+      updatedAt: now,
+    }
+    memoryStore.conversations.set(conversation.id, conversation)
+
+    try {
+      await sql`
+        UPDATE conversations
+        SET
+          active_ticket_id = ${ticket.id},
+          unread_count = 0,
+          last_message_at = ${now},
+          updated_at = ${now}
+        WHERE id = ${conversation.id}
+      `
+    } catch {
+      // Memory fallback
+    }
+
+    // 5. Create Outgoing Message
+    const convMessages = memoryStore.messages.get(conversation.id) || []
+    const message: Message = {
+      id: crypto.randomUUID(),
+      conversationId: conversation.id,
+      ticketId: ticket.id,
+      senderType: 'user',
+      senderId: null,
+      messageType: 'outgoing',
+      content: payload.content ?? null,
+      contentType: (payload.contentType as unknown as Message['contentType']) || 'text',
+      status: 'sent',
+      externalSourceId: payload.externalId ?? null,
+      contentAttributes: { echo: true },
+      attachments: [],
+      createdAt: now,
+      updatedAt: now,
+    }
+
+    convMessages.push(message)
+    memoryStore.messages.set(conversation.id, convMessages)
+    saveMessageToStore(message)
+
+    try {
+      await sql`
+        INSERT INTO messages (
+          id, conversation_id, ticket_id, sender_type, sender_id, message_type, content, content_type,
+          status, external_source_id, content_attributes, created_at, updated_at
+        ) VALUES (
+          ${message.id}, ${message.conversationId}, ${message.ticketId}, ${message.senderType},
+          ${null}, ${message.messageType}, ${message.content}, ${message.contentType},
+          ${message.status}, ${message.externalSourceId}, ${JSON.stringify(message.contentAttributes)},
+          ${message.createdAt}, ${message.updatedAt}
+        )
+      `
+    } catch {
+      // Memory fallback
+    }
+
+    const result = {
+      contact,
+      conversation,
+      ticket,
+      message,
+    }
+
+    realtimeService.broadcast({
+      event: 'message.created',
+      data: {
+        id: message.id,
+        conversationId: conversation.id,
+        content: message.content || '',
+        messageType: message.messageType,
+        contentType: message.contentType,
+        senderId: message.senderId,
+        senderType: message.senderType,
+        senderName: 'Petugas CS (WhatsApp HP)',
+        timestamp: message.createdAt,
+        createdAt: message.createdAt,
+        message,
+        conversation,
+        contact,
+        ticket,
       },
     })
 

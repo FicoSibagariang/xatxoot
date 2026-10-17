@@ -9,6 +9,7 @@ import type { ConnectionEventHandlers, GatewayConnectionStatus } from '../types/
 import type { WaInboundMessageEvent } from '../types/events'
 import { mapDisconnectReasonToStatus } from './disconnect-handler'
 import { extractInboundMessage } from './message-parser'
+import { outboundTracker } from './outbound-tracker'
 import { rawMessageDumper } from './raw-message-dumper'
 import type { RedisEventPublisher } from './redis-publisher'
 import { DEFAULT_BROWSER } from './socket-config'
@@ -60,8 +61,10 @@ export class BaileysSession {
     }
   }
 
-  async handleInboundMessage(wam: unknown): Promise<WaInboundMessageEvent | null> {
-    console.log(`[wa-gateway] [${this.sessionId}] [DEBUG] handleInboundMessage processing...`)
+  async handleInboundMessage(wam: unknown, isEcho = false): Promise<WaInboundMessageEvent | null> {
+    console.log(
+      `[wa-gateway] [${this.sessionId}] [DEBUG] handleInboundMessage processing... (isEcho=${isEcho})`,
+    )
     const channelId = this.channelId || '00000000-0000-4000-a000-000000000000'
     const inboxId = this.inboxId || 'default'
 
@@ -88,6 +91,7 @@ export class BaileysSession {
       channelId,
       inboxId,
       allowSelfChat: isSelfChat,
+      isEcho,
     })
 
     if (!event) {
@@ -100,7 +104,7 @@ export class BaileysSession {
     }
 
     console.log(
-      `[wa-gateway] [${this.sessionId}] [DEBUG] Extracted inbound message from ${event.senderNumber} (${event.senderName || 'No Name'}): "${event.content}"`,
+      `[wa-gateway] [${this.sessionId}] [DEBUG] Extracted ${isEcho ? 'echo outgoing' : 'inbound'} message from ${event.senderNumber} (${event.senderName || 'No Name'}): "${event.content}"`,
     )
 
     // 1. Forward directly to API inbound webhook
@@ -123,6 +127,7 @@ export class BaileysSession {
           messageType: event.messageType,
           content: event.content,
           timestamp: event.timestamp,
+          isEcho: Boolean(isEcho || event.isEcho),
         }),
       })
       const text = await res.text()
@@ -375,11 +380,20 @@ export class BaileysSession {
             console.log(
               `[wa-gateway] [${this.sessionId}] [DEBUG] Message qualifies as inbound (fromMe=${msg.key.fromMe}, isSelfChat=${isSelfChat})`,
             )
-            await this.handleInboundMessage(msg)
+            await this.handleInboundMessage(msg, false)
           } else {
-            console.log(
-              `[wa-gateway] [${this.sessionId}] [DEBUG] Skipping outgoing message (fromMe=true, not self-chat)`,
-            )
+            // Outgoing message (fromMe === true, not self-chat)
+            const msgId = msg.key?.id
+            if (msgId && outboundTracker.consume(msgId)) {
+              console.log(
+                `[wa-gateway] [${this.sessionId}] [DEBUG] Skipping outgoing message (id=${msgId} was dispatched by Xatxoot dashboard)`,
+              )
+            } else {
+              console.log(
+                `[wa-gateway] [${this.sessionId}] [DEBUG] Echo outgoing message detected from physical device! id=${msgId}`,
+              )
+              await this.handleInboundMessage(msg, true)
+            }
           }
         }
       }

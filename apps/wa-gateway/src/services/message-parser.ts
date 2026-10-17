@@ -52,7 +52,7 @@ export interface MinimalWAMessage {
 
 export function extractInboundMessage(
   wam: unknown,
-  context: { channelId: string; inboxId: string; allowSelfChat?: boolean },
+  context: { channelId: string; inboxId: string; allowSelfChat?: boolean; isEcho?: boolean },
 ): WaInboundMessageEvent | null {
   if (!wam || typeof wam !== 'object') {
     return null
@@ -64,8 +64,8 @@ export function extractInboundMessage(
     return null
   }
 
-  // Ignore outgoing messages sent by the device (unless testing via self-chat)
-  if (key.fromMe && !context.allowSelfChat) {
+  // Ignore outgoing messages sent by the device (unless testing via self-chat or echo sync)
+  if (key.fromMe && !context.allowSelfChat && !context.isEcho) {
     return null
   }
 
@@ -217,5 +217,6 @@ export function extractInboundMessage(
     media,
     replyToExternalId,
     timestamp,
+    isEcho: context.isEcho ? true : undefined,
   }
 }
