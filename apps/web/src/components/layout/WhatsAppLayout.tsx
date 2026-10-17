@@ -194,9 +194,7 @@ export function WhatsAppLayout({
       />
 
       {activeTab === 'reports' ? (
-        <div className="flex-1 h-full overflow-y-auto">
-          <AnalyticsDashboard />
-        </div>
+        <div className="flex-1 h-full overflow-y-auto">{children || <AnalyticsDashboard />}</div>
       ) : activeTab === 'contacts' ? (
         <div className="flex-1 h-full overflow-y-auto">
           <ContactsDashboard
@@ -207,6 +205,8 @@ export function WhatsAppLayout({
             }}
           />
         </div>
+      ) : activeTab !== 'inbox' ? (
+        <div className="flex-1 h-full overflow-y-auto">{children}</div>
       ) : (
         <>
           {/* Kolom 2: ChatListPanel */}
