@@ -784,11 +784,8 @@ export class ConversationService {
       return null
     }
 
-    let contact = conversation.contactId
-      ? memoryStore.contacts.get(conversation.contactId) || null
-      : null
-
-    if (!contact && conversation.contactId) {
+    let contact: Contact | null = null
+    if (conversation.contactId) {
       try {
         const cRows = await sql`
           SELECT id, name, phone_number as "phoneNumber", email, avatar_url as "avatarUrl",
@@ -800,7 +797,7 @@ export class ConversationService {
           memoryStore.contacts.set(conversation.contactId, contact)
         }
       } catch {
-        // DB fallback
+        contact = memoryStore.contacts.get(conversation.contactId) || null
       }
     }
 
@@ -916,8 +913,8 @@ export class ConversationService {
 
     const result = []
     for (const conv of conversations) {
-      let contact = conv.contactId ? memoryStore.contacts.get(conv.contactId) || null : null
-      if (!contact && conv.contactId) {
+      let contact: Contact | null = null
+      if (conv.contactId) {
         try {
           const cRows = await sql`
             SELECT id, name, phone_number as "phoneNumber", email, avatar_url as "avatarUrl",
@@ -929,7 +926,7 @@ export class ConversationService {
             memoryStore.contacts.set(conv.contactId, contact)
           }
         } catch {
-          // ignore
+          contact = memoryStore.contacts.get(conv.contactId) || null
         }
       }
       const activeTicket = conv.activeTicketId
