@@ -52,6 +52,32 @@ describe('Echo Outgoing Sync — Message Parser & Outbound Tracker (TDD RED)', (
     expect(result?.isEcho).toBe(true)
   })
 
+  it('extractInboundMessage should NOT assign the agent pushName to senderName when isEcho is true', () => {
+    const rawMsg = {
+      key: {
+        remoteJid: '628123456789@s.whatsapp.net',
+        fromMe: true,
+        id: 'BAE5ECHO123456',
+      },
+      pushName: 'Nia', // Agent/channel profile name
+      message: {
+        conversation: 'Pesan keluar dari Nia ke pelanggan',
+      },
+      messageTimestamp: 1713000000,
+    }
+
+    const result = extractInboundMessage(rawMsg, {
+      channelId: '11111111-1111-4111-a111-111111111111',
+      inboxId: '22222222-2222-4222-a222-222222222222',
+      isEcho: true,
+    })
+
+    expect(result).not.toBeNull()
+    expect(result?.senderNumber).toBe('628123456789')
+    // senderName must NOT be 'Nia'!
+    expect(result?.senderName).toBeUndefined()
+  })
+
   it('extractInboundMessage should ignore @g.us group and @broadcast even if isEcho: true', () => {
     const groupMsg = {
       key: {

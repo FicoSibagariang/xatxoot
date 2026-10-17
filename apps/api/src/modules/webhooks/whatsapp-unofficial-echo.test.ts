@@ -46,8 +46,13 @@ describe('WhatsApp Unofficial Echo Outgoing Sync Webhook (/api/v1/webhooks/whats
     expect(echoMsg?.senderType).toBe('user')
     expect(echoMsg?.content).toBe(echoContent)
     expect(echoMsg?.status).toBe('sent')
+    // Contact name should default to phone number, NOT the agent's name
+    const formattedCustomerPhone = customerPhone.startsWith('+')
+      ? customerPhone
+      : `+${customerPhone}`
+    expect(conv?.contact?.name).toBe(formattedCustomerPhone)
 
-    // When customer subsequently replies, a ticket MUST now be created
+    // When customer subsequently replies with their real name, contact name MUST update
     const replyRes = await app.request('/api/v1/webhooks/whatsapp-unofficial/inbound', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -55,6 +60,7 @@ describe('WhatsApp Unofficial Echo Outgoing Sync Webhook (/api/v1/webhooks/whats
         channelId: data.channelId,
         inboxId: conv?.conversation?.inboxId,
         senderNumber: customerPhone,
+        senderName: 'Budi Pelanggan Asli',
         externalMessageId: `wamid_reply_${Date.now()}`,
         messageType: 'text',
         content: 'Halo, saya mau pesan barangnya.',
@@ -68,6 +74,7 @@ describe('WhatsApp Unofficial Echo Outgoing Sync Webhook (/api/v1/webhooks/whats
     const updatedConv = await conversationService.getConversationById(data.conversationId)
     expect(updatedConv?.conversation?.activeTicketId).toBe(replyData.ticketId)
     expect(updatedConv?.activeTicket?.status).toBe('open')
+    expect(updatedConv?.contact?.name).toBe('Budi Pelanggan Asli')
   })
 
   it('POST with isEcho: true should be idempotent and not duplicate message if externalMessageId already exists', async () => {

@@ -210,7 +210,7 @@ export function extractInboundMessage(
     channelId: context.channelId,
     inboxId: context.inboxId,
     senderNumber,
-    senderName: msg.pushName || undefined,
+    senderName: context.isEcho || key.fromMe ? undefined : msg.pushName || undefined,
     externalMessageId: key.id,
     messageType,
     content,

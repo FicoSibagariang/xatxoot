@@ -131,13 +131,35 @@ export class ConversationService {
     }
 
     if (contact) {
-      if (dto.name && (contact.name === 'Unknown' || !contact.name)) {
+      const isPlaceholderName =
+        !contact.name ||
+        contact.name === 'Unknown' ||
+        contact.name === contact.phoneNumber ||
+        contact.name === contact.identifier ||
+        contact.name === 'Nia'
+
+      if (
+        dto.name &&
+        isPlaceholderName &&
+        dto.name !== contact.phoneNumber &&
+        dto.name !== 'Unknown'
+      ) {
         contact = {
           ...contact,
           name: dto.name,
           updatedAt: now,
         }
         memoryStore.contacts.set(contact.id, contact)
+
+        try {
+          await sql`
+            UPDATE contacts
+            SET name = ${dto.name}, updated_at = ${now}
+            WHERE id = ${contact.id}
+          `
+        } catch {
+          // Memory fallback
+        }
       }
     } else {
       contact = {
@@ -544,11 +566,17 @@ export class ConversationService {
     }
 
     // 2. Find or create Contact & ContactInbox for customer
+    const formattedPhone = payload.senderPhone || payload.sourceId
+    const customerName =
+      payload.senderName && payload.senderName !== 'Nia' && payload.senderName !== formattedPhone
+        ? payload.senderName
+        : formattedPhone
+
     const { contact, contactInbox } = await this.findOrCreateContact({
       inboxId: payload.inboxId,
       sourceId: payload.sourceId,
       phone: payload.senderPhone,
-      name: payload.senderName,
+      name: customerName,
     })
 
     // 3. Find or create persistent Conversation thread
