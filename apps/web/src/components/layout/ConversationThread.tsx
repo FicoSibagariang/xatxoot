@@ -1,3 +1,4 @@
+import { FileText, Paperclip, Smile } from 'lucide-react'
 import { type KeyboardEvent, type ReactNode, useState } from 'react'
 import { Avatar, Button } from '../astryx'
 import {
@@ -405,17 +406,17 @@ export function ConversationThread({
         <button
           type="button"
           title="Emoji"
-          className="p-2 text-slate-500 hover:text-slate-800 rounded-full hover:bg-slate-200/60 text-lg"
+          className="p-2 text-slate-500 hover:text-slate-800 rounded-full hover:bg-slate-200/60 cursor-pointer"
         >
-          😊
+          <Smile className="w-5 h-5" />
         </button>
 
         <button
           type="button"
           title="Lampiran Gambar/File"
-          className="p-2 text-slate-500 hover:text-slate-800 rounded-full hover:bg-slate-200/60 text-lg cursor-pointer"
+          className="p-2 text-slate-500 hover:text-slate-800 rounded-full hover:bg-slate-200/60 cursor-pointer"
         >
-          📎
+          <Paperclip className="w-5 h-5" />
         </button>
 
         <button
@@ -423,9 +424,9 @@ export function ConversationThread({
           data-testid="btn-open-template-dialog"
           title="Template Pesan WhatsApp Resmi"
           onClick={onOpenTemplateDialog}
-          className="p-2 text-slate-500 hover:text-emerald-700 rounded-full hover:bg-slate-200/60 text-lg cursor-pointer"
+          className="p-2 text-slate-500 hover:text-emerald-700 rounded-full hover:bg-slate-200/60 cursor-pointer"
         >
-          📋
+          <FileText className="w-5 h-5" />
         </button>
 
         <AiMagicButton

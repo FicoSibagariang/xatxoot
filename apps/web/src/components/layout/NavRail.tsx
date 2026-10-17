@@ -1,3 +1,14 @@
+import {
+  BarChart3,
+  Globe,
+  LogOut,
+  MessageSquare,
+  Plus,
+  QrCode,
+  Settings,
+  Users,
+  Zap,
+} from 'lucide-react'
 import { useState } from 'react'
 import { Avatar } from '../astryx'
 import type { LayoutChannelFilter, LayoutNavTab, LayoutUser, PresenceStatus } from './types'
@@ -106,7 +117,7 @@ export function NavRail({
                 : 'text-slate-400 hover:text-white hover:bg-slate-800/80'
             }`}
           >
-            💬
+            <MessageSquare className="w-5 h-5" />
           </button>
 
           <button
@@ -121,7 +132,7 @@ export function NavRail({
                 : 'text-slate-400 hover:text-white hover:bg-slate-800/80'
             }`}
           >
-            👥
+            <Users className="w-5 h-5" />
           </button>
 
           <button
@@ -136,7 +147,7 @@ export function NavRail({
                 : 'text-slate-400 hover:text-white hover:bg-slate-800/80'
             }`}
           >
-            📊
+            <BarChart3 className="w-5 h-5" />
           </button>
 
           <button
@@ -154,7 +165,7 @@ export function NavRail({
                 : 'text-slate-400 hover:text-white hover:bg-slate-800/80'
             }`}
           >
-            ⚙️
+            <Settings className="w-5 h-5" />
           </button>
 
           {onLogout && (
@@ -165,7 +176,7 @@ export function NavRail({
               title="Keluar (Logout)"
               className="w-10 h-10 rounded-xl flex items-center justify-center text-slate-400 hover:text-rose-400 hover:bg-rose-950/40 transition-all cursor-pointer"
             >
-              🚪
+              <LogOut className="w-4 h-4" />
             </button>
           )}
         </div>
@@ -189,7 +200,7 @@ export function NavRail({
                 title="Tambah / Kelola Saluran (Channels)"
                 className="w-5 h-5 rounded text-[11px] flex items-center justify-center bg-slate-800 text-slate-300 hover:bg-emerald-600 hover:text-white transition-all cursor-pointer font-bold"
               >
-                ➕
+                <Plus className="w-3.5 h-3.5" />
               </button>
             )}
 
@@ -201,7 +212,7 @@ export function NavRail({
                 title="Tautkan WhatsApp Web / Scan QR Baileys"
                 className="relative w-5 h-5 rounded text-[11px] flex items-center justify-center bg-slate-800 text-emerald-400 hover:bg-emerald-600 hover:text-white transition-all cursor-pointer font-bold"
               >
-                📲
+                <QrCode className="w-3.5 h-3.5" />
                 <span
                   className={`absolute -top-1 -right-1 w-2 h-2 rounded-full border border-wa-rail-bg ${
                     whatsappConnectionStatus === 'connected'
@@ -264,7 +275,7 @@ export function NavRail({
                 : 'text-slate-400 hover:bg-slate-800 hover:text-white'
             }`}
           >
-            🌐
+            <Globe className="w-3.5 h-3.5" />
           </button>
 
           <button
@@ -279,7 +290,7 @@ export function NavRail({
                 : 'text-slate-400 hover:bg-slate-800 hover:text-white'
             }`}
           >
-            ⚡
+            <Zap className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>
