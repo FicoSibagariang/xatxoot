@@ -412,14 +412,7 @@ export function ChannelWizard({
                 <button
                   type="button"
                   data-testid="channel-select-whatsapp"
-                  onClick={() => {
-                    if (onOpenWhatsAppPairing) {
-                      onOpenWhatsAppPairing()
-                      if (onClose) onClose()
-                    } else {
-                      handleSelectChannel('whatsapp_baileys')
-                    }
-                  }}
+                  onClick={() => handleSelectChannel('whatsapp_baileys')}
                   className="flex flex-col text-left rounded-xl border border-slate-200 p-4 transition-all hover:border-emerald-500 hover:shadow-md bg-white hover:bg-emerald-50/10 cursor-pointer sm:col-span-2"
                 >
                   <div className="flex items-center justify-between mb-2">
@@ -914,23 +907,18 @@ export function ChannelWizard({
                 <div className="space-y-4">
                   <div className="rounded-xl bg-emerald-50 p-4 border border-emerald-100 text-xs text-emerald-900">
                     <p className="font-semibold mb-1">Koneksi WhatsApp Web (Baileys):</p>
-                    <p className="text-[11px] text-emerald-800 mb-3">
+                    <p className="text-[11px] text-emerald-800 mb-2">
                       Saluran ini menghubungkan nomor WhatsApp pribadi atau bisnis Anda secara
                       nirkabel melalui pemindaian QR Code (fitur Perangkat Tertaut di aplikasi
                       WhatsApp).
                     </p>
-                    {onOpenWhatsAppPairing && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          onOpenWhatsAppPairing()
-                          if (onClose) onClose()
-                        }}
-                        className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3.5 py-2 text-xs font-bold text-white shadow-xs hover:bg-emerald-700 transition-colors cursor-pointer"
-                      >
-                        📲 Buka Pemindai QR Sekarang
-                      </button>
-                    )}
+                    <p className="text-[11px] text-emerald-700 bg-white/70 p-2.5 rounded-lg border border-emerald-200/60">
+                      💡 Masukkan nama inbox di atas (misal: <em>WhatsApp Layanan</em> atau{' '}
+                      <em>WhatsApp Sales 2</em>), lalu tekan tombol{' '}
+                      <strong>Simpan &amp; Tautkan Saluran</strong> di bawah. Inbox baru akan
+                      otomatis dibuat dan jendela pemindai QR Code untuk nomor WhatsApp baru akan
+                      langsung terbuka.
+                    </p>
                   </div>
                 </div>
               )}
@@ -949,7 +937,11 @@ export function ChannelWizard({
                   disabled={isSubmitting}
                   className="rounded-lg bg-emerald-600 px-5 py-2 text-xs font-semibold text-white shadow-xs hover:bg-emerald-700 disabled:opacity-50 transition-colors cursor-pointer"
                 >
-                  {isSubmitting ? 'Menyimpan...' : 'Hubungkan Channel'}
+                  {isSubmitting
+                    ? 'Menyimpan...'
+                    : selectedChannel === 'whatsapp_baileys'
+                      ? 'Simpan & Tautkan Saluran'
+                      : 'Hubungkan Channel'}
                 </button>
               </div>
             </form>

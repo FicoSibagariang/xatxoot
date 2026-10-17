@@ -10,6 +10,7 @@ export interface AppModalsProps {
   // Baileys Pairing Dialog
   isPairingDialogOpen: boolean
   pairingState: BaileysPairingState
+  pairingInboxName?: string
   onClosePairingDialog: () => void
   onRefreshPairingQr: () => void
   onRetryPairing: () => void
@@ -57,6 +58,7 @@ export interface AppModalsProps {
 export function AppModals({
   isPairingDialogOpen,
   pairingState,
+  pairingInboxName,
   onClosePairingDialog,
   onRefreshPairingQr,
   onRetryPairing,
@@ -90,7 +92,7 @@ export function AppModals({
     <>
       <BaileysPairingDialog
         isOpen={isPairingDialogOpen}
-        inboxName="WhatsApp Layanan CS"
+        inboxName={pairingInboxName || 'WhatsApp Layanan CS'}
         state={pairingState}
         onClose={onClosePairingDialog}
         onRefreshQr={onRefreshPairingQr}

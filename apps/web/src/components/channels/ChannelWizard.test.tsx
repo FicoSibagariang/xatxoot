@@ -241,6 +241,48 @@ describe('Omnichannel Channel Configuration Wizard (Task 3.13 - apps/web)', () =
     })
   })
 
+  describe('Step 2: WhatsApp Web (Baileys) Configuration Form', () => {
+    it('should render WhatsApp Web configuration fields and custom inbox name input', () => {
+      const html = renderToStaticMarkup(
+        <ChannelWizard
+          initialStep="configure"
+          initialChannel="whatsapp_baileys"
+          onSaveChannel={() => {}}
+          onClose={() => {}}
+        />,
+      )
+
+      expect(html).toContain('Konfigurasi WhatsApp Web (Baileys)')
+      expect(html).toContain('Nama Inbox')
+      expect(html).toContain('Koneksi WhatsApp Web (Baileys):')
+      expect(html).toContain('Simpan &amp; Tautkan Saluran')
+    })
+
+    it('should validate WhatsApp Baileys payload requiring only inboxName', () => {
+      const validPayload: ChannelWizardPayload = {
+        channelType: 'whatsapp_baileys',
+        inboxName: 'WhatsApp Sales Cabang Bandung',
+      }
+      const res = validateChannelPayload(validPayload)
+      expect(res.success).toBe(true)
+
+      const invalidPayload: ChannelWizardPayload = {
+        channelType: 'whatsapp_baileys',
+        inboxName: '',
+      }
+      const invalidRes = validateChannelPayload(invalidPayload)
+      expect(invalidRes.success).toBe(false)
+      expect(invalidRes.errors?.inboxName).toBeDefined()
+    })
+
+    it('should allow configuring subsequent WhatsApp inboxes without bypassing configuration step', () => {
+      const source = readFileSync(join(import.meta.dir, 'ChannelWizard.tsx'), 'utf-8')
+      expect(source).not.toContain(
+        'onOpenWhatsAppPairing()\n                      if (onClose) onClose()',
+      )
+    })
+  })
+
   describe('Step 3: Success Confirmation View & Webhook Instructions', () => {
     it('should render success view with connection badge and webhook callback URL', () => {
       const html = renderToStaticMarkup(

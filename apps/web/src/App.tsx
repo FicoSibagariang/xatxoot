@@ -256,7 +256,7 @@ function AppContent({ initialAuthenticated }: { initialAuthenticated?: boolean }
           onOpenTemplateDialog={() => modals.setIsTemplateDialogOpen(true)}
           onLogout={handleLogout}
           onAddChannel={() => modals.setIsChannelWizardOpen(true)}
-          onOpenWhatsAppPairing={() => modals.setIsPairingDialogOpen(true)}
+          onOpenWhatsAppPairing={() => modals.openPairingDialog('default', 'WhatsApp Layanan CS')}
           whatsappConnectionStatus={modals.pairingState.status}
         >
           {children}
@@ -265,6 +265,7 @@ function AppContent({ initialAuthenticated }: { initialAuthenticated?: boolean }
         <AppModals
           isPairingDialogOpen={modals.isPairingDialogOpen}
           pairingState={modals.pairingState}
+          pairingInboxName={modals.pairingInboxName}
           onClosePairingDialog={() => modals.setIsPairingDialogOpen(false)}
           onRefreshPairingQr={modals.handleRefreshPairingQr}
           onRetryPairing={modals.handleRefreshPairingQr}
@@ -291,10 +292,9 @@ function AppContent({ initialAuthenticated }: { initialAuthenticated?: boolean }
           onSendTemplate={modals.handleSendTemplate}
           isChannelWizardOpen={modals.isChannelWizardOpen}
           onCloseChannelWizard={() => modals.setIsChannelWizardOpen(false)}
-          onOpenWhatsAppPairingFromWizard={() => {
-            modals.setIsChannelWizardOpen(false)
-            modals.setIsPairingDialogOpen(true)
-          }}
+          onOpenWhatsAppPairingFromWizard={() =>
+            modals.openPairingDialog('default', 'WhatsApp Layanan CS')
+          }
           onSaveChannel={modals.handleSaveChannel}
           isBusinessHoursOpen={modals.isBusinessHoursOpen}
           onCloseBusinessHours={() => modals.setIsBusinessHoursOpen(false)}

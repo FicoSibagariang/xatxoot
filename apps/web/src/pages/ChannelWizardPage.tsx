@@ -13,10 +13,13 @@ export function ChannelWizardPage({ onSuccess, onBack }: ChannelWizardPageProps)
   const handleSave = async (payload: ChannelWizardPayload) => {
     setError(null)
     try {
+      const actualChannelType =
+        payload.channelType === 'whatsapp_baileys' ? 'whatsapp_unofficial' : payload.channelType
+
       // Create channel & inbox via API
       await api.post('/api/v1/inboxes', {
         name: payload.inboxName,
-        channelType: payload.channelType,
+        channelType: actualChannelType,
         channelConfig:
           payload.emailConfig ||
           payload.telegramConfig ||

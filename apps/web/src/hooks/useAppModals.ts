@@ -33,16 +33,19 @@ export function useAppModals({ onSendTemplateMessage }: UseAppModalsOptions = {}
   const [pairingState, setPairingState] = useState<BaileysPairingState>({
     status: 'connecting',
   })
+  const [pairingInboxId, setPairingInboxId] = useState<string>('default')
+  const [pairingInboxName, setPairingInboxName] = useState<string>('WhatsApp Layanan CS')
 
   // Fetch live Baileys pairing QR code from backend API
   const fetchBaileysQr = useCallback(async () => {
     try {
+      const targetInboxId = pairingInboxId || 'default'
       const data = await api.get<{
         sessionId?: string
         connectionStatus?: string
         qrCode?: string | null
         phoneNumber?: string | null
-      }>('/api/v1/inboxes/default/channel/whatsapp-unofficial/qr')
+      }>(`/api/v1/inboxes/${targetInboxId}/channel/whatsapp-unofficial/qr`)
 
       if (data.connectionStatus === 'connected') {
         setPairingState({
@@ -66,7 +69,17 @@ export function useAppModals({ onSendTemplateMessage }: UseAppModalsOptions = {}
     } catch (err) {
       console.error('Failed to fetch Baileys live QR code:', err)
     }
-  }, [])
+  }, [pairingInboxId])
+
+  const openPairingDialog = useCallback(
+    (inboxId = 'default', inboxName = 'WhatsApp Layanan CS') => {
+      setPairingInboxId(inboxId)
+      setPairingInboxName(inboxName)
+      setPairingState({ status: 'connecting' })
+      setIsPairingDialogOpen(true)
+    },
+    [],
+  )
 
   // Poll for Baileys pairing QR status while pairing dialog is open
   useEffect(() => {
@@ -149,9 +162,15 @@ export function useAppModals({ onSendTemplateMessage }: UseAppModalsOptions = {}
 
   const handleSaveChannel = useCallback(async (payload: ChannelWizardPayload) => {
     try {
-      await api.post('/api/v1/inboxes', {
+      const actualChannelType =
+        payload.channelType === 'whatsapp_baileys' ? 'whatsapp_unofficial' : payload.channelType
+
+      const res = await api.post<{
+        inbox: { id: string; name: string }
+        channel?: { id?: string; sessionId?: string }
+      }>('/api/v1/inboxes', {
         name: payload.inboxName,
-        channelType: payload.channelType,
+        channelType: actualChannelType,
         channelConfig:
           payload.emailConfig ||
           payload.telegramConfig ||
@@ -159,10 +178,21 @@ export function useAppModals({ onSendTemplateMessage }: UseAppModalsOptions = {}
           payload.instagramConfig ||
           payload.smsConfig,
       })
-    } catch {
-      // ignore network errors
+
+      setIsChannelWizardOpen(false)
+
+      if (payload.channelType === 'whatsapp_baileys' && res?.inbox?.id) {
+        setPairingInboxId(res.inbox.id)
+        setPairingInboxName(res.inbox.name || payload.inboxName)
+        setPairingState({
+          status: 'connecting',
+        })
+        setIsPairingDialogOpen(true)
+      }
+    } catch (err) {
+      console.error('Failed to save channel:', err)
+      throw err
     }
-    setIsChannelWizardOpen(false)
   }, [])
 
   const handleSendTemplate = useCallback(
@@ -191,6 +221,11 @@ export function useAppModals({ onSendTemplateMessage }: UseAppModalsOptions = {}
     // Dialog visibility states
     isPairingDialogOpen,
     setIsPairingDialogOpen,
+    pairingInboxId,
+    setPairingInboxId,
+    pairingInboxName,
+    setPairingInboxName,
+    openPairingDialog,
     isBotFlowBuilderOpen,
     setIsBotFlowBuilderOpen,
     isTeamManagementOpen,
