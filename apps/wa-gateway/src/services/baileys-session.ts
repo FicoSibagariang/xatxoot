@@ -190,6 +190,26 @@ export class BaileysSession {
     const sessionDir = authDir || `./data/sessions/${this.sessionId}`
     const { state, saveCreds } = await useMultiFileAuthState(sessionDir)
 
+    if (this.channelId || this.inboxId) {
+      try {
+        const { writeFileSync, existsSync, mkdirSync } = await import('node:fs')
+        const { join } = await import('node:path')
+        if (!existsSync(sessionDir)) {
+          mkdirSync(sessionDir, { recursive: true })
+        }
+        writeFileSync(
+          join(sessionDir, 'meta.json'),
+          JSON.stringify({
+            sessionId: this.sessionId,
+            channelId: this.channelId,
+            inboxId: this.inboxId,
+          }),
+        )
+      } catch {
+        // Ignore file write errors
+      }
+    }
+
     if (state.creds?.me?.id) {
       const raw = state.creds.me.id.split('@')[0].split(':')[0]
       this.phoneNumber = raw.startsWith('+') ? raw : `+${raw}`

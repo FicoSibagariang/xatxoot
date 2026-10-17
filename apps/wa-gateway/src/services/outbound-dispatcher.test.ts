@@ -79,6 +79,58 @@ describe('OutboundMessageDispatcher & Gateway Server', () => {
     expect(sentJid).toBe('628196066607@s.whatsapp.net')
   })
 
+  it('should accurately route to target session using sessionId when multiple connected sessions exist', async () => {
+    const manager = new BaileysConnectionManager()
+    // Session 1: auto-resumed session without channelId in memory
+    const session1 = await manager.createSession({
+      sessionId: 'wa_3c320b25-1911-4be6-921b-78df3422b9a8',
+    })
+    session1.status = 'connected'
+    let sentJid1 = ''
+    session1.socket = {
+      sendMessage: mock(async (jid: string) => {
+        sentJid1 = jid
+        return { key: { id: 'WAM_SESS_1' } }
+      }),
+      // biome-ignore lint/suspicious/noExplicitAny: mock socket
+    } as any
+
+    // Session 2: active connected session with channelId
+    const session2 = await manager.createSession({
+      sessionId: 'wa_cac829cd-f291-4221-bec7-cdb17edcf85b',
+      channelId: 'b84e7941-bf30-4db4-a5bf-892594fd900a',
+    })
+    session2.status = 'connected'
+    let sentJid2 = ''
+    session2.socket = {
+      sendMessage: mock(async (jid: string) => {
+        sentJid2 = jid
+        return { key: { id: 'WAM_SESS_2' } }
+      }),
+      // biome-ignore lint/suspicious/noExplicitAny: mock socket
+    } as any
+
+    const dispatcher = new OutboundMessageDispatcher({
+      connectionManager: manager,
+    })
+
+    // Dispatch targeting Session 1 via sessionId
+    const result1 = await dispatcher.sendMessage({
+      jobId: '11111111-1111-4111-a111-111111111111',
+      messageId: '22222222-2222-4222-a222-222222222222',
+      channelId: '1cff9a0f-b755-499e-8521-eb26aefc757a',
+      sessionId: 'wa_3c320b25-1911-4be6-921b-78df3422b9a8',
+      recipientNumber: '6281214541762',
+      messageType: 'text',
+      text: 'Message to session 1',
+    })
+
+    expect(result1.success).toBe(true)
+    expect(result1.externalMessageId).toBe('WAM_SESS_1')
+    expect(sentJid1).toBe('6281214541762@s.whatsapp.net')
+    expect(sentJid2).toBe('')
+  })
+
   it('should handle POST /api/messages/send on gateway server', async () => {
     const manager = new BaileysConnectionManager()
     const session = await manager.createSession({

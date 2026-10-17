@@ -1,7 +1,7 @@
 import type { Attachment, Message, MessageContentType, MessageStatus } from '@xatxoot/shared'
 import { sql } from '../../db'
 import { conversationService } from '../conversations/conversations.service'
-import { inboxService } from '../inboxes/inboxes.service'
+import { type WhatsAppUnofficialChannelData, inboxService } from '../inboxes/inboxes.service'
 import { realtimeService } from '../realtime/realtime.service'
 import { ticketService } from '../tickets/tickets.service'
 import {
@@ -403,11 +403,13 @@ export class MessageService {
         externalSourceId = dispatchResult.externalId || null
       }
     } else if (channelType === 'whatsapp_unofficial') {
+      const unofficialChannel = inboxData?.channel as WhatsAppUnofficialChannelData | undefined
       const jobId = crypto.randomUUID()
       await this.enqueueBaileysOutbound({
         jobId,
         messageId,
         channelId,
+        sessionId: unofficialChannel?.sessionId,
         recipientNumber,
         messageType: contentType,
         text: input.content?.trim() || undefined,

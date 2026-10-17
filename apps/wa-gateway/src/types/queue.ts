@@ -8,6 +8,7 @@ export const SendWaMessageJobPayloadSchema = z.object({
   jobId: z.string().uuid('Job ID harus berupa UUID valid'),
   messageId: z.string().uuid('Message ID harus berupa UUID valid'),
   channelId: z.string().min(1, 'Channel ID wajib diisi'),
+  sessionId: z.string().optional(),
   recipientNumber: z.string().min(1, 'Recipient number wajib diisi'),
   messageType: z.enum(['text', 'image', 'video', 'audio', 'document']),
   text: z.string().optional(),

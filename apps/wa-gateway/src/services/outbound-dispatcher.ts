@@ -26,8 +26,15 @@ export class OutboundMessageDispatcher {
     this.redisPublisher = options.redisPublisher
   }
 
-  private findSession(channelId?: string) {
+  private findSession(channelId?: string, sessionId?: string) {
     const sessions = this.connectionManager.getAllSessions()
+    if (sessionId) {
+      const match = sessions.find(
+        (s) => s.sessionId === sessionId && s.status === 'connected' && s.socket != null,
+      )
+      if (match) return match
+    }
+
     if (channelId) {
       const match = sessions.find(
         (s) =>
@@ -51,7 +58,7 @@ export class OutboundMessageDispatcher {
 
   async sendMessage(payload: SendWaMessageJobPayload): Promise<DispatchResult> {
     const validated = SendWaMessageJobPayloadSchema.parse(payload)
-    const session = this.findSession(validated.channelId)
+    const session = this.findSession(validated.channelId, validated.sessionId)
 
     if (!session || !session.socket) {
       throw new Error(`No connected Baileys session for channel ${validated.channelId}`)

@@ -23,6 +23,7 @@ export interface QueuedBaileysJob {
     jobId: string
     messageId: string
     channelId: string
+    sessionId?: string
     recipientNumber: string
     messageType: string
     text?: string

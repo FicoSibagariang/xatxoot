@@ -68,7 +68,7 @@ process.on('unhandledRejection', (reason) => {
 const isDirectRun =
   process.argv[1]?.endsWith('src/index.ts') || process.argv[1]?.endsWith('dist/index.js')
 if (isDirectRun) {
-  const { existsSync, readdirSync } = await import('node:fs')
+  const { existsSync, readdirSync, readFileSync } = await import('node:fs')
   const { join } = await import('node:path')
   const port = Number(process.env.PORT_GATEWAY || 8801)
   const host = process.env.HOST || '0.0.0.0'
@@ -105,8 +105,26 @@ if (isDirectRun) {
             const credsPath = join(sessionsDir, entry.name, 'creds.json')
             if (existsSync(credsPath)) {
               const sessionId = entry.name
-              console.log(`[wa-gateway] Resuming authenticated session: ${sessionId}`)
-              const session = await baileysConnectionManager.createSession({ sessionId })
+              const metaPath = join(sessionsDir, entry.name, 'meta.json')
+              let channelId: string | undefined
+              let inboxId: string | undefined
+              if (existsSync(metaPath)) {
+                try {
+                  const meta = JSON.parse(readFileSync(metaPath, 'utf8'))
+                  channelId = meta.channelId
+                  inboxId = meta.inboxId
+                } catch {
+                  // Ignore corrupted meta.json
+                }
+              }
+              console.log(
+                `[wa-gateway] Resuming authenticated session: ${sessionId} (channel: ${channelId || 'unknown'})`,
+              )
+              const session = await baileysConnectionManager.createSession({
+                sessionId,
+                channelId,
+                inboxId,
+              })
               session.startSocket().catch((err) => {
                 console.error(`[wa-gateway] Failed to auto-resume session ${sessionId}:`, err)
               })

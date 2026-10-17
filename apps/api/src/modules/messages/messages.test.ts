@@ -272,6 +272,7 @@ describe('Messages Module - WhatsApp Unofficial (Baileys) Outbound Dispatch via 
     expect(lastJob.queue).toBe('wa-outbound')
     expect(lastJob.name).toBe('send-message')
     expect(lastJob.data.channelId).toBe(baileysChannelId)
+    expect(lastJob.data.sessionId).toBe('session_baileys_test_01')
     expect(lastJob.data.recipientNumber).toBe('+6281987654321')
     expect(lastJob.data.messageType).toBe('text')
     expect(lastJob.data.text).toBe(replyText)
