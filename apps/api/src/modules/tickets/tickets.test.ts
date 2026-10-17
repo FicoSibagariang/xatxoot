@@ -286,3 +286,27 @@ describe('Tickets Module - Service Level Contract', () => {
     expect(typeof ticketService.assignTicket).toBe('function')
   })
 })
+
+describe('Tickets Module - Sequential & Unique Ticket Number (display_id)', () => {
+  it('should allocate distinct and monotonically increasing displayId for new tickets', async () => {
+    const t1 = await ticketService.createTicket({
+      conversationId: '00000000-conv-0000-0000-000000000091',
+    })
+    const t2 = await ticketService.createTicket({
+      conversationId: '00000000-conv-0000-0000-000000000092',
+    })
+
+    expect(typeof t1.displayId).toBe('number')
+    expect(typeof t2.displayId).toBe('number')
+    expect(t1.displayId).toBeGreaterThan(0)
+    expect(t2.displayId).toBeGreaterThan(t1.displayId)
+    expect(t1.displayId).not.toBe(t2.displayId)
+  })
+
+  it('should not contain duplicate display_id values across all tickets in memoryStore', async () => {
+    const tickets = await ticketService.listTickets()
+    const displayIds = tickets.map((t) => t.displayId)
+    const uniqueDisplayIds = new Set(displayIds)
+    expect(uniqueDisplayIds.size).toBe(displayIds.length)
+  })
+})

@@ -75,21 +75,29 @@ export class TicketService {
     memoryStore.tickets.set(id, ticket)
 
     try {
-      await sql`
+      const rows = await sql`
         INSERT INTO tickets (
-          id, display_id, conversation_id, assignee_id, team_id,
+          id, conversation_id, assignee_id, team_id,
           status, priority, snoozed_until, waiting_since, deadline_at,
           first_reply_created_at, opened_at, resolved_at, internal_note,
           internal_note_updated_by, internal_note_updated_at,
           custom_attributes, created_at, updated_at
         ) VALUES (
-          ${ticket.id}, ${ticket.displayId}, ${ticket.conversationId}, ${ticket.assigneeId}, ${ticket.teamId},
+          ${ticket.id}, ${ticket.conversationId}, ${ticket.assigneeId}, ${ticket.teamId},
           ${ticket.status}, ${ticket.priority}, ${ticket.snoozedUntil}, ${ticket.waitingSince}, ${ticket.deadlineAt},
           ${ticket.firstReplyCreatedAt}, ${ticket.openedAt}, ${ticket.resolvedAt}, ${ticket.internalNote},
           ${ticket.internalNoteUpdatedBy}, ${ticket.internalNoteUpdatedAt},
           ${JSON.stringify(ticket.customAttributes)}, ${ticket.createdAt}, ${ticket.updatedAt}
         )
+        RETURNING display_id
       `
+      if (rows && rows.length > 0 && rows[0].display_id) {
+        ticket.displayId = Number(rows[0].display_id)
+        if (ticket.displayId > displayIdCounter) {
+          displayIdCounter = ticket.displayId
+        }
+        memoryStore.tickets.set(id, ticket)
+      }
     } catch {
       // Memory fallback for tests/offline
     }
@@ -130,7 +138,11 @@ export class TicketService {
         LIMIT 1
       `
       if (rows && rows.length > 0) {
-        const ticket = rows[0] as unknown as Ticket
+        const row = rows[0] as unknown as Ticket & { displayId: string | number }
+        const ticket: Ticket = {
+          ...row,
+          displayId: Number(row.displayId),
+        }
         memoryStore.tickets.set(id, ticket)
         return ticket
       }
@@ -179,7 +191,12 @@ export class TicketService {
       }
       query = sql`${query} ORDER BY created_at DESC`
       const rows = await query
-      const tickets = (rows || []) as unknown as Ticket[]
+      const tickets = (
+        (rows || []) as unknown as Array<Ticket & { displayId: string | number }>
+      ).map((row) => ({
+        ...row,
+        displayId: Number(row.displayId),
+      }))
       if (!filter?.status && filter?.assigneeId === undefined && !filter?.conversationId) {
         memoryStore.tickets.clear()
         for (const t of tickets) {
