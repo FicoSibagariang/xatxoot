@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { ChannelWizard, type ChannelWizardPayload } from '../components/channels'
+import { api } from '../services/apiClient'
 
 export interface ChannelWizardPageProps {
   onSuccess?: (payload: ChannelWizardPayload) => void
@@ -13,25 +14,16 @@ export function ChannelWizardPage({ onSuccess, onBack }: ChannelWizardPageProps)
     setError(null)
     try {
       // Create channel & inbox via API
-      const response = await fetch('/api/v1/inboxes', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: payload.inboxName,
-          channelType: payload.channelType,
-          channelConfig:
-            payload.emailConfig ||
-            payload.telegramConfig ||
-            payload.facebookConfig ||
-            payload.instagramConfig ||
-            payload.smsConfig,
-        }),
+      await api.post('/api/v1/inboxes', {
+        name: payload.inboxName,
+        channelType: payload.channelType,
+        channelConfig:
+          payload.emailConfig ||
+          payload.telegramConfig ||
+          payload.facebookConfig ||
+          payload.instagramConfig ||
+          payload.smsConfig,
       })
-
-      if (!response.ok) {
-        const data = await response.json().catch(() => ({}))
-        throw new Error(data.error || 'Gagal menyimpan konfigurasi saluran')
-      }
 
       if (onSuccess) {
         onSuccess(payload)

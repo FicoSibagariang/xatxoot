@@ -9,6 +9,7 @@ import {
   INITIAL_TEAMS,
   INITIAL_TEMPLATES,
 } from '../data/mockData'
+import { api } from '../services/apiClient'
 
 export interface UseAppModalsOptions {
   onSendTemplateMessage?: (payload: {
@@ -36,41 +37,31 @@ export function useAppModals({ onSendTemplateMessage }: UseAppModalsOptions = {}
   // Fetch live Baileys pairing QR code from backend API
   const fetchBaileysQr = useCallback(async () => {
     try {
-      const token =
-        typeof window !== 'undefined'
-          ? localStorage.getItem('auth_token') || 'valid-access-token'
-          : 'valid-access-token'
-      const res = await fetch('/api/v1/inboxes/default/channel/whatsapp-unofficial/qr', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
-      if (res.ok) {
-        const data = (await res.json()) as {
-          sessionId?: string
-          connectionStatus?: string
-          qrCode?: string | null
-          phoneNumber?: string | null
-        }
-        if (data.connectionStatus === 'connected') {
-          setPairingState({
-            status: 'connected',
-            sessionId: data.sessionId,
-            phoneNumber: data.phoneNumber || '+6281234567890',
-          })
-        } else if (data.qrCode) {
-          setPairingState({
-            status: 'qr_ready',
-            qrData: data.qrCode,
-            sessionId: data.sessionId,
-          })
-        } else {
-          setPairingState((prev) => ({
-            ...prev,
-            status: (data.connectionStatus as BaileysPairingState['status']) || 'connecting',
-            sessionId: data.sessionId || prev.sessionId,
-          }))
-        }
+      const data = await api.get<{
+        sessionId?: string
+        connectionStatus?: string
+        qrCode?: string | null
+        phoneNumber?: string | null
+      }>('/api/v1/inboxes/default/channel/whatsapp-unofficial/qr')
+
+      if (data.connectionStatus === 'connected') {
+        setPairingState({
+          status: 'connected',
+          sessionId: data.sessionId,
+          phoneNumber: data.phoneNumber || '+6281234567890',
+        })
+      } else if (data.qrCode) {
+        setPairingState({
+          status: 'qr_ready',
+          qrData: data.qrCode,
+          sessionId: data.sessionId,
+        })
+      } else {
+        setPairingState((prev) => ({
+          ...prev,
+          status: (data.connectionStatus as BaileysPairingState['status']) || 'connecting',
+          sessionId: data.sessionId || prev.sessionId,
+        }))
       }
     } catch (err) {
       console.error('Failed to fetch Baileys live QR code:', err)
@@ -158,23 +149,15 @@ export function useAppModals({ onSendTemplateMessage }: UseAppModalsOptions = {}
 
   const handleSaveChannel = useCallback(async (payload: ChannelWizardPayload) => {
     try {
-      const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null
-      await fetch('/api/v1/inboxes', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({
-          name: payload.inboxName,
-          channelType: payload.channelType,
-          channelConfig:
-            payload.emailConfig ||
-            payload.telegramConfig ||
-            payload.facebookConfig ||
-            payload.instagramConfig ||
-            payload.smsConfig,
-        }),
+      await api.post('/api/v1/inboxes', {
+        name: payload.inboxName,
+        channelType: payload.channelType,
+        channelConfig:
+          payload.emailConfig ||
+          payload.telegramConfig ||
+          payload.facebookConfig ||
+          payload.instagramConfig ||
+          payload.smsConfig,
       })
     } catch {
       // ignore network errors

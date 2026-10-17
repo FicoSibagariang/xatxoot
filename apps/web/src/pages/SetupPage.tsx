@@ -1,5 +1,6 @@
 import { type OrganizationSetupInput, OrganizationSetupInputSchema } from '@xatxoot/shared'
 import { useState } from 'react'
+import { api } from '../services/apiClient'
 
 export interface SetupPageProps {
   onSuccess?: (data: unknown) => void
@@ -51,27 +52,16 @@ export function SetupPage({ onSuccess }: SetupPageProps) {
 
     setIsLoading(true)
     try {
-      const response = await fetch('/api/v1/auth/setup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(parseResult.data),
-      })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        setGlobalError(data.error || 'Gagal melakukan inisialisasi organisasi')
-        setIsLoading(false)
-        return
-      }
+      const data = await api.post('/api/v1/auth/setup', parseResult.data, { skipAuth: true })
 
       setIsSuccess(true)
       setIsLoading(false)
       if (onSuccess) {
         onSuccess(data)
       }
-    } catch {
-      setGlobalError('Terjadi kesalahan koneksi ke server API')
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Terjadi kesalahan koneksi ke server API'
+      setGlobalError(msg)
       setIsLoading(false)
     }
   }
