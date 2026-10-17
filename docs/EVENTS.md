@@ -20,7 +20,7 @@ flowchart LR
     API -->|"3. Dorong Job Kirim Pesan"| REDIS_QUEUE
     REDIS_QUEUE -->|"4. Ambil & Eksekusi Job"| GW
     API -->|"5. Broadcast ke Frontend"| SSE
-
+```
 
 ---
 

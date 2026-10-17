@@ -13,7 +13,7 @@ Xatxoot dibangun menggunakan pola **modular monorepo** dengan manajer paket **Bu
 flowchart TB
     subgraph Clients["Klien & Antarmuka"]
         WEB["apps/web\n(React 19 + Vite + Tailwind)\nPort: 5173"]
-        WIDGET["packages/widget\n(Website Live Chat Widget)\n< 80 KB gzipped"]
+        WIDGET["packages/widget\n(Website Live Chat Widget)\nkurang dari 80 KB gzipped"]
         SIM_UI["apps/wa-simulator UI\n(Mock WhatsApp Cloud)\nPort: 3002"]
     end
 
@@ -48,7 +48,7 @@ flowchart TB
     %% Koneksi Cloud API
     API <-->|"HTTPS Webhook & REST Send Message"| META
     API <-->|"HTTPS Mock Webhook & REST (Dev Mode)"| SIMULATOR
-
+```
 
 ---
 
