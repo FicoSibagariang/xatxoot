@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Avatar, Badge, Button, Input } from '../astryx'
 import type { ConversationItem } from '../layout/types'
 
@@ -68,6 +68,89 @@ const DEFAULT_SEED_CONTACTS: ContactItem[] = [
   },
 ]
 
+export function buildContactsFromConversations(conversations: ConversationItem[]): ContactItem[] {
+  const contactMap = new Map<string, { contact: ContactItem; lastMsgTime: number }>()
+
+  for (const c of conversations) {
+    const rawPhone = c.contactPhone?.trim() || ''
+    // Unique key: normalized phone number if present, otherwise lowercase contact name
+    const dedupeKey = rawPhone ? rawPhone.replace(/\s+/g, '') : c.contactName.trim().toLowerCase()
+
+    const msgTime = c.lastMessageTimestamp ? new Date(c.lastMessageTimestamp).getTime() : 0
+    const existing = contactMap.get(dedupeKey)
+
+    if (!existing) {
+      const idx = contactMap.size
+      contactMap.set(dedupeKey, {
+        contact: {
+          id: `contact-${idx + 1}`,
+          name: c.contactName,
+          phone: c.contactPhone,
+          email: `${c.contactName.toLowerCase().replace(/\s+/g, '.')}@acme.corp`,
+          company:
+            idx === 0 ? 'PT Maju Bersama' : idx === 1 ? 'CV Berkah Abadi' : 'Fauzi Logistics',
+          avatarUrl: c.contactAvatarUrl,
+          channel: c.channel,
+          tags: idx === 0 ? ['VIP', 'Customer'] : idx === 1 ? ['Lead'] : ['Customer'],
+          conversationId: c.id,
+          activeTicket: c.ticket
+            ? {
+                id: c.ticket.id,
+                ticketNumber: c.ticket.ticketNumber,
+                status: c.ticket.status,
+              }
+            : undefined,
+        },
+        lastMsgTime: msgTime,
+      })
+    } else {
+      const { contact: exContact, lastMsgTime: exTime } = existing
+
+      // 1. Prefer meaningful name over raw phone number placeholder
+      if (
+        (exContact.name.startsWith('+') || exContact.name === exContact.phone) &&
+        !c.contactName.startsWith('+') &&
+        c.contactName !== c.contactPhone
+      ) {
+        exContact.name = c.contactName
+      }
+
+      // 2. Preserve avatarUrl if existing is missing
+      if (!exContact.avatarUrl && c.contactAvatarUrl) {
+        exContact.avatarUrl = c.contactAvatarUrl
+      }
+
+      // 3. Prioritize active ticket (open or pending) and its conversationId
+      const hasActiveTicket =
+        exContact.activeTicket &&
+        (exContact.activeTicket.status === 'open' || exContact.activeTicket.status === 'pending')
+      const newHasActiveTicket =
+        c.ticket && (c.ticket.status === 'open' || c.ticket.status === 'pending')
+
+      if (!hasActiveTicket && c.ticket) {
+        exContact.activeTicket = {
+          id: c.ticket.id,
+          ticketNumber: c.ticket.ticketNumber,
+          status: c.ticket.status,
+        }
+        exContact.conversationId = c.id
+      } else if (newHasActiveTicket && !hasActiveTicket) {
+        exContact.activeTicket = {
+          id: c.ticket.id,
+          ticketNumber: c.ticket.ticketNumber,
+          status: c.ticket.status,
+        }
+        exContact.conversationId = c.id
+      } else if (msgTime > exTime && !hasActiveTicket) {
+        exContact.conversationId = c.id
+        existing.lastMsgTime = msgTime
+      }
+    }
+  }
+
+  return Array.from(contactMap.values()).map((item) => item.contact)
+}
+
 export function ContactsDashboard({
   conversations,
   initialContacts,
@@ -77,28 +160,21 @@ export function ContactsDashboard({
     if (initialContacts && initialContacts.length > 0) return initialContacts
 
     if (conversations && conversations.length > 0) {
-      return conversations.map((c, idx) => ({
-        id: `contact-${idx + 1}`,
-        name: c.contactName,
-        phone: c.contactPhone,
-        email: `${c.contactName.toLowerCase().replace(/\s+/g, '.')}@acme.corp`,
-        company: idx === 0 ? 'PT Maju Bersama' : idx === 1 ? 'CV Berkah Abadi' : 'Fauzi Logistics',
-        avatarUrl: c.contactAvatarUrl,
-        channel: c.channel,
-        tags: idx === 0 ? ['VIP', 'Customer'] : idx === 1 ? ['Lead'] : ['Customer'],
-        conversationId: c.id,
-        activeTicket: c.ticket
-          ? {
-              id: c.ticket.id,
-              ticketNumber: c.ticket.ticketNumber,
-              status: c.ticket.status,
-            }
-          : undefined,
-      }))
+      return buildContactsFromConversations(conversations)
     }
 
     return DEFAULT_SEED_CONTACTS
   })
+
+  useEffect(() => {
+    if (initialContacts && initialContacts.length > 0) {
+      setContacts(initialContacts)
+      return
+    }
+    if (conversations && conversations.length > 0) {
+      setContacts(buildContactsFromConversations(conversations))
+    }
+  }, [conversations, initialContacts])
 
   const [searchQuery, setSearchQuery] = useState('')
   const [filterTag, setFilterTag] = useState<'all' | 'whatsapp' | 'vip' | 'lead'>('all')

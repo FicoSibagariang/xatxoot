@@ -76,4 +76,50 @@ describe('ContactsDashboard Component (Kontak & CRM)', () => {
     expect(html).toContain('Lead')
     expect(html).toContain('data-testid="chat-contact-contact-02"')
   })
+
+  it('should deduplicate contacts when multiple conversations belong to the same customer/phone number', () => {
+    const duplicateConversations = [
+      {
+        id: 'conv-sales-1',
+        contactName: 'Wardi',
+        contactPhone: '+628196066607',
+        channel: 'whatsapp' as const,
+        lastMessage: 'Halo sales',
+        lastMessageTimestamp: '2026-10-17T10:00:00Z',
+      },
+      {
+        id: 'conv-nia-2',
+        contactName: 'Wardi',
+        contactPhone: '+628196066607',
+        channel: 'whatsapp' as const,
+        lastMessage: 'Halo Nia',
+        lastMessageTimestamp: '2026-10-17T11:00:00Z',
+        ticket: {
+          id: 'ticket-wardi-1',
+          ticketNumber: 'T-999',
+          status: 'open' as const,
+        },
+      },
+      {
+        id: 'conv-other-3',
+        contactName: 'Budi Santoso',
+        contactPhone: '+6281234567890',
+        channel: 'whatsapp' as const,
+      },
+    ]
+
+    const html = renderToStaticMarkup(
+      <ContactsDashboard conversations={duplicateConversations} onStartChat={() => {}} />,
+    )
+
+    // Should display '2 Kontak Terdaftar' instead of 3
+    expect(html).toContain('2 Kontak Terdaftar')
+
+    // Wardi should only appear once in contact rows (+628196066607 appears once)
+    const wardiMatches = html.match(/\+628196066607/g)
+    expect(wardiMatches).toHaveLength(1)
+
+    // The active ticket should be preserved from the conversation that has it
+    expect(html).toContain('#T-999')
+  })
 })
