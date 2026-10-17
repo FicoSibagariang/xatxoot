@@ -1,4 +1,14 @@
+import {
+  AlertTriangle,
+  Camera,
+  CheckCircle2,
+  MessageSquare,
+  RefreshCw,
+  RotateCcw,
+  X,
+} from 'lucide-react'
 import QRCode from 'qrcode'
+import { Dialog, DialogContent } from '../astryx'
 import type { BaileysPairingState } from './types'
 
 // ==========================================
@@ -18,7 +28,7 @@ export function QrCodeRenderer({ qrData, size = 240, className = '' }: QrCodeRen
         style={{ width: size, height: size }}
         className={`flex flex-col items-center justify-center bg-slate-100 border border-dashed border-slate-300 rounded-2xl text-slate-400 text-xs p-4 text-center ${className}`}
       >
-        <span className="text-3xl mb-2">📷</span>
+        <Camera className="w-10 h-10 mb-2 text-slate-400" />
         <span>QR Code tidak tersedia</span>
       </div>
     )
@@ -38,7 +48,7 @@ export function QrCodeRenderer({ qrData, size = 240, className = '' }: QrCodeRen
         style={{ width: size, height: size }}
         className={`flex flex-col items-center justify-center bg-rose-50 border border-dashed border-rose-200 rounded-2xl text-rose-500 text-xs p-4 text-center ${className}`}
       >
-        <span className="text-3xl mb-2">⚠️</span>
+        <AlertTriangle className="w-10 h-10 mb-2 text-rose-500" />
         <span>QR Code tidak valid</span>
       </div>
     )
@@ -134,18 +144,19 @@ export function BaileysPairingDialog({
   }
 
   return (
-    <dialog
-      open
-      data-testid="baileys-pairing-dialog"
-      aria-label="Tautkan WhatsApp (Baileys)"
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in w-full h-full border-none max-w-none max-h-none m-0"
-    >
-      <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col">
+    <Dialog isOpen={isOpen} onClose={onClose}>
+      <DialogContent
+        data-testid="baileys-pairing-dialog"
+        aria-label="Tautkan WhatsApp (Baileys)"
+        size="md"
+        hideCloseButton
+        className="overflow-hidden"
+      >
         {/* Header Dialog */}
         <div className="bg-wa-header-bg px-5 py-4 border-b border-wa-border flex items-center justify-between">
           <div>
             <h3 className="font-bold text-base text-wa-text-primary flex items-center gap-2">
-              <span>💬</span>
+              <MessageSquare className="w-5 h-5 text-wa-teal-primary" />
               <span>Tautkan WhatsApp (Baileys)</span>
             </h3>
             <p className="text-xs text-slate-500 font-medium">{inboxName}</p>
@@ -157,7 +168,7 @@ export function BaileysPairingDialog({
             className="p-1.5 text-slate-400 hover:text-slate-800 rounded-full hover:bg-slate-200/60 cursor-pointer transition-colors"
             title="Tutup Dialog"
           >
-            ✕
+            <X className="w-5 h-5" />
           </button>
         </div>
 
@@ -197,9 +208,10 @@ export function BaileysPairingDialog({
                   type="button"
                   data-testid="btn-refresh-qr"
                   onClick={onRefreshQr}
-                  className="px-3 py-1 rounded-lg text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 border border-slate-200 transition-colors cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 border border-slate-200 transition-colors cursor-pointer"
                 >
-                  🔄 Segarkan QR
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>Segarkan QR</span>
                 </button>
               </div>
 
@@ -214,8 +226,8 @@ export function BaileysPairingDialog({
               data-testid="pairing-success-state"
               className="py-6 flex flex-col items-center gap-4 w-full"
             >
-              <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center text-3xl shadow-xs">
-                ✓
+              <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center shadow-xs">
+                <CheckCircle2 className="w-10 h-10" />
               </div>
               <div>
                 <h4 className="text-lg font-bold text-slate-800">WhatsApp Berhasil Terhubung</h4>
@@ -256,8 +268,8 @@ export function BaileysPairingDialog({
               data-testid="pairing-error-state"
               className="py-6 flex flex-col items-center gap-4 w-full"
             >
-              <div className="w-16 h-16 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center text-3xl shadow-xs">
-                ⚠️
+              <div className="w-16 h-16 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center shadow-xs">
+                <AlertTriangle className="w-10 h-10" />
               </div>
               <div>
                 <h4 className="text-lg font-bold text-slate-800">Koneksi Terputus</h4>
@@ -270,15 +282,16 @@ export function BaileysPairingDialog({
                 type="button"
                 data-testid="btn-retry-pairing"
                 onClick={onRetry || onRefreshQr}
-                className="w-full mt-2 py-2.5 px-4 bg-slate-800 hover:bg-slate-900 text-white font-semibold text-sm rounded-xl transition-colors cursor-pointer shadow-xs"
+                className="inline-flex items-center justify-center gap-2 w-full mt-2 py-2.5 px-4 bg-slate-800 hover:bg-slate-900 text-white font-semibold text-sm rounded-xl transition-colors cursor-pointer shadow-xs"
               >
-                Coba Hubungkan Ulang
+                <RotateCcw className="w-4 h-4" />
+                <span>Coba Hubungkan Ulang</span>
               </button>
             </div>
           )}
         </div>
-      </div>
-    </dialog>
+      </DialogContent>
+    </Dialog>
   )
 }
 

@@ -6,9 +6,17 @@ import type {
   WhatsAppTemplateMessageComponent,
   WhatsAppTemplateParameter,
 } from '@xatxoot/shared'
+import {
+  AlertCircle,
+  Image as ImageIcon,
+  MessageSquare,
+  Smartphone,
+  SquarePen,
+  X,
+} from 'lucide-react'
 import type React from 'react'
 import { useMemo, useState } from 'react'
-import { Badge, Button } from '../astryx'
+import { Badge, Button, Dialog, DialogContent } from '../astryx'
 
 export interface TemplateVariableValues {
   headerVars?: Record<number, string>
@@ -252,16 +260,18 @@ export function WhatsAppTemplateDialog({
   }
 
   return (
-    <div
-      data-testid="whatsapp-template-dialog"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 sm:p-6"
-    >
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-4xl h-[90vh] max-h-[750px] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+    <Dialog isOpen={isOpen} onClose={onClose}>
+      <DialogContent
+        data-testid="whatsapp-template-dialog"
+        size="xl"
+        hideCloseButton
+        className="w-full max-w-4xl h-[90vh] max-h-[750px] p-0 flex flex-col"
+      >
         {/* Header Modal */}
         <header className="px-6 py-4 bg-wa-header-bg border-b border-slate-200 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-full bg-emerald-100 text-wa-teal-primary flex items-center justify-center font-bold text-lg">
-              💬
+              <MessageSquare className="w-5 h-5 text-wa-teal-primary" />
             </div>
             <div>
               <h3 className="text-base font-bold text-wa-text-primary">
@@ -276,9 +286,9 @@ export function WhatsAppTemplateDialog({
             type="button"
             data-testid="btn-close-template-dialog"
             onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-slate-700 rounded-full hover:bg-slate-200/60 transition-colors"
+            className="p-1.5 text-slate-400 hover:text-slate-700 rounded-full hover:bg-slate-200/60 transition-colors cursor-pointer"
           >
-            ✕
+            <X className="w-5 h-5" />
           </button>
         </header>
 
@@ -412,7 +422,7 @@ export function WhatsAppTemplateDialog({
                   {/* Dynamic Variables Section */}
                   <div>
                     <h4 className="text-sm font-bold text-wa-text-primary mb-1 flex items-center gap-1.5">
-                      <span>✏️</span> Parameter & Variabel Dinamis
+                      <SquarePen className="w-4 h-4 text-slate-500" /> Parameter & Variabel Dinamis
                     </h4>
                     <p className="text-xs text-wa-text-secondary mb-4">
                       Isi variabel dengan data pelanggan atau pesanan. Teks akan diperbarui di
@@ -508,8 +518,9 @@ export function WhatsAppTemplateDialog({
                     )}
 
                     {validationError && (
-                      <p className="mt-3 text-xs font-medium text-rose-600 bg-rose-50 p-2.5 rounded-lg border border-rose-200">
-                        ⚠️ {validationError}
+                      <p className="mt-3 text-xs font-medium text-rose-600 bg-rose-50 p-2.5 rounded-lg border border-rose-200 flex items-center gap-1.5">
+                        <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
+                        <span>{validationError}</span>
                       </p>
                     )}
                   </div>
@@ -517,7 +528,8 @@ export function WhatsAppTemplateDialog({
                   {/* Live WhatsApp Preview Section */}
                   <div>
                     <h4 className="text-sm font-bold text-wa-text-primary mb-2 flex items-center gap-1.5">
-                      <span>📱</span> Pratinjau Pesan WhatsApp (Live Preview)
+                      <Smartphone className="w-4 h-4 text-emerald-600" /> Pratinjau Pesan WhatsApp
+                      (Live Preview)
                     </h4>
 
                     <div
@@ -533,9 +545,12 @@ export function WhatsAppTemplateDialog({
                             className="font-bold text-sm text-wa-text-primary pb-1 border-b border-slate-100"
                           >
                             {isHeaderMedia ? (
-                              <div className="bg-slate-100 rounded p-2 text-center text-xs text-slate-500 font-normal">
-                                🖼️ [{headerComponent.format} Attachment:{' '}
-                                {formValues.headerMediaUrl || 'Belum diisi'}]
+                              <div className="bg-slate-100 rounded p-2 text-center text-xs text-slate-500 font-normal flex items-center justify-center gap-1">
+                                <ImageIcon className="w-3.5 h-3.5 text-slate-400" />
+                                <span>
+                                  [{headerComponent.format} Attachment:{' '}
+                                  {formValues.headerMediaUrl || 'Belum diisi'}]
+                                </span>
                               </div>
                             ) : (
                               replaceTemplateVariables(
@@ -620,7 +635,7 @@ export function WhatsAppTemplateDialog({
             )}
           </div>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }

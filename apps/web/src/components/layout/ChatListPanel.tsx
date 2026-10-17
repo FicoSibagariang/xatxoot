@@ -1,3 +1,4 @@
+import { Search, SquarePen } from 'lucide-react'
 import { Avatar, Badge, Button, Input } from '../astryx'
 import { DeadlineTimerBadge, TicketSlaBadge } from '../chat'
 import type { ChatFilter, ConversationItem, LayoutChannelFilter } from './types'
@@ -50,7 +51,7 @@ export function ChatListPanel({
         <h2 className="text-xl font-bold text-wa-text-primary">Chat</h2>
         <div className="flex items-center gap-2">
           <Button variant="icon" size="icon" onClick={onNewChat} title="Chat Baru / Broadcast">
-            ✏️
+            <SquarePen className="w-5 h-5 text-slate-600" />
           </Button>
         </div>
       </div>
@@ -62,7 +63,7 @@ export function ChatListPanel({
           placeholder="Cari atau mulai chat baru (/)"
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
-          icon={<span className="text-slate-400">🔍</span>}
+          icon={<Search className="w-4 h-4 text-slate-400" />}
           shortcutHint="/"
         />
       </div>

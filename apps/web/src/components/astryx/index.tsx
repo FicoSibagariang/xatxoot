@@ -1,4 +1,12 @@
+import { Globe, MessageSquare, Zap } from 'lucide-react'
 import type React from 'react'
+
+// --- Export new Astryx Primitives ---
+export * from './Dialog'
+export * from './DropdownMenu'
+export * from './Select'
+export * from './Tabs'
+export * from './Tooltip'
 
 // --- Avatar Primitive ---
 export interface AvatarProps {
@@ -26,10 +34,10 @@ export function Avatar({ src, name, size = 'md', presence, channel, className = 
     offline: 'bg-slate-400 border-white',
   }
 
-  const channelIcons: Record<string, string> = {
-    whatsapp: '💬',
-    website_widget: '🌐',
-    api: '⚡',
+  const channelIcons: Record<string, React.ReactNode> = {
+    whatsapp: <MessageSquare className="w-2.5 h-2.5 text-white" />,
+    website_widget: <Globe className="w-2.5 h-2.5 text-white" />,
+    api: <Zap className="w-2.5 h-2.5 text-white" />,
   }
 
   return (
@@ -55,9 +63,9 @@ export function Avatar({ src, name, size = 'md', presence, channel, className = 
       {channel && (
         <span
           title={`Channel: ${channel}`}
-          className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-wa-teal-primary text-white text-[9px] flex items-center justify-center shadow-xs"
+          className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-wa-teal-primary text-white flex items-center justify-center shadow-xs"
         >
-          {channelIcons[channel] || '💬'}
+          {channelIcons[channel] || <MessageSquare className="w-2.5 h-2.5 text-white" />}
         </span>
       )}
     </div>
