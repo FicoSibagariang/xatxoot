@@ -18,12 +18,43 @@ import {
 
 export interface UseConversationChatOptions {
   user: LayoutUser
+  initialConversationId?: string | null
 }
 
-export function useConversationChat({ user }: UseConversationChatOptions) {
+function formatDateGroup(dateStr?: string | Date): string {
+  if (!dateStr) return 'HARI INI'
+  const d = new Date(dateStr)
+  if (Number.isNaN(d.getTime())) return 'HARI INI'
+  const today = new Date()
+  const isToday =
+    d.getDate() === today.getDate() &&
+    d.getMonth() === today.getMonth() &&
+    d.getFullYear() === today.getFullYear()
+  if (isToday) return 'HARI INI'
+
+  const yesterday = new Date(today)
+  yesterday.setDate(yesterday.getDate() - 1)
+  const isYesterday =
+    d.getDate() === yesterday.getDate() &&
+    d.getMonth() === yesterday.getMonth() &&
+    d.getFullYear() === yesterday.getFullYear()
+  if (isYesterday) return 'KEMARIN'
+
+  return d
+    .toLocaleDateString('id-ID', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    })
+    .toUpperCase()
+}
+
+export function useConversationChat({ user, initialConversationId }: UseConversationChatOptions) {
   const [conversations, setConversations] = useState<ConversationItem[]>([])
   const [messagesMap, setMessagesMap] = useState<Record<string, TimelineMessage[]>>({})
-  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null)
+  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(
+    initialConversationId || null,
+  )
   const selectedIdRef = useRef<string | null>(null)
   selectedIdRef.current = selectedConversationId
 
@@ -74,9 +105,7 @@ export function useConversationChat({ user }: UseConversationChatOptions) {
           })
 
           setConversations(mapped)
-          setSelectedConversationId((prev) =>
-            prev && mapped.some((m) => m.id === prev) ? prev : mapped[0].id,
-          )
+          setSelectedConversationId((prev) => prev || mapped[0]?.id || null)
         } else {
           setConversations([])
           setSelectedConversationId(null)
@@ -88,54 +117,108 @@ export function useConversationChat({ user }: UseConversationChatOptions) {
   }, [])
 
   // Fetch messages when conversation is selected
-  const fetchMessages = useCallback(async () => {
-    if (!selectedConversationId) return
-    try {
-      // biome-ignore lint/suspicious/noExplicitAny: backend conversation detail
-      const data = await api.get<any>(`/api/v1/conversations/${selectedConversationId}`)
-      if (data?.messages && Array.isArray(data.messages)) {
-        // biome-ignore lint/suspicious/noExplicitAny: message mapping
-        const mappedMsgs: TimelineMessage[] = data.messages.map((m: any) => {
-          const isCustomer = m.senderType === 'contact' || m.senderType === 'customer'
-          const msgType: MessageType =
-            m.messageType === 'activity' || m.senderType === 'system'
-              ? 'activity'
-              : isCustomer
-                ? 'incoming'
-                : 'outgoing'
+  const fetchMessages = useCallback(
+    async (convId?: string) => {
+      const targetId = convId || selectedIdRef.current || selectedConversationId
+      if (!targetId) return
+      try {
+        // biome-ignore lint/suspicious/noExplicitAny: backend conversation detail
+        const data = await api.get<any>(`/api/v1/conversations/${targetId}`)
 
-          return {
-            id: m.id,
-            conversationId: m.conversationId,
-            ticketId: m.ticketId,
-            ticketDisplayId: m.ticketDisplayId,
-            senderId: m.senderId || (isCustomer ? 'customer' : user.id),
-            senderType: isCustomer ? 'contact' : 'user',
-            senderName: isCustomer
-              ? data.contact?.name || data.contact?.phoneNumber || 'Pelanggan'
-              : user.name,
-            messageType: msgType,
-            contentType: (m.contentType as ContentType) || 'text',
-            content: m.content || '',
-            timestamp: m.createdAt
-              ? new Date(m.createdAt).toLocaleTimeString('id-ID', {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })
-              : 'Baru saja',
-            dateGroup: 'HARI INI',
-            status: m.status || (isCustomer ? 'delivered' : 'read'),
-          }
-        })
-        setMessagesMap((prev) => ({
-          ...prev,
-          [selectedConversationId]: mappedMsgs,
-        }))
+        if (data?.contact || data?.activeTicket) {
+          setConversations((prev) => {
+            const exists = prev.some((c) => c.id === targetId)
+            if (exists) {
+              return prev.map((c) => {
+                if (c.id !== targetId) return c
+                return {
+                  ...c,
+                  contactName: data.contact?.name || data.contact?.phoneNumber || c.contactName,
+                  contactPhone: data.contact?.phoneNumber || c.contactPhone,
+                  ticket: data.activeTicket
+                    ? {
+                        id: data.activeTicket.id,
+                        ticketNumber: data.activeTicket.displayId || 'T-000',
+                        status: data.activeTicket.status || 'open',
+                        priority: data.activeTicket.priority || 'medium',
+                        assignedTo: data.activeTicket.assigneeId,
+                      }
+                    : c.ticket,
+                }
+              })
+            }
+            const newConv: ConversationItem = {
+              id: targetId,
+              contactName: data.contact?.name || data.contact?.phoneNumber || 'Pelanggan WhatsApp',
+              contactPhone: data.contact?.phoneNumber,
+              // biome-ignore lint/suspicious/noExplicitAny: channel type
+              channel: (data.conversation?.channelType as any) || 'whatsapp',
+              lastMessage: data.messages?.[data.messages.length - 1]?.content || 'Percakapan baru',
+              lastMessageTimestamp: 'Baru saja',
+              unreadCount: 0,
+              ticket: data.activeTicket
+                ? {
+                    id: data.activeTicket.id,
+                    ticketNumber: data.activeTicket.displayId || 'T-000',
+                    status: data.activeTicket.status || 'open',
+                    priority: data.activeTicket.priority || 'medium',
+                    assignedTo: data.activeTicket.assigneeId,
+                  }
+                : undefined,
+            }
+            return [newConv, ...prev]
+          })
+        }
+
+        if (data?.activeTicket?.internalNote) {
+          setInternalNote(data.activeTicket.internalNote)
+        }
+
+        if (data?.messages && Array.isArray(data.messages)) {
+          // biome-ignore lint/suspicious/noExplicitAny: message mapping
+          const mappedMsgs: TimelineMessage[] = data.messages.map((m: any) => {
+            const isCustomer = m.senderType === 'contact' || m.senderType === 'customer'
+            const msgType: MessageType =
+              m.messageType === 'activity' || m.senderType === 'system'
+                ? 'activity'
+                : isCustomer
+                  ? 'incoming'
+                  : 'outgoing'
+
+            return {
+              id: m.id,
+              conversationId: m.conversationId,
+              ticketId: m.ticketId,
+              ticketDisplayId: m.ticketDisplayId,
+              senderId: m.senderId || (isCustomer ? 'customer' : user.id),
+              senderType: isCustomer ? 'contact' : 'user',
+              senderName: isCustomer
+                ? data.contact?.name || data.contact?.phoneNumber || 'Pelanggan'
+                : user.name,
+              messageType: msgType,
+              contentType: (m.contentType as ContentType) || 'text',
+              content: m.content || '',
+              timestamp: m.createdAt
+                ? new Date(m.createdAt).toLocaleTimeString('id-ID', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })
+                : 'Baru saja',
+              dateGroup: formatDateGroup(m.createdAt),
+              status: m.status || (isCustomer ? 'delivered' : 'read'),
+            }
+          })
+          setMessagesMap((prev) => ({
+            ...prev,
+            [targetId]: mappedMsgs,
+          }))
+        }
+      } catch {
+        // preserve memory messages on error
       }
-    } catch {
-      // preserve memory messages on error
-    }
-  }, [selectedConversationId, user.id, user.name])
+    },
+    [selectedConversationId, user.id, user.name],
+  )
 
   // Real-time SSE updates without page refresh
   const realtime = useRealtimeStream({
@@ -143,26 +226,58 @@ export function useConversationChat({ user }: UseConversationChatOptions) {
     onMessageCreated: (rawEvent) => {
       // biome-ignore lint/suspicious/noExplicitAny: event normalization
       const anyEvt = rawEvent as any
+      const rawMsg = anyEvt.message || anyEvt
+      const convId = anyEvt.conversation?.id || anyEvt.conversationId || rawMsg.conversationId
+
+      const isCustomer =
+        rawMsg.senderType === 'contact' ||
+        rawMsg.senderType === 'customer' ||
+        anyEvt.senderType === 'contact' ||
+        anyEvt.contact !== undefined ||
+        rawMsg.messageType === 'incoming'
+
+      const msgType: MessageType =
+        rawMsg.messageType === 'activity' || rawMsg.senderType === 'system'
+          ? 'activity'
+          : isCustomer
+            ? 'incoming'
+            : 'outgoing'
+
+      const rawTime = rawMsg.createdAt || anyEvt.timestamp || anyEvt.createdAt
+      const timeStr =
+        rawTime?.includes('T') && rawTime.includes('Z')
+          ? new Date(rawTime).toLocaleTimeString('id-ID', {
+              hour: '2-digit',
+              minute: '2-digit',
+            })
+          : rawTime || 'Baru saja'
+
       const event: MessageCreatedEvent = {
-        id: anyEvt.message?.id || anyEvt.id,
-        conversationId:
-          anyEvt.conversation?.id || anyEvt.conversationId || anyEvt.message?.conversationId,
-        content: anyEvt.message?.content || anyEvt.content || '',
-        messageType: anyEvt.message?.messageType || anyEvt.messageType || 'incoming',
-        contentType: anyEvt.message?.contentType || anyEvt.contentType || 'text',
-        senderId: anyEvt.message?.senderId || anyEvt.contact?.id || anyEvt.senderId,
-        senderType:
-          anyEvt.message?.senderType ||
-          anyEvt.senderType ||
-          (anyEvt.message?.messageType === 'activity' || anyEvt.messageType === 'activity'
-            ? 'system'
-            : 'contact'),
-        senderName: anyEvt.contact?.name || anyEvt.senderName || 'Pelanggan WhatsApp',
-        timestamp: anyEvt.message?.createdAt || anyEvt.timestamp,
+        id: rawMsg.id || anyEvt.id,
+        conversationId: convId,
+        ticketId: rawMsg.ticketId || anyEvt.ticket?.id,
+        ticketDisplayId:
+          rawMsg.ticketDisplayId || anyEvt.ticket?.displayId || anyEvt.ticket?.ticketNumber,
+        content: rawMsg.content || anyEvt.content || '',
+        messageType: msgType,
+        contentType: (rawMsg.contentType || anyEvt.contentType || 'text') as ContentType,
+        senderId: rawMsg.senderId || anyEvt.contact?.id || anyEvt.senderId,
+        senderType: isCustomer ? 'contact' : 'user',
+        senderName:
+          anyEvt.contact?.name ||
+          anyEvt.senderName ||
+          (isCustomer ? 'Pelanggan WhatsApp' : user.name),
+        timestamp: timeStr,
+        status: rawMsg.status || (isCustomer ? 'delivered' : 'sent'),
       }
 
       setMessagesMap((prev) => applyRealtimeMessage(prev, event))
       fetchConversations()
+
+      // When message arrives for active conversation, immediately sync messages with DB
+      if (selectedIdRef.current && selectedIdRef.current === convId) {
+        fetchMessages(convId)
+      }
     },
     onMessageStatusUpdated: (event) => {
       setMessagesMap((prev) => applyRealtimeMessageStatus(prev, event))
@@ -192,27 +307,27 @@ export function useConversationChat({ user }: UseConversationChatOptions) {
     },
   })
 
-  // Reconciled Polling Lifecycle: When SSE is connected, avoid redundant periodic polling!
+  // Keep conversations list fresh
   useEffect(() => {
     fetchConversations()
-    if (realtime.isConnected) return
     const timer = setInterval(() => {
       fetchConversations()
     }, 5000)
     return () => clearInterval(timer)
-  }, [fetchConversations, realtime.isConnected])
+  }, [fetchConversations])
 
-  // Fetch messages when conversation is selected, with fallback polling only if SSE is disconnected
+  // Fetch messages when conversation is selected, with safety background polling
   useEffect(() => {
     if (!selectedConversationId) return
     setConversations((prev) =>
       prev.map((c) => (c.id === selectedConversationId ? { ...c, unreadCount: 0 } : c)),
     )
-    fetchMessages()
-    if (realtime.isConnected) return
-    const timer = setInterval(fetchMessages, 5000)
+    fetchMessages(selectedConversationId)
+    const timer = setInterval(() => {
+      fetchMessages(selectedConversationId)
+    }, 3000)
     return () => clearInterval(timer)
-  }, [selectedConversationId, realtime.isConnected, fetchMessages])
+  }, [selectedConversationId, fetchMessages])
 
   // Filter conversations
   const filteredConversations = conversations.filter((c) => {
@@ -401,14 +516,19 @@ export function useConversationChat({ user }: UseConversationChatOptions) {
     }
   }
 
-  const handleSelectConversation = (id: string) => {
-    setSelectedConversationId(id)
-    selectedIdRef.current = id
-    // Clear unread in local state
-    setConversations((prev) => prev.map((c) => (c.id === id ? { ...c, unreadCount: 0 } : c)))
+  const handleSelectConversation = useCallback(
+    (id: string | null) => {
+      setSelectedConversationId(id)
+      selectedIdRef.current = id
+      if (!id) return
+      // Clear unread in local state
+      setConversations((prev) => prev.map((c) => (c.id === id ? { ...c, unreadCount: 0 } : c)))
 
-    api.post(`/api/v1/conversations/${id}/read`).catch(() => {})
-  }
+      api.post(`/api/v1/conversations/${id}/read`).catch(() => {})
+      fetchMessages(id)
+    },
+    [fetchMessages],
+  )
 
   return {
     conversations,

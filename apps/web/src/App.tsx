@@ -33,16 +33,18 @@ export interface AppProps {
 }
 
 function InboxConversationSync({
+  currentSelectedId,
   onSelect,
 }: {
+  currentSelectedId: string | null
   onSelect: (id: string | null) => void
 }) {
   const { conversationId } = useParams()
   useEffect(() => {
-    if (conversationId) {
+    if (conversationId && conversationId !== currentSelectedId) {
       onSelect(conversationId)
     }
-  }, [conversationId, onSelect])
+  }, [conversationId, currentSelectedId, onSelect])
   return null
 }
 
@@ -105,7 +107,14 @@ function AppContent({ initialAuthenticated }: { initialAuthenticated?: boolean }
     return INITIAL_USER
   })
 
-  const chat = useConversationChat({ user })
+  const initialConvId = location.pathname.startsWith('/inbox/')
+    ? location.pathname.slice('/inbox/'.length)
+    : null
+
+  const chat = useConversationChat({
+    user,
+    initialConversationId: initialConvId || undefined,
+  })
 
   const modals = useAppModals({
     onSendTemplateMessage: (payload) => {
@@ -341,7 +350,11 @@ function AppContent({ initialAuthenticated }: { initialAuthenticated?: boolean }
         path="/inbox/:conversationId"
         element={
           <ProtectedRoute isAuthenticated={isAuthenticated} onLoginSuccess={handleLoginSuccess}>
-            {renderDashboard(<InboxConversationSync onSelect={chat.setSelectedConversationId} />)}
+            <InboxConversationSync
+              currentSelectedId={chat.selectedConversationId}
+              onSelect={chat.handleSelectConversation}
+            />
+            {renderDashboard()}
           </ProtectedRoute>
         }
       />

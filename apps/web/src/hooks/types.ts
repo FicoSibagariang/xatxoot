@@ -3,14 +3,17 @@ export type RealtimeStatus = 'idle' | 'connecting' | 'connected' | 'disconnected
 export interface MessageCreatedEvent {
   id: string
   conversationId: string
+  ticketId?: string
+  ticketDisplayId?: string
   content: string
-  messageType: 'incoming' | 'outgoing' | 'activity'
-  contentType: 'text' | 'image' | 'document' | 'audio' | 'video'
+  messageType: 'incoming' | 'outgoing' | 'activity' | string
+  contentType: 'text' | 'image' | 'document' | 'audio' | 'video' | string
   senderId?: string
-  senderType?: 'contact' | 'user' | 'system'
+  senderType?: 'contact' | 'user' | 'system' | string
   senderName?: string
   timestamp?: string
   createdAt?: string
+  status?: string
 }
 
 export interface MessageStatusUpdatedEvent {

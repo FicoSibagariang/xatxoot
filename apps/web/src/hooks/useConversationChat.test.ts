@@ -66,6 +66,38 @@ describe('Conversation Chat Hook & Realtime Reconciliation (Task #272 - apps/web
     expect(method).toBe('POST')
   })
 
+  it('should fetch conversation messages using api.get with selected conversation id', async () => {
+    let requestedUrl = ''
+    globalThis.fetch = mock(async (input: RequestInfo | URL) => {
+      requestedUrl = String(input)
+      return new Response(
+        JSON.stringify({
+          conversation: { id: 'c-test-1' },
+          messages: [
+            {
+              id: 'm-1',
+              conversationId: 'c-test-1',
+              senderType: 'contact',
+              messageType: 'text',
+              content: 'apakah ini masuk?',
+            },
+          ],
+        }),
+        {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        },
+      )
+    }) as unknown as typeof fetch
+
+    const res = await api.get<{ messages: Array<{ id: string; content: string }> }>(
+      '/api/v1/conversations/c-test-1',
+    )
+    expect(requestedUrl).toBe('/api/v1/conversations/c-test-1')
+    expect(res.messages).toHaveLength(1)
+    expect(res.messages[0].content).toBe('apakah ini masuk?')
+  })
+
   it('should strictly NOT contain or require account_id in chat services', () => {
     expect(api).toBeDefined()
     expect(typeof api.request).toBe('function')

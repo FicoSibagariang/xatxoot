@@ -348,5 +348,48 @@ describe('SSE Real-time Stream Hook & Client (Task 1.28 - apps/web)', () => {
       expect(updated[0].ticket?.status).toBe('resolved')
       expect(updated[0].ticket?.assignedTo).toBe('agent-1')
     })
+
+    it('should normalize inbound contact message with messageType text to incoming', () => {
+      const currentMap: Record<
+        string,
+        Array<{
+          id: string
+          conversationId: string
+          messageType?: string
+          senderType?: string
+          ticketId?: string
+          ticketDisplayId?: string
+          timestamp?: string
+        }>
+      > = {
+        'conv-1': [],
+      }
+
+      const event: MessageCreatedEvent = {
+        id: 'msg-wa-1',
+        conversationId: 'conv-1',
+        ticketId: 't-123',
+        ticketDisplayId: '1001',
+        content: 'apakah ini masuk?',
+        messageType: 'text',
+        contentType: 'text',
+        senderId: 'contact-1',
+        senderType: 'contact',
+        senderName: 'Wardi',
+        createdAt: '2026-10-17T07:24:50.593Z',
+        timestamp: '2026-10-17T07:24:50.593Z',
+      }
+
+      const updated = applyRealtimeMessage(currentMap, event)
+      const appended = updated['conv-1'][0]
+
+      expect(appended).toBeDefined()
+      expect(appended.id).toBe('msg-wa-1')
+      expect(appended.messageType).toBe('incoming')
+      expect(appended.senderType).toBe('contact')
+      expect(appended.ticketId).toBe('t-123')
+      expect(appended.ticketDisplayId).toBe('1001')
+      expect(appended.timestamp).not.toContain('T')
+    })
   })
 })

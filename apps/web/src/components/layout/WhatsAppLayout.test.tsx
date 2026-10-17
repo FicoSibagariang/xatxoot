@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 import { renderToStaticMarkup } from 'react-dom/server'
+import type { TimelineMessage } from '../chat'
 import {
   ChatListPanel,
   ContactDrawer,
@@ -257,6 +258,92 @@ describe('WhatsApp 3.5-Column Layout (Task 1.24 - apps/web)', () => {
       expect(html).toContain('data-testid="btn-toggle-drawer"')
       expect(html).toContain('data-testid="btn-resolve-ticket"')
       expect(html).toContain('data-testid="btn-assign-ticket"')
+    })
+
+    it('should render messages in ChatTimeline inside ConversationThread when messages prop is provided', () => {
+      const activeConv = mockConversations[0]
+      const mockMsgs: TimelineMessage[] = [
+        {
+          id: 'msg-1',
+          conversationId: activeConv.id,
+          senderId: 'user-1',
+          senderType: 'user',
+          senderName: 'Agent Alpha',
+          messageType: 'outgoing',
+          contentType: 'text',
+          content: 'Halo pelanggan setia!',
+          timestamp: '10:00',
+          dateGroup: 'HARI INI',
+          status: 'sent',
+        },
+        {
+          id: 'msg-2',
+          conversationId: activeConv.id,
+          senderId: 'customer-1',
+          senderType: 'contact',
+          senderName: 'Budi Santoso',
+          messageType: 'incoming',
+          contentType: 'text',
+          content: 'Halo, saya mau tanya order saya',
+          timestamp: '10:01',
+          dateGroup: 'HARI INI',
+          status: 'delivered',
+        },
+      ]
+
+      const html = renderToStaticMarkup(
+        <ConversationThread
+          conversation={activeConv}
+          isDrawerOpen={false}
+          messages={mockMsgs}
+          onToggleDrawer={() => {}}
+          onSendMessage={() => {}}
+          onAssignTicket={() => {}}
+          onResolveTicket={() => {}}
+        />,
+      )
+
+      expect(html).toContain('data-testid="chat-timeline"')
+      expect(html).toContain('Halo pelanggan setia!')
+      expect(html).toContain('Halo, saya mau tanya order saya')
+    })
+
+    it('should render ChatTimeline messages even if a headless or truthy child component is passed', () => {
+      const activeConv = mockConversations[0]
+      const mockMsgs: TimelineMessage[] = [
+        {
+          id: 'msg-1',
+          conversationId: activeConv.id,
+          senderId: 'customer-1',
+          senderType: 'contact',
+          senderName: 'Budi Santoso',
+          messageType: 'incoming',
+          contentType: 'text',
+          content: 'Pesan penting dari pelanggan',
+          timestamp: '10:00',
+          dateGroup: 'HARI INI',
+          status: 'delivered',
+        },
+      ]
+
+      const HeadlessSync = () => null
+
+      const html = renderToStaticMarkup(
+        <ConversationThread
+          conversation={activeConv}
+          isDrawerOpen={false}
+          messages={mockMsgs}
+          onToggleDrawer={() => {}}
+          onSendMessage={() => {}}
+          onAssignTicket={() => {}}
+          onResolveTicket={() => {}}
+        >
+          <HeadlessSync />
+        </ConversationThread>,
+      )
+
+      expect(html).toContain('data-testid="chat-timeline"')
+      expect(html).toContain('Pesan penting dari pelanggan')
     })
   })
 

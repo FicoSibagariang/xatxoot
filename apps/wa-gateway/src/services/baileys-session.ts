@@ -304,7 +304,14 @@ export class BaileysSession {
           }
           this.emitDisconnect(statusCode)
 
-          if (this.shouldReconnect && statusCode !== DisconnectReason.loggedOut) {
+          const isTemporaryQr = this.sessionId.startsWith('baileys-qr-')
+          const isQrTimeout = statusCode === 408 || statusCode === DisconnectReason.timedOut
+
+          if (
+            this.shouldReconnect &&
+            statusCode !== DisconnectReason.loggedOut &&
+            !(isTemporaryQr && isQrTimeout)
+          ) {
             console.log(`[wa-gateway] [${this.sessionId}] [DEBUG] Scheduling reconnect in 3s...`)
             setTimeout(() => {
               this.startSocket(authDir).catch((err) => {

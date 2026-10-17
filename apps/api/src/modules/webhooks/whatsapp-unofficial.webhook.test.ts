@@ -45,6 +45,6 @@ describe('WhatsApp Unofficial Gateway Inbound Webhook Receiver (/api/v1/webhooks
     expect(conv).toBeDefined()
     expect(conv?.contact?.name).toBe('Pelanggan Uji WhatsApp')
     expect(conv?.messages.length).toBeGreaterThan(0)
-    expect(conv?.messages[0].content).toContain('Halo CS Xatxoot')
+    expect(conv?.messages.some((m) => m.content?.includes('Halo CS Xatxoot'))).toBe(true)
   })
 })

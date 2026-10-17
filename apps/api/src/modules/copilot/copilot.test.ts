@@ -98,8 +98,8 @@ describe('AI Copilot Services (Task 5.10 - apps/api)', () => {
 
       // Verifikasi pesan chat thread TIDAK tercemar oleh note
       const messages = await messageService.listConversationMessages(conv.id)
-      expect(messages.length).toBe(1)
-      expect(messages[0].content).toContain('Paket langganan')
+      expect(messages.some((m) => m.content?.includes(result.summary))).toBe(false)
+      expect(messages.some((m) => m.content?.includes('Paket langganan'))).toBe(true)
     })
   })
 

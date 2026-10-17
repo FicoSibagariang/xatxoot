@@ -318,18 +318,41 @@ export function applyRealtimeMessage<T extends { id: string; conversationId: str
     return messagesMap
   }
 
+  const isCustomer =
+    event.senderType === 'contact' ||
+    event.senderType === 'customer' ||
+    event.messageType === 'incoming'
+
+  const msgType: 'incoming' | 'outgoing' | 'activity' =
+    event.messageType === 'activity' || event.senderType === 'system'
+      ? 'activity'
+      : isCustomer
+        ? 'incoming'
+        : 'outgoing'
+
+  const rawTime = event.timestamp || event.createdAt
+  const formattedTime =
+    rawTime?.includes('T') && rawTime.includes('Z')
+      ? new Date(rawTime).toLocaleTimeString('id-ID', {
+          hour: '2-digit',
+          minute: '2-digit',
+        })
+      : rawTime || 'Baru saja'
+
   const newMsg = {
     id: event.id,
     conversationId: event.conversationId,
+    ticketId: event.ticketId,
+    ticketDisplayId: event.ticketDisplayId,
     senderId: event.senderId,
-    senderType: event.senderType || (event.messageType === 'outgoing' ? 'user' : 'contact'),
+    senderType: isCustomer ? 'contact' : 'user',
     senderName: event.senderName,
-    messageType: event.messageType,
-    contentType: event.contentType,
+    messageType: msgType,
+    contentType: event.contentType || 'text',
     content: event.content,
-    timestamp: event.timestamp || 'Baru saja',
+    timestamp: formattedTime,
     dateGroup: 'HARI INI',
-    status: event.messageType === 'outgoing' ? 'sent' : undefined,
+    status: isCustomer ? event.status || 'delivered' : event.status || 'sent',
   } as unknown as T
 
   return {

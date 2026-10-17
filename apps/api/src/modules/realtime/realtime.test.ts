@@ -140,8 +140,12 @@ describe('Realtime SSE Stream - Module Event Integrations', () => {
     })
 
     // Subscriber should receive message.created event
-    const chunk = await reader.read()
-    const text = new TextDecoder().decode(chunk.value)
+    let text = ''
+    while (!text.includes('Halo dari pelanggan via SSE')) {
+      const chunk = await reader.read()
+      if (!chunk.value) break
+      text += new TextDecoder().decode(chunk.value)
+    }
 
     expect(text).toContain('event: message.created')
     expect(text).toContain('Halo dari pelanggan via SSE')
@@ -178,9 +182,6 @@ describe('Realtime SSE Stream - Module Event Integrations', () => {
       content: 'Pertanyaan',
     })
 
-    // Consume the inbound message.created event
-    await reader.read()
-
     // Agent sends outbound reply
     await app.request(`/api/v1/conversations/${inbound.conversation.id}/messages`, {
       method: 'POST',
@@ -192,8 +193,12 @@ describe('Realtime SSE Stream - Module Event Integrations', () => {
     })
 
     // Subscriber should receive outbound message.created event
-    const chunk = await reader.read()
-    const text = new TextDecoder().decode(chunk.value)
+    let text = ''
+    while (!text.includes('Balasan agent via SSE')) {
+      const chunk = await reader.read()
+      if (!chunk.value) break
+      text += new TextDecoder().decode(chunk.value)
+    }
 
     expect(text).toContain('event: message.created')
     expect(text).toContain('Balasan agent via SSE')

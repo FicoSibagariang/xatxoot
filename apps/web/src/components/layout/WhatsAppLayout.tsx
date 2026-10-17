@@ -239,9 +239,7 @@ export function WhatsAppLayout({
             onResolveTicket={onResolveTicket}
             onRetryMessage={onRetryMessage}
             onOpenTemplateDialog={onOpenTemplateDialog}
-          >
-            {children}
-          </ConversationThread>
+          />
 
           {/* Kolom 3.5: ContactDrawer (Slide-Over CRM) */}
           <ContactDrawer

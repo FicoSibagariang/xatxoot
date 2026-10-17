@@ -19,14 +19,31 @@ export class AsyncEventQueue<T> {
     }
   }
 
-  async next(): Promise<T | null> {
+  async next(timeoutMs?: number): Promise<T | null> {
     if (this.queue.length > 0) {
       const item = this.queue.shift()
       return item !== undefined ? item : null
     }
     if (this.closed) return null
     return new Promise<T | null>((resolve) => {
-      this.waiters.push(resolve)
+      let timer: ReturnType<typeof setTimeout> | undefined
+
+      const waiter = (item: T | null) => {
+        if (timer) clearTimeout(timer)
+        resolve(item)
+      }
+
+      this.waiters.push(waiter)
+
+      if (timeoutMs !== undefined && timeoutMs > 0) {
+        timer = setTimeout(() => {
+          const idx = this.waiters.indexOf(waiter)
+          if (idx !== -1) {
+            this.waiters.splice(idx, 1)
+          }
+          resolve(null)
+        }, timeoutMs)
+      }
     })
   }
 

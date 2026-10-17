@@ -174,8 +174,16 @@ export function ChatBubble({ message, onRetry }: ChatBubbleProps) {
     )
   }
 
-  const isIncoming = message.messageType === 'incoming'
-  const isOutgoing = message.messageType === 'outgoing'
+  const isIncoming =
+    message.messageType === 'incoming' ||
+    message.senderType === 'contact' ||
+    (message.messageType !== 'outgoing' &&
+      message.senderType !== 'user' &&
+      message.senderType !== 'bot')
+  const isOutgoing =
+    message.messageType === 'outgoing' ||
+    message.senderType === 'user' ||
+    message.senderType === 'bot'
 
   return (
     <div

@@ -1,5 +1,5 @@
 import { FileText, Paperclip, Smile } from 'lucide-react'
-import { type KeyboardEvent, type ReactNode, useState } from 'react'
+import { type KeyboardEvent, type ReactNode, useEffect, useRef, useState } from 'react'
 import { Avatar, Button } from '../astryx'
 import {
   AiCopilotToolbar,
@@ -80,6 +80,13 @@ export function ConversationThread({
   const [aiResultType, setAiResultType] = useState<CopilotResultType | null>(null)
   const [aiArticles, setAiArticles] = useState<SuggestedArticle[]>([])
   const [aiError, setAiError] = useState<string | null>(null)
+  const messagesEndRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    if (messages && messages.length > 0) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }
+  }, [messages])
 
   const activeCanned = cannedResponses ?? DEFAULT_CANNED_RESPONSES
   const activeCommands = slashCommands ?? DEFAULT_SLASH_COMMANDS
@@ -92,6 +99,17 @@ export function ConversationThread({
   if (!conversation) {
     return <EmptyConversationState />
   }
+
+  const isTicketAssignedToMe = Boolean(
+    conversation.ticket?.assignedTo &&
+      (!currentUser || conversation.ticket.assignedTo === currentUser.id),
+  )
+  const isTicketAssignedToOther = Boolean(
+    conversation.ticket?.assignedTo &&
+      currentUser &&
+      conversation.ticket.assignedTo !== currentUser.id,
+  )
+  const isTicketResolved = conversation.ticket?.status === 'resolved'
 
   const handleSend = () => {
     if (!inputText.trim()) return
@@ -341,61 +359,43 @@ export function ConversationThread({
             </>
           )}
 
-          {(() => {
-            const isTicketAssignedToMe = Boolean(
-              conversation.ticket?.assignedTo &&
-                (!currentUser || conversation.ticket.assignedTo === currentUser.id),
-            )
-            const isTicketAssignedToOther = Boolean(
-              conversation.ticket?.assignedTo &&
-                currentUser &&
-                conversation.ticket.assignedTo !== currentUser.id,
-            )
-            const isTicketResolved = conversation.ticket?.status === 'resolved'
+          <Button
+            data-testid="btn-assign-ticket"
+            variant="secondary"
+            size="sm"
+            onClick={onAssignTicket}
+          >
+            {isTicketAssignedToMe ? 'Unassign' : isTicketAssignedToOther ? 'Ditugaskan' : 'Assign'}
+          </Button>
 
-            return (
-              <>
-                <Button
-                  data-testid="btn-assign-ticket"
-                  variant="secondary"
-                  size="sm"
-                  onClick={onAssignTicket}
-                >
-                  {isTicketAssignedToMe
-                    ? 'Unassign'
-                    : isTicketAssignedToOther
-                      ? 'Ditugaskan'
-                      : 'Assign'}
-                </Button>
-
-                <Button
-                  data-testid="btn-resolve-ticket"
-                  variant={isTicketResolved ? 'secondary' : 'teal'}
-                  size="sm"
-                  onClick={onResolveTicket}
-                >
-                  {isTicketResolved ? 'Buka Kembali' : 'Resolve'}
-                </Button>
-              </>
-            )
-          })()}
+          <Button
+            data-testid="btn-resolve-ticket"
+            variant={isTicketResolved ? 'secondary' : 'teal'}
+            size="sm"
+            onClick={onResolveTicket}
+          >
+            {isTicketResolved ? 'Buka Kembali' : 'Resolve'}
+          </Button>
         </div>
       </header>
 
       {/* Canvas Obrolan (Doodle Wallpaper Background) */}
       <div data-testid="doodle-canvas" className="flex-1 overflow-y-auto p-4 wa-doodle-pattern">
-        {children ||
-          (messages && messages.length > 0 ? (
+        {messages && messages.length > 0 ? (
+          <>
             <ChatTimeline messages={messages} onRetryMessage={onRetryMessage} />
-          ) : (
-            <div className="h-full flex flex-col items-center justify-center text-center">
-              <div className="bg-white/90 backdrop-blur-xs px-4 py-2 rounded-lg shadow-xs text-xs text-wa-text-muted border border-wa-border max-w-sm">
-                <span className="font-semibold text-emerald-800">Tiket Aktif: </span>
-                {conversation.ticket?.ticketNumber || 'T-Baru'} &bull; Mulai percakapan di bawah
-                ini.
-              </div>
+            <div ref={messagesEndRef} />
+          </>
+        ) : children ? (
+          children
+        ) : (
+          <div className="h-full flex flex-col items-center justify-center text-center">
+            <div className="bg-white/90 backdrop-blur-xs px-4 py-2 rounded-lg shadow-xs text-xs text-wa-text-muted border border-wa-border max-w-sm">
+              <span className="font-semibold text-emerald-800">Tiket Aktif: </span>
+              {conversation.ticket?.ticketNumber || 'T-Baru'} &bull; Mulai percakapan di bawah ini.
             </div>
-          ))}
+          </div>
+        )}
       </div>
 
       {/* Bottom Input Bar */}

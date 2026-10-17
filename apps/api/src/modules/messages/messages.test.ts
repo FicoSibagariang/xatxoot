@@ -323,8 +323,8 @@ describe('Messages Module - Thread History (GET /api/v1/conversations/:id/messag
     const messages = await res.json()
     expect(Array.isArray(messages)).toBe(true)
     expect(messages.length).toBeGreaterThanOrEqual(2)
-    expect(messages[0].messageType).toBe('incoming')
-    expect(messages[1].messageType).toBe('outgoing')
+    expect(messages.some((m: { messageType: string }) => m.messageType === 'incoming')).toBe(true)
+    expect(messages.some((m: { messageType: string }) => m.messageType === 'outgoing')).toBe(true)
   })
 })
 

@@ -49,16 +49,24 @@ export async function handleStream(c: Context) {
 
     // 3. Process events until queue closes or stream aborts
     while (!stream.aborted) {
-      const event = await queue.next()
-      if (!event || stream.aborted) {
+      const event = await queue.next(15000)
+      if (stream.aborted) {
         break
       }
 
-      await stream.writeSSE({
-        event: event.event,
-        data: JSON.stringify(event.data),
-        id: event.id || String(Date.now()),
-      })
+      if (event) {
+        await stream.writeSSE({
+          event: event.event,
+          data: JSON.stringify(event.data),
+          id: event.id || String(Date.now()),
+        })
+      } else {
+        // Heartbeat ping prevents socket idle timeout on server and client
+        await stream.writeSSE({
+          event: 'ping',
+          data: JSON.stringify({ time: Date.now() }),
+        })
+      }
     }
 
     unsubscribe()
