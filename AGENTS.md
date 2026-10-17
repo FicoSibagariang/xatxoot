@@ -13,6 +13,7 @@ Sebelum menulis kode atau merancang skema, Anda **wajib merujuk pada dokumen res
 3. 📄 **[`docs/TERMINOLOGY.md`](docs/TERMINOLOGY.md)**: Kamus domain & ubiquitous language. DILARANG menggunakan istilah di luar kamus ini (misal: dilarang menggunakan `account_id`, dilarang membuat `tickets` sebagai pengganti `conversations` kecuali sesuai model domain yang disepakati).
 4. 📄 **[`docs/TDD_GUIDELINES.md`](docs/TDD_GUIDELINES.md)**: Panduan standar penulisan test suite dan pengujian berbasis Test-Driven Development.
 5. 📄 **[`docs/PHASE_X_CHECKLIST.md`](docs/)**: Checklist teknis spesifik untuk fase yang sedang dikerjakan.
+6. 📄 **[`docs/PAGES_AND_COMPONENTS.md`](docs/PAGES_AND_COMPONENTS.md)**: Katalog resmi seluruh halaman, rute URL, komponen UI, dan hak akses antarmuka web.
 
 ---
 
