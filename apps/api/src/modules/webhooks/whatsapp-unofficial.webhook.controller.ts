@@ -31,7 +31,15 @@ export async function handleWhatsAppUnofficialInbound(c: Context) {
 
     let inboxId = body.inboxId
 
-    // If inboxId is missing or default, resolve to existing unofficial inbox
+    // 1. If inboxId is missing or default, resolve by sessionId if available
+    if ((!inboxId || inboxId === 'default' || inboxId === 'active') && body.sessionId) {
+      const inboxBySession = await inboxService.getInboxBySessionId(body.sessionId)
+      if (inboxBySession) {
+        inboxId = inboxBySession.inbox.id
+      }
+    }
+
+    // 2. Fallback to default unofficial inbox if still unresolved
     if (!inboxId || inboxId === 'default' || inboxId === 'active') {
       const defaultInbox = await inboxService.getInboxById('default')
       if (defaultInbox) {

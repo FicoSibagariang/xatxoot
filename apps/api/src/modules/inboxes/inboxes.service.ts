@@ -338,6 +338,50 @@ export class InboxService {
     return { inbox, channel: channelEntry ? channelEntry.data : ({} as ChannelData) }
   }
 
+  async getInboxBySessionId(
+    sessionId: string,
+  ): Promise<{ inbox: Inbox; channel: ChannelData } | null> {
+    try {
+      const rows = await sql`
+        SELECT i.id, i.name, i.channel_type as "channelType", i.channel_id as "channelId",
+               i.enable_auto_assign as "enableAutoAssign", i.greeting_enabled as "greetingEnabled",
+               i.greeting_message as "greetingMessage", i.working_hours_enabled as "workingHoursEnabled",
+               i.working_hours as "workingHours", i.out_of_office_message as "outOfOfficeMessage",
+               i.lock_to_single_conv as "lockToSingleConv", i.sender_name_type as "senderNameType",
+               i.created_at as "createdAt", i.updated_at as "updatedAt"
+        FROM inboxes i
+        JOIN channels_whatsapp_unofficial c ON i.channel_id = c.id
+        WHERE c.session_id = ${sessionId}
+        LIMIT 1
+      `
+      if (rows.length > 0) {
+        const inbox = rows[0] as Inbox
+        const channel =
+          (await this.getChannelById(inbox.channelType, inbox.channelId)) ||
+          memoryStore.channels.get(inbox.channelId)?.data ||
+          ({} as ChannelData)
+        return { inbox, channel }
+      }
+    } catch {
+      // Fallback to memoryStore
+    }
+
+    for (const [_inboxId, inboxRec] of memoryStore.inboxes.entries()) {
+      if (inboxRec.channelType === 'whatsapp_unofficial') {
+        const channelEntry = memoryStore.channels.get(inboxRec.channelId)
+        if (
+          channelEntry?.data &&
+          'sessionId' in channelEntry.data &&
+          channelEntry.data.sessionId === sessionId
+        ) {
+          return { inbox: inboxRec, channel: channelEntry.data }
+        }
+      }
+    }
+
+    return null
+  }
+
   async getChannelById(channelType: string, channelId: string): Promise<ChannelData | null> {
     try {
       if (channelType === 'whatsapp_cloud') {
