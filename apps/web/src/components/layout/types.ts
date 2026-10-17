@@ -1,6 +1,13 @@
 export type PresenceStatus = 'online' | 'busy' | 'offline'
 
-export type LayoutNavTab = 'inbox' | 'contacts' | 'reports' | 'settings'
+export type LayoutNavTab =
+  | 'inbox'
+  | 'contacts'
+  | 'reports'
+  | 'campaigns'
+  | 'automation'
+  | 'help-center'
+  | 'settings'
 
 export type LayoutChannelFilter = 'all' | 'whatsapp' | 'website_widget' | 'api'
 

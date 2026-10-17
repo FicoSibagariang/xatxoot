@@ -1,19 +1,83 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import {
+  BrowserRouter,
+  MemoryRouter,
+  Navigate,
+  Route,
+  Routes,
+  useLocation,
+  useNavigate,
+  useParams,
+} from 'react-router-dom'
 import type { TimelineMessage } from './components/chat'
 import { WhatsAppLayout } from './components/layout'
-import type { LayoutUser, PresenceStatus } from './components/layout/types'
+import type { LayoutNavTab, LayoutUser, PresenceStatus } from './components/layout/types'
 import { AppModals } from './components/modals'
 import { INITIAL_USER } from './data/mockData'
 import { useAppModals, useConversationChat } from './hooks'
+import { AiProviderSettingsPage } from './pages/AiProviderSettingsPage'
+import { AnalyticsPage } from './pages/AnalyticsPage'
+import { AutomationRulesPage } from './pages/AutomationRulesPage'
+import { CampaignsPage } from './pages/CampaignsPage'
+import { ChannelWizardPage } from './pages/ChannelWizardPage'
+import { CsatSurveyPage } from './pages/CsatSurveyPage'
+import { EnterpriseSecurityPage } from './pages/EnterpriseSecurityPage'
+import { HelpCenterPage } from './pages/HelpCenterPage'
 import { LoginPage } from './pages/LoginPage'
 import { SetupPage } from './pages/SetupPage'
 import { api } from './services/apiClient'
 
 export interface AppProps {
   initialAuthenticated?: boolean
+  initialPath?: string
 }
 
-export function App({ initialAuthenticated }: AppProps = {}) {
+function InboxConversationSync({
+  onSelect,
+}: {
+  onSelect: (id: string | null) => void
+}) {
+  const { conversationId } = useParams()
+  useEffect(() => {
+    if (conversationId) {
+      onSelect(conversationId)
+    }
+  }, [conversationId, onSelect])
+  return null
+}
+
+function ProtectedRoute({
+  isAuthenticated,
+  onLoginSuccess,
+  children,
+}: {
+  isAuthenticated: boolean
+  onLoginSuccess: (data: unknown) => void
+  children: React.ReactNode
+}) {
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    if (
+      !isAuthenticated &&
+      typeof window !== 'undefined' &&
+      window.location.pathname !== '/login'
+    ) {
+      navigate('/login')
+    }
+  }, [isAuthenticated, navigate])
+
+  if (!isAuthenticated) {
+    return <LoginPage onSuccess={onLoginSuccess} />
+  }
+
+  return <>{children}</>
+}
+
+function AppContent({ initialAuthenticated }: { initialAuthenticated?: boolean }) {
+  const location = useLocation()
+  const navigate = useNavigate()
+
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
     if (typeof initialAuthenticated === 'boolean') return initialAuthenticated
     if (typeof window === 'undefined') return true
@@ -59,7 +123,6 @@ export function App({ initialAuthenticated }: AppProps = {}) {
         dateGroup: 'HARI INI',
         status: 'sent',
       }
-      if (!chat.selectedConversationId) return
       const activeConvId = chat.selectedConversationId
       chat.setMessagesMap((prev) => ({
         ...prev,
@@ -67,8 +130,6 @@ export function App({ initialAuthenticated }: AppProps = {}) {
       }))
     },
   })
-
-  const currentPath = typeof window !== 'undefined' ? window.location.pathname : '/'
 
   const handleLogout = async () => {
     try {
@@ -81,125 +142,299 @@ export function App({ initialAuthenticated }: AppProps = {}) {
       localStorage.removeItem('auth_user')
     }
     setIsAuthenticated(false)
+    navigate('/login')
   }
 
-  // 1. First-time Setup page route
-  if (currentPath === '/setup') {
-    return (
-      <SetupPage
-        onSuccess={() => {
-          if (typeof window !== 'undefined') {
-            window.location.href = '/login'
-          }
-        }}
-      />
-    )
+  const handleLoginSuccess = (data: unknown) => {
+    const authData = data as {
+      user?: { id: string; email: string; displayName?: string; role?: string }
+    }
+    if (authData?.user) {
+      setUser({
+        id: authData.user.id,
+        name: authData.user.displayName || authData.user.email,
+        email: authData.user.email,
+        role: authData.user.role || 'agent',
+        status: 'online',
+      })
+    }
+    setIsAuthenticated(true)
+    navigate('/inbox')
   }
 
-  // 2. Login Page route or unauthenticated state
-  if (!isAuthenticated || currentPath === '/login') {
+  const getActiveTab = (pathname: string): LayoutNavTab => {
+    if (pathname.startsWith('/contacts')) return 'contacts'
+    if (pathname.startsWith('/analytics') || pathname.startsWith('/reports')) return 'reports'
+    if (pathname.startsWith('/campaigns')) return 'campaigns'
+    if (pathname.startsWith('/automation')) return 'automation'
+    if (pathname.startsWith('/help-center')) return 'help-center'
+    if (pathname.startsWith('/settings')) return 'settings'
+    return 'inbox'
+  }
+
+  const handleTabChange = (tab: LayoutNavTab) => {
+    switch (tab) {
+      case 'inbox':
+        navigate('/inbox')
+        break
+      case 'contacts':
+        navigate('/contacts')
+        break
+      case 'reports':
+        navigate('/analytics')
+        break
+      case 'campaigns':
+        navigate('/campaigns')
+        break
+      case 'automation':
+        navigate('/automation')
+        break
+      case 'help-center':
+        navigate('/help-center')
+        break
+      case 'settings':
+        navigate('/settings/ai')
+        break
+    }
+  }
+
+  const handleSelectConversation = (id: string | null) => {
+    chat.handleSelectConversation(id)
+    if (id) {
+      navigate(`/inbox/${id}`)
+    } else {
+      navigate('/inbox')
+    }
+  }
+
+  const renderDashboard = (children?: React.ReactNode) => {
     return (
-      <LoginPage
-        onSuccess={(data: unknown) => {
-          const authData = data as {
-            user?: { id: string; email: string; displayName?: string; role?: string }
-          }
-          if (authData?.user) {
-            setUser({
-              id: authData.user.id,
-              name: authData.user.displayName || authData.user.email,
-              email: authData.user.email,
-              role: authData.user.role || 'agent',
-              status: 'online',
-            })
-          }
-          setIsAuthenticated(true)
-          if (typeof window !== 'undefined' && window.location.pathname === '/login') {
-            window.history.pushState({}, '', '/')
-          }
-        }}
-      />
+      <>
+        <WhatsAppLayout
+          currentUser={user}
+          conversations={chat.filteredConversations}
+          selectedConversationId={chat.selectedConversationId}
+          isDrawerOpen={chat.isDrawerOpen}
+          activeTab={getActiveTab(location.pathname)}
+          activeChannelFilter={chat.activeChannelFilter}
+          activeFilter={chat.activeFilter}
+          searchQuery={chat.searchQuery}
+          internalNote={chat.internalNote}
+          messages={chat.currentMessages}
+          onTabChange={handleTabChange}
+          onChannelFilterChange={chat.setActiveChannelFilter}
+          onPresenceChange={(status: PresenceStatus) => setUser((u) => ({ ...u, status }))}
+          onSelectConversation={handleSelectConversation}
+          onFilterChange={chat.setActiveFilter}
+          onSearchChange={chat.setSearchQuery}
+          onNewChat={() => {
+            chat.setSelectedConversationId(null)
+            navigate('/inbox')
+          }}
+          onToggleDrawer={() => chat.setIsDrawerOpen(!chat.isDrawerOpen)}
+          onCloseDrawer={() => chat.setIsDrawerOpen(false)}
+          onSendMessage={chat.handleSendMessage}
+          onAssignTicket={chat.handleAssignTicket}
+          onResolveTicket={chat.handleResolveTicket}
+          onSaveInternalNote={chat.setInternalNote}
+          onOpenSettings={() => {
+            if (getActiveTab(location.pathname) === 'settings') {
+              modals.setIsBotFlowBuilderOpen(true)
+            } else {
+              navigate('/settings/ai')
+            }
+          }}
+          onOpenTemplateDialog={() => modals.setIsTemplateDialogOpen(true)}
+          onLogout={handleLogout}
+          onAddChannel={() => modals.setIsChannelWizardOpen(true)}
+          onOpenWhatsAppPairing={() => modals.setIsPairingDialogOpen(true)}
+          whatsappConnectionStatus={modals.pairingState.status}
+        >
+          {children}
+        </WhatsAppLayout>
+
+        <AppModals
+          isPairingDialogOpen={modals.isPairingDialogOpen}
+          pairingState={modals.pairingState}
+          onClosePairingDialog={() => modals.setIsPairingDialogOpen(false)}
+          onRefreshPairingQr={modals.handleRefreshPairingQr}
+          onRetryPairing={modals.handleRefreshPairingQr}
+          isBotFlowBuilderOpen={modals.isBotFlowBuilderOpen}
+          botFlow={modals.botFlow}
+          onSaveBotFlow={(saved) => {
+            modals.setBotFlow(saved)
+            modals.setIsBotFlowBuilderOpen(false)
+          }}
+          onCloseBotFlowBuilder={() => modals.setIsBotFlowBuilderOpen(false)}
+          isTeamManagementOpen={modals.isTeamManagementOpen}
+          teams={modals.teams}
+          availableAgents={modals.availableAgents}
+          onSaveTeam={modals.handleSaveTeam}
+          onDeleteTeam={modals.handleDeleteTeam}
+          onAddTeamMember={modals.handleAddTeamMember}
+          onRemoveTeamMember={modals.handleRemoveTeamMember}
+          onToggleRoundRobin={modals.handleToggleRoundRobin}
+          onCloseTeamManagement={() => modals.setIsTeamManagementOpen(false)}
+          isTemplateDialogOpen={modals.isTemplateDialogOpen}
+          selectedConversationId={chat.selectedConversationId}
+          templates={modals.templates}
+          onCloseTemplateDialog={() => modals.setIsTemplateDialogOpen(false)}
+          onSendTemplate={modals.handleSendTemplate}
+          isChannelWizardOpen={modals.isChannelWizardOpen}
+          onCloseChannelWizard={() => modals.setIsChannelWizardOpen(false)}
+          onOpenWhatsAppPairingFromWizard={() => {
+            modals.setIsChannelWizardOpen(false)
+            modals.setIsPairingDialogOpen(true)
+          }}
+          onSaveChannel={modals.handleSaveChannel}
+          isBusinessHoursOpen={modals.isBusinessHoursOpen}
+          onCloseBusinessHours={() => modals.setIsBusinessHoursOpen(false)}
+        />
+      </>
     )
   }
 
   return (
-    <>
-      <WhatsAppLayout
-        currentUser={user}
-        conversations={chat.filteredConversations}
-        selectedConversationId={chat.selectedConversationId}
-        isDrawerOpen={chat.isDrawerOpen}
-        activeTab={chat.activeTab}
-        activeChannelFilter={chat.activeChannelFilter}
-        activeFilter={chat.activeFilter}
-        searchQuery={chat.searchQuery}
-        internalNote={chat.internalNote}
-        messages={chat.currentMessages}
-        onTabChange={chat.setActiveTab}
-        onChannelFilterChange={chat.setActiveChannelFilter}
-        onPresenceChange={(status: PresenceStatus) => setUser((u) => ({ ...u, status }))}
-        onSelectConversation={chat.handleSelectConversation}
-        onFilterChange={chat.setActiveFilter}
-        onSearchChange={chat.setSearchQuery}
-        onNewChat={() => chat.setSelectedConversationId(null)}
-        onToggleDrawer={() => chat.setIsDrawerOpen(!chat.isDrawerOpen)}
-        onCloseDrawer={() => chat.setIsDrawerOpen(false)}
-        onSendMessage={chat.handleSendMessage}
-        onAssignTicket={chat.handleAssignTicket}
-        onResolveTicket={chat.handleResolveTicket}
-        onSaveInternalNote={chat.setInternalNote}
-        onOpenSettings={() => {
-          if (chat.activeTab === 'settings') {
-            modals.setIsBotFlowBuilderOpen(true)
-          } else {
-            modals.setIsPairingDialogOpen(true)
-          }
-        }}
-        onOpenTemplateDialog={() => modals.setIsTemplateDialogOpen(true)}
-        onLogout={handleLogout}
-        onAddChannel={() => modals.setIsChannelWizardOpen(true)}
-        onOpenWhatsAppPairing={() => modals.setIsPairingDialogOpen(true)}
-        whatsappConnectionStatus={modals.pairingState.status}
+    <Routes>
+      {/* Public Pages */}
+      <Route path="/setup" element={<SetupPage onSuccess={() => navigate('/login')} />} />
+      <Route
+        path="/login"
+        element={
+          isAuthenticated ? (
+            <Navigate to="/inbox" replace />
+          ) : (
+            <LoginPage
+              onSuccess={(data: unknown) => {
+                const authData = data as {
+                  user?: { id: string; email: string; displayName?: string; role?: string }
+                }
+                if (authData?.user) {
+                  setUser({
+                    id: authData.user.id,
+                    name: authData.user.displayName || authData.user.email,
+                    email: authData.user.email,
+                    role: authData.user.role || 'agent',
+                    status: 'online',
+                  })
+                }
+                setIsAuthenticated(true)
+                navigate('/inbox')
+              }}
+            />
+          )
+        }
+      />
+      <Route path="/csat/:token" element={<CsatSurveyPage />} />
+      <Route path="/csat" element={<CsatSurveyPage />} />
+
+      {/* Protected Dashboard Pages */}
+      <Route
+        path="/inbox"
+        element={
+          <ProtectedRoute isAuthenticated={isAuthenticated} onLoginSuccess={handleLoginSuccess}>
+            {renderDashboard()}
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/inbox/:conversationId"
+        element={
+          <ProtectedRoute isAuthenticated={isAuthenticated} onLoginSuccess={handleLoginSuccess}>
+            {renderDashboard(<InboxConversationSync onSelect={chat.setSelectedConversationId} />)}
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/contacts"
+        element={
+          <ProtectedRoute isAuthenticated={isAuthenticated} onLoginSuccess={handleLoginSuccess}>
+            {renderDashboard()}
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/analytics"
+        element={
+          <ProtectedRoute isAuthenticated={isAuthenticated} onLoginSuccess={handleLoginSuccess}>
+            {renderDashboard(<AnalyticsPage />)}
+          </ProtectedRoute>
+        }
+      />
+      <Route path="/reports" element={<Navigate to="/analytics" replace />} />
+      <Route
+        path="/campaigns"
+        element={
+          <ProtectedRoute isAuthenticated={isAuthenticated} onLoginSuccess={handleLoginSuccess}>
+            {renderDashboard(<CampaignsPage />)}
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/automation"
+        element={
+          <ProtectedRoute isAuthenticated={isAuthenticated} onLoginSuccess={handleLoginSuccess}>
+            {renderDashboard(<AutomationRulesPage />)}
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/help-center"
+        element={
+          <ProtectedRoute isAuthenticated={isAuthenticated} onLoginSuccess={handleLoginSuccess}>
+            {renderDashboard(<HelpCenterPage />)}
+          </ProtectedRoute>
+        }
+      />
+      <Route path="/settings" element={<Navigate to="/settings/ai" replace />} />
+      <Route
+        path="/settings/ai"
+        element={
+          <ProtectedRoute isAuthenticated={isAuthenticated} onLoginSuccess={handleLoginSuccess}>
+            {renderDashboard(<AiProviderSettingsPage />)}
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/settings/security"
+        element={
+          <ProtectedRoute isAuthenticated={isAuthenticated} onLoginSuccess={handleLoginSuccess}>
+            {renderDashboard(<EnterpriseSecurityPage />)}
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/settings/channels"
+        element={
+          <ProtectedRoute isAuthenticated={isAuthenticated} onLoginSuccess={handleLoginSuccess}>
+            {renderDashboard(<ChannelWizardPage onBack={() => navigate('/settings/ai')} />)}
+          </ProtectedRoute>
+        }
       />
 
-      <AppModals
-        isPairingDialogOpen={modals.isPairingDialogOpen}
-        pairingState={modals.pairingState}
-        onClosePairingDialog={() => modals.setIsPairingDialogOpen(false)}
-        onRefreshPairingQr={modals.handleRefreshPairingQr}
-        onRetryPairing={modals.handleRefreshPairingQr}
-        isBotFlowBuilderOpen={modals.isBotFlowBuilderOpen}
-        botFlow={modals.botFlow}
-        onSaveBotFlow={(saved) => {
-          modals.setBotFlow(saved)
-          modals.setIsBotFlowBuilderOpen(false)
-        }}
-        onCloseBotFlowBuilder={() => modals.setIsBotFlowBuilderOpen(false)}
-        isTeamManagementOpen={modals.isTeamManagementOpen}
-        teams={modals.teams}
-        availableAgents={modals.availableAgents}
-        onSaveTeam={modals.handleSaveTeam}
-        onDeleteTeam={modals.handleDeleteTeam}
-        onAddTeamMember={modals.handleAddTeamMember}
-        onRemoveTeamMember={modals.handleRemoveTeamMember}
-        onToggleRoundRobin={modals.handleToggleRoundRobin}
-        onCloseTeamManagement={() => modals.setIsTeamManagementOpen(false)}
-        isTemplateDialogOpen={modals.isTemplateDialogOpen}
-        selectedConversationId={chat.selectedConversationId}
-        templates={modals.templates}
-        onCloseTemplateDialog={() => modals.setIsTemplateDialogOpen(false)}
-        onSendTemplate={modals.handleSendTemplate}
-        isChannelWizardOpen={modals.isChannelWizardOpen}
-        onCloseChannelWizard={() => modals.setIsChannelWizardOpen(false)}
-        onOpenWhatsAppPairingFromWizard={() => {
-          modals.setIsChannelWizardOpen(false)
-          modals.setIsPairingDialogOpen(true)
-        }}
-        onSaveChannel={modals.handleSaveChannel}
-        isBusinessHoursOpen={modals.isBusinessHoursOpen}
-        onCloseBusinessHours={() => modals.setIsBusinessHoursOpen(false)}
-      />
-    </>
+      {/* Root & Fallback */}
+      <Route path="/" element={<Navigate to={isAuthenticated ? '/inbox' : '/login'} replace />} />
+      <Route path="*" element={<Navigate to={isAuthenticated ? '/inbox' : '/login'} replace />} />
+    </Routes>
+  )
+}
+
+export function App({ initialAuthenticated, initialPath }: AppProps = {}) {
+  const isServerOrTest = typeof window === 'undefined' || Boolean(initialPath)
+
+  if (isServerOrTest) {
+    const entry = initialPath || (initialAuthenticated === false ? '/login' : '/inbox')
+    return (
+      <MemoryRouter initialEntries={[entry]}>
+        <AppContent initialAuthenticated={initialAuthenticated} />
+      </MemoryRouter>
+    )
+  }
+
+  return (
+    <BrowserRouter>
+      <AppContent initialAuthenticated={initialAuthenticated} />
+    </BrowserRouter>
   )
 }
 

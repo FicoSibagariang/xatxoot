@@ -1,12 +1,15 @@
 import {
   BarChart3,
+  BookOpen,
   Globe,
   LogOut,
+  Megaphone,
   MessageSquare,
   Plus,
   QrCode,
   Settings,
   Users,
+  Workflow,
   Zap,
 } from 'lucide-react'
 import { useState } from 'react'
@@ -148,6 +151,51 @@ export function NavRail({
             }`}
           >
             <BarChart3 className="w-5 h-5" />
+          </button>
+
+          <button
+            type="button"
+            data-testid="nav-tab-campaigns"
+            data-active={activeTab === 'campaigns'}
+            onClick={() => onTabChange('campaigns')}
+            title="Kampanye & Broadcast"
+            className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
+              activeTab === 'campaigns'
+                ? 'bg-wa-surface-dark text-wa-teal-primary font-bold shadow-xs'
+                : 'text-slate-400 hover:text-white hover:bg-slate-800/80'
+            }`}
+          >
+            <Megaphone className="w-5 h-5" />
+          </button>
+
+          <button
+            type="button"
+            data-testid="nav-tab-automation"
+            data-active={activeTab === 'automation'}
+            onClick={() => onTabChange('automation')}
+            title="Aturan Otomasi"
+            className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
+              activeTab === 'automation'
+                ? 'bg-wa-surface-dark text-wa-teal-primary font-bold shadow-xs'
+                : 'text-slate-400 hover:text-white hover:bg-slate-800/80'
+            }`}
+          >
+            <Workflow className="w-5 h-5" />
+          </button>
+
+          <button
+            type="button"
+            data-testid="nav-tab-help-center"
+            data-active={activeTab === 'help-center'}
+            onClick={() => onTabChange('help-center')}
+            title="Pusat Bantuan & Knowledge Base"
+            className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
+              activeTab === 'help-center'
+                ? 'bg-wa-surface-dark text-wa-teal-primary font-bold shadow-xs'
+                : 'text-slate-400 hover:text-white hover:bg-slate-800/80'
+            }`}
+          >
+            <BookOpen className="w-5 h-5" />
           </button>
 
           <button
