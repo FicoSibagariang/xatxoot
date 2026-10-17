@@ -30,18 +30,44 @@ describe('WhatsApp Unofficial Echo Outgoing Sync Webhook (/api/v1/webhooks/whats
     expect(data.isEcho).toBe(true)
     expect(data.conversationId).toBeDefined()
     expect(data.messageId).toBeDefined()
+    // Agent-initiated echo should NOT create a ticket
+    expect(data.ticketId).toBeUndefined()
 
     // Verify message record in DB / memory
     const conv = await conversationService.getConversationById(data.conversationId)
     expect(conv).toBeDefined()
+    expect(conv?.conversation?.activeTicketId).toBeNull()
     const echoMsg = conv?.messages.find(
       (m) => m.id === data.messageId || m.externalSourceId === externalId,
     )
     expect(echoMsg).toBeDefined()
+    expect(echoMsg?.ticketId).toBeNull()
     expect(echoMsg?.messageType).toBe('outgoing')
     expect(echoMsg?.senderType).toBe('user')
     expect(echoMsg?.content).toBe(echoContent)
     expect(echoMsg?.status).toBe('sent')
+
+    // When customer subsequently replies, a ticket MUST now be created
+    const replyRes = await app.request('/api/v1/webhooks/whatsapp-unofficial/inbound', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        channelId: data.channelId,
+        inboxId: conv?.conversation?.inboxId,
+        senderNumber: customerPhone,
+        externalMessageId: `wamid_reply_${Date.now()}`,
+        messageType: 'text',
+        content: 'Halo, saya mau pesan barangnya.',
+        timestamp: new Date().toISOString(),
+      }),
+    })
+    expect(replyRes.status).toBe(200)
+    const replyData = await replyRes.json()
+    expect(replyData.ticketId).toBeDefined()
+
+    const updatedConv = await conversationService.getConversationById(data.conversationId)
+    expect(updatedConv?.conversation?.activeTicketId).toBe(replyData.ticketId)
+    expect(updatedConv?.activeTicket?.status).toBe('open')
   })
 
   it('POST with isEcho: true should be idempotent and not duplicate message if externalMessageId already exists', async () => {

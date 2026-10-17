@@ -611,36 +611,27 @@ export class ConversationService {
       }
     }
 
-    // 4. Ticket handling
+    // 4. Ticket handling:
+    // Outgoing messages from agent/staff DO NOT create a new ticket.
+    // They only attach to an existing active ticket if one is already in progress.
     let ticket: Ticket | null = null
     if (conversation.activeTicketId) {
       ticket = await ticketService.getTicketById(conversation.activeTicketId)
+      if (ticket && ticket.status === 'resolved') {
+        ticket = null
+      }
     }
 
-    if (!ticket || ticket.status === 'resolved') {
-      ticket = await ticketService.createTicket({
-        conversationId: conversation.id,
-        status: 'open',
-        priority: 'medium',
-      })
-      try {
-        const assignResult = await assignmentService.assignTicketRoundRobin(ticket.id, {
-          inboxId: conversation.inboxId,
-        })
-        if (assignResult.success && assignResult.assignedAgentId) {
-          ticket = assignResult.ticket
-        }
-      } catch {
-        // Fallback
-      }
-    } else {
+    if (ticket) {
       await ticketService.recordFirstReply(ticket.id)
     }
+
+    const activeTicketId = ticket ? ticket.id : null
 
     // Update conversation (agent replied -> unreadCount remains 0)
     conversation = {
       ...conversation,
-      activeTicketId: ticket.id,
+      activeTicketId,
       unreadCount: 0,
       lastMessageAt: now,
       updatedAt: now,
@@ -651,7 +642,7 @@ export class ConversationService {
       await sql`
         UPDATE conversations
         SET
-          active_ticket_id = ${ticket.id},
+          active_ticket_id = ${activeTicketId},
           unread_count = 0,
           last_message_at = ${now},
           updated_at = ${now}
@@ -666,7 +657,7 @@ export class ConversationService {
     const message: Message = {
       id: crypto.randomUUID(),
       conversationId: conversation.id,
-      ticketId: ticket.id,
+      ticketId: activeTicketId,
       senderType: 'user',
       senderId: null,
       messageType: 'outgoing',
