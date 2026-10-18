@@ -46,6 +46,7 @@ export const CreateUserInputSchema = z.object({
   displayName: z.string().min(1, 'Nama lengkap wajib diisi'),
   role: z.enum(['administrator', 'agent']).default('agent'),
   inboxIds: z.array(z.string().uuid()).optional(),
+  password: z.string().min(8, 'Password minimal 8 karakter').optional(),
 })
 export type CreateUserInput = z.infer<typeof CreateUserInputSchema>
 
@@ -54,6 +55,7 @@ export const UpdateUserInputSchema = z.object({
   role: z.enum(['administrator', 'agent']).optional(),
   active: z.boolean().optional(),
   inboxIds: z.array(z.string().uuid()).optional(),
+  password: z.string().min(8, 'Password minimal 8 karakter').optional(),
 })
 export type UpdateUserInput = z.infer<typeof UpdateUserInputSchema>
 

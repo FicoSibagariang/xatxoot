@@ -149,7 +149,16 @@ export async function loginUser(
     `
     if (rows.length > 0) {
       const row = rows[0]
-      const isValid = await verifyPassword(input.password, row.password_hash)
+      if (row.active === false || !row.password_hash || row.password_hash === 'sso_only') {
+        return null
+      }
+
+      let isValid = false
+      try {
+        isValid = await verifyPassword(input.password, row.password_hash)
+      } catch {
+        isValid = false
+      }
       if (!isValid) return null
 
       const user: User = {
@@ -180,20 +189,47 @@ export async function loginUser(
   }
 
   const memoryEntry = memoryStore.users.get(email)
-  if (!memoryEntry) {
-    return null
+  if (memoryEntry) {
+    if (memoryEntry.passwordHash === 'sso_only') return null
+    let isValid = false
+    try {
+      isValid = await verifyPassword(input.password, memoryEntry.passwordHash)
+    } catch {
+      isValid = false
+    }
+    if (!isValid) return null
+
+    const tokens = generateTokens(memoryEntry.user.id)
+    return {
+      user: memoryEntry.user,
+      tokens,
+    }
   }
 
-  const isValid = await verifyPassword(input.password, memoryEntry.passwordHash)
-  if (!isValid) {
-    return null
+  // Check usersService memory fallback
+  try {
+    const { getUserMemoryPassword, usersService } = await import('../users/users.service')
+    const fallbackPassword = getUserMemoryPassword(email)
+    if (fallbackPassword && fallbackPassword !== 'sso_only') {
+      let isValid = false
+      try {
+        isValid = await verifyPassword(input.password, fallbackPassword)
+      } catch {
+        isValid = false
+      }
+      if (isValid) {
+        const u = await usersService.getUserByEmail(email)
+        if (u && u.active !== false) {
+          const tokens = generateTokens(u.id)
+          return { user: u, tokens }
+        }
+      }
+    }
+  } catch {
+    // ignore
   }
 
-  const tokens = generateTokens(memoryEntry.user.id)
-  return {
-    user: memoryEntry.user,
-    tokens,
-  }
+  return null
 }
 
 export async function refreshSessionTokens(refreshToken: string): Promise<AuthTokens | null> {

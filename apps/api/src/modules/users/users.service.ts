@@ -1,5 +1,6 @@
 import type { CreateUserInput, Role, UpdateUserInput, User } from '@xatxoot/shared'
 import { sql } from '../../db'
+import { hashPassword } from '../auth/auth.service'
 
 export interface UserWithInboxes extends User {
   inboxes?: Array<{
@@ -12,11 +13,17 @@ export interface UserWithInboxes extends User {
 const memoryStore = {
   users: new Map<string, UserWithInboxes>(),
   inboxMembers: new Map<string, Set<string>>(), // userId -> Set<inboxId>
+  passwords: new Map<string, string>(), // email -> passwordHash
 }
 
 export function resetUsersStore(): void {
   memoryStore.users.clear()
   memoryStore.inboxMembers.clear()
+  memoryStore.passwords.clear()
+}
+
+export function getUserMemoryPassword(email: string): string | undefined {
+  return memoryStore.passwords.get(email.toLowerCase().trim())
 }
 
 export class UsersService {
@@ -143,13 +150,18 @@ export class UsersService {
       inboxes: [],
     }
 
+    let passwordHash = 'sso_only'
+    if (input.password && input.password.trim().length >= 8) {
+      passwordHash = await hashPassword(input.password)
+    }
+
     // Insert into DB
     try {
       await sql`
         INSERT INTO users (
           id, email, password_hash, display_name, role, availability, active, created_at
         ) VALUES (
-          ${id}, ${cleanEmail}, 'sso_only', ${newUser.displayName}, ${role}, 'online', true, ${now}
+          ${id}, ${cleanEmail}, ${passwordHash}, ${newUser.displayName}, ${role}, 'online', true, ${now}
         )
       `
 
@@ -166,6 +178,7 @@ export class UsersService {
     }
 
     memoryStore.users.set(id, newUser)
+    memoryStore.passwords.set(cleanEmail, passwordHash)
     if (input.inboxIds) {
       memoryStore.inboxMembers.set(id, new Set(input.inboxIds))
     }
@@ -184,15 +197,32 @@ export class UsersService {
     const updatedRole = input.role !== undefined ? input.role : existing.role
     const updatedActive = input.active !== undefined ? input.active : existing.active
 
+    let newPasswordHash: string | null = null
+    if (input.password && input.password.trim().length >= 8) {
+      newPasswordHash = await hashPassword(input.password)
+    }
+
     try {
-      await sql`
-        UPDATE users
-        SET
-          display_name = ${updatedDisplayName},
-          role = ${updatedRole},
-          active = ${updatedActive}
-        WHERE id = ${id}
-      `
+      if (newPasswordHash) {
+        await sql`
+          UPDATE users
+          SET
+            display_name = ${updatedDisplayName},
+            role = ${updatedRole},
+            active = ${updatedActive},
+            password_hash = ${newPasswordHash}
+          WHERE id = ${id}
+        `
+      } else {
+        await sql`
+          UPDATE users
+          SET
+            display_name = ${updatedDisplayName},
+            role = ${updatedRole},
+            active = ${updatedActive}
+          WHERE id = ${id}
+        `
+      }
 
       if (input.inboxIds !== undefined) {
         await sql`DELETE FROM inbox_members WHERE user_id = ${id}`
@@ -205,6 +235,10 @@ export class UsersService {
       }
     } catch {
       // Memory fallback
+    }
+
+    if (newPasswordHash) {
+      memoryStore.passwords.set(existing.email.toLowerCase(), newPasswordHash)
     }
 
     const updatedUser: UserWithInboxes = {

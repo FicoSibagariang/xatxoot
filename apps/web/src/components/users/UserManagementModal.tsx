@@ -1,4 +1,4 @@
-import { CheckCircle2, Inbox, Mail, Search, Shield, UserPlus, X, XCircle } from 'lucide-react'
+import { CheckCircle2, Inbox, Key, Mail, Search, Shield, UserPlus, X, XCircle } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { api } from '../../services/apiClient'
 import { Avatar, Badge, Button } from '../astryx'
@@ -48,10 +48,15 @@ export function UserManagementModal({
   const [formName, setFormName] = useState('')
   const [formEmail, setFormEmail] = useState('')
   const [formRole, setFormRole] = useState<'agent' | 'administrator'>('agent')
+  const [formPassword, setFormPassword] = useState('')
   const [selectedInboxIds, setSelectedInboxIds] = useState<string[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
+
+  // Sub-modal state for Reset Password
+  const [selectedPasswordUser, setSelectedPasswordUser] = useState<UserItem | null>(null)
+  const [resetPasswordInput, setResetPasswordInput] = useState('')
 
   useEffect(() => {
     if (initialUsers.length > 0) {
@@ -120,11 +125,20 @@ export function UserManagementModal({
     setSuccessMessage(null)
 
     try {
-      const payload = {
+      const payload: {
+        displayName: string
+        email: string
+        role: 'agent' | 'administrator'
+        inboxIds: string[]
+        password?: string
+      } = {
         displayName: formName.trim(),
         email: formEmail.trim().toLowerCase(),
         role: formRole,
         inboxIds: selectedInboxIds,
+      }
+      if (formPassword.trim()) {
+        payload.password = formPassword.trim()
       }
 
       const res = await api.post<{ success?: boolean; data: UserItem }>('/api/v1/users', payload)
@@ -147,12 +161,33 @@ export function UserManagementModal({
       setSuccessMessage(`Staf ${formName} berhasil didaftarkan!`)
       setFormName('')
       setFormEmail('')
+      setFormPassword('')
       setSelectedInboxIds([])
       setIsCreateOpen(false)
     } catch (err) {
       setErrorMessage((err as Error).message || 'Gagal menambahkan staf baru')
     } finally {
       setIsSubmitting(false)
+    }
+  }
+
+  const handleSaveResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!selectedPasswordUser) return
+    if (!resetPasswordInput.trim() || resetPasswordInput.trim().length < 8) {
+      setErrorMessage('Password minimal 8 karakter')
+      return
+    }
+
+    try {
+      await api.patch(`/api/v1/users/${selectedPasswordUser.id}`, {
+        password: resetPasswordInput.trim(),
+      })
+      setSuccessMessage(`Password untuk ${selectedPasswordUser.displayName} berhasil diperbarui!`)
+      setSelectedPasswordUser(null)
+      setResetPasswordInput('')
+    } catch (err) {
+      setErrorMessage((err as Error).message || 'Gagal mengubah password')
     }
   }
 
@@ -270,7 +305,7 @@ export function UserManagementModal({
               </span>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
               <div>
                 <label
                   htmlFor="user-full-name"
@@ -295,7 +330,7 @@ export function UserManagementModal({
                   htmlFor="user-email"
                   className="block text-[11px] font-semibold text-slate-700 mb-1"
                 >
-                  Email Google Workspace
+                  Email Akun / Google
                 </label>
                 <input
                   id="user-email"
@@ -323,9 +358,27 @@ export function UserManagementModal({
                   onChange={(e) => setFormRole(e.target.value as 'agent' | 'administrator')}
                   className="w-full text-xs px-3 py-2 bg-white border border-slate-300 rounded-lg focus:outline-none focus:border-emerald-600 cursor-pointer"
                 >
-                  <option value="agent">Agent (Menangani Chat Pelanggan)</option>
-                  <option value="administrator">Administrator (Kelola Sistem &amp; Tim)</option>
+                  <option value="agent">Agent (CS)</option>
+                  <option value="administrator">Administrator</option>
                 </select>
+              </div>
+
+              <div>
+                <label
+                  htmlFor="user-password"
+                  className="block text-[11px] font-semibold text-slate-700 mb-1"
+                >
+                  Password (Opsional)
+                </label>
+                <input
+                  id="user-password"
+                  type="password"
+                  data-testid="input-user-password"
+                  placeholder="Min. 8 kar (opsional)"
+                  value={formPassword}
+                  onChange={(e) => setFormPassword(e.target.value)}
+                  className="w-full text-xs px-3 py-2 bg-white border border-slate-300 rounded-lg focus:outline-none focus:border-emerald-600"
+                />
               </div>
             </div>
 
@@ -367,7 +420,8 @@ export function UserManagementModal({
 
             <div className="flex items-center justify-between pt-2 border-t border-emerald-100">
               <p className="text-[11px] text-slate-500 italic">
-                * Staf akan masuk langsung via Google SSO. Password tidak perlu dibuat.
+                * Staf dapat login via Google Workspace SSO. Jika password diisi, staf juga dapat
+                login via form email &amp; password biasa.
               </p>
               <div className="flex items-center gap-2">
                 <Button
@@ -482,16 +536,34 @@ export function UserManagementModal({
                         </span>
                       </td>
                       <td className="py-3 px-4 text-right">
-                        {u.role !== 'owner' && (
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            onClick={() => handleToggleUserStatus(u)}
-                            className="text-[11px] py-1 px-2.5"
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            type="button"
+                            data-testid={`btn-set-password-${u.id}`}
+                            onClick={() => {
+                              setSelectedPasswordUser(u)
+                              setResetPasswordInput('')
+                              setErrorMessage(null)
+                            }}
+                            className="p-1 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg text-xs flex items-center gap-1 cursor-pointer transition-colors"
+                            title="Atur / Reset Password Staf"
                           >
-                            {u.active ? 'Nonaktifkan' : 'Aktifkan'}
-                          </Button>
-                        )}
+                            <Key className="w-3.5 h-3.5 text-slate-500" />
+                            <span className="hidden sm:inline text-[11px] text-slate-600">
+                              Password
+                            </span>
+                          </button>
+                          {u.role !== 'owner' && (
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => handleToggleUserStatus(u)}
+                              className="text-[11px] py-1 px-2.5"
+                            >
+                              {u.active ? 'Nonaktifkan' : 'Aktifkan'}
+                            </Button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -511,6 +583,80 @@ export function UserManagementModal({
             Tutup
           </Button>
         </div>
+
+        {/* Sub-Modal: Set/Reset Password */}
+        {selectedPasswordUser && (
+          <div
+            data-testid="dialog-set-password"
+            className="fixed inset-0 z-60 flex items-center justify-center bg-black/50 p-4"
+          >
+            <form
+              onSubmit={handleSaveResetPassword}
+              className="bg-white rounded-xl shadow-2xl border border-slate-200 p-5 w-full max-w-sm flex flex-col gap-3"
+            >
+              <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                <h3 className="font-bold text-slate-800 text-sm flex items-center gap-1.5">
+                  <Key className="w-4 h-4 text-emerald-600" />
+                  Atur Password Staf
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setSelectedPasswordUser(null)}
+                  className="text-slate-400 hover:text-slate-600 p-1"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="text-xs text-slate-600">
+                Atur password baru untuk{' '}
+                <span className="font-semibold text-slate-800">
+                  {selectedPasswordUser.displayName}
+                </span>{' '}
+                ({selectedPasswordUser.email}).
+              </div>
+
+              <div>
+                <label
+                  htmlFor="input-new-password"
+                  className="block text-[11px] font-semibold text-slate-700 mb-1"
+                >
+                  Password Baru (Min. 8 karakter)
+                </label>
+                <input
+                  id="input-new-password"
+                  type="password"
+                  data-testid="input-new-password"
+                  placeholder="Masukkan password baru"
+                  value={resetPasswordInput}
+                  onChange={(e) => setResetPasswordInput(e.target.value)}
+                  className="w-full text-xs px-3 py-2 bg-white border border-slate-300 rounded-lg focus:outline-none focus:border-emerald-600"
+                  required
+                  minLength={8}
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  type="button"
+                  onClick={() => setSelectedPasswordUser(null)}
+                >
+                  Batal
+                </Button>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  type="submit"
+                  data-testid="btn-save-new-password"
+                >
+                  Simpan Password
+                </Button>
+              </div>
+            </form>
+          </div>
+        )}
       </div>
     </div>
   )

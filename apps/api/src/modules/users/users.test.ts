@@ -153,4 +153,94 @@ describe('User & Agent Management Module (/api/v1/users)', () => {
     const body = await res.json()
     expect(body.success).toBe(true)
   })
+
+  it('Option A: agent created with password can log in with email and password AND Google SSO', async () => {
+    const dualUserEmail = `dual-${Date.now()}@example.com`
+    const initialPassword = 'PasswordRahasia123!'
+
+    // 1. Admin creates agent with optional password
+    const createRes = await app.request('/api/v1/users', {
+      method: 'POST',
+      headers: adminHeaders,
+      body: JSON.stringify({
+        email: dualUserEmail,
+        displayName: 'Agent Multi-Login',
+        role: 'agent',
+        password: initialPassword,
+      }),
+    })
+    expect(createRes.status).toBe(201)
+
+    // 2. Agent logs in with email and password
+    const loginRes = await app.request('/api/v1/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: dualUserEmail,
+        password: initialPassword,
+      }),
+    })
+    expect(loginRes.status).toBe(200)
+    const loginBody = await loginRes.json()
+    expect(loginBody.user.email).toBe(dualUserEmail)
+    expect(loginBody.tokens.accessToken).toBeDefined()
+
+    // 3. Agent can ALSO still log in with Google SSO
+    const ssoRes = await app.request(
+      `/api/v1/auth/google/callback?code=mock_code&email=${dualUserEmail}`,
+    )
+    expect(ssoRes.status).toBe(200)
+    const ssoBody = await ssoRes.json()
+    expect(ssoBody.user.email).toBe(dualUserEmail)
+  })
+
+  it('Option A: agent created without password CANNOT log in via password form until password is set', async () => {
+    const ssoOnlyEmail = `sso-only-${Date.now()}@example.com`
+
+    // 1. Admin creates agent without password
+    const createRes = await app.request('/api/v1/users', {
+      method: 'POST',
+      headers: adminHeaders,
+      body: JSON.stringify({
+        email: ssoOnlyEmail,
+        displayName: 'Agent SSO Only',
+        role: 'agent',
+      }),
+    })
+    expect(createRes.status).toBe(201)
+    const createdUser = (await createRes.json()).data
+
+    // 2. Trying to log in with arbitrary password should fail (401)
+    const loginRes = await app.request('/api/v1/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: ssoOnlyEmail,
+        password: 'AnyPassword123!',
+      }),
+    })
+    expect(loginRes.status).toBe(401)
+
+    // 3. Admin sets password via PATCH /api/v1/users/:id
+    const newPassword = 'NewlySetPassword456!'
+    const patchRes = await app.request(`/api/v1/users/${createdUser.id}`, {
+      method: 'PATCH',
+      headers: adminHeaders,
+      body: JSON.stringify({
+        password: newPassword,
+      }),
+    })
+    expect(patchRes.status).toBe(200)
+
+    // 4. Now agent can log in with the newly set password
+    const newLoginRes = await app.request('/api/v1/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: ssoOnlyEmail,
+        password: newPassword,
+      }),
+    })
+    expect(newLoginRes.status).toBe(200)
+  })
 })

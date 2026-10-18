@@ -72,5 +72,20 @@ describe('User & Agent Management Modal (Task /users - apps/web)', () => {
     expect(html).toContain('data-testid="select-user-role"')
     expect(html).toContain('Google Workspace SSO')
     expect(html).toContain('data-testid="btn-save-user"')
+    expect(html).toContain('data-testid="input-user-password"')
+  })
+
+  it('Option A: should render Set/Reset Password button in staff list', () => {
+    const html = renderToStaticMarkup(
+      <UserManagementModal
+        isOpen={true}
+        onClose={() => {}}
+        initialUsers={mockUsers}
+        availableInboxes={mockInboxes}
+      />,
+    )
+
+    expect(html).toContain('data-testid="btn-set-password-usr-1"')
+    expect(html).toContain('data-testid="btn-set-password-usr-2"')
   })
 })

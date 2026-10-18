@@ -126,6 +126,15 @@ export async function handleGoogleCallback(c: Context) {
         403,
       )
     }
+
+    return c.json(
+      {
+        success: true,
+        user: existingUser,
+        message: 'Google OAuth callback verified',
+      },
+      200,
+    )
   }
 
   return c.json({ success: true, message: 'Google OAuth callback verified' }, 200)
