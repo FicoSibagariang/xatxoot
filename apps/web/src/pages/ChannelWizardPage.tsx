@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { ChannelManagement, ChannelWizard, type ChannelWizardPayload } from '../components/channels'
+import { SettingsNav } from '../components/settings'
 import { api } from '../services/apiClient'
 
 export interface ChannelWizardPageProps {
@@ -47,6 +48,8 @@ export function ChannelWizardPage({
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col">
+      <SettingsNav activeSection="channels" />
+
       {/* Top Switcher Tabs */}
       <div className="bg-white border-b border-slate-200 px-6 py-3 flex items-center justify-between shadow-2xs">
         <div className="flex items-center gap-2">

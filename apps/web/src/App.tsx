@@ -202,7 +202,7 @@ function AppContent({ initialAuthenticated }: { initialAuthenticated?: boolean }
         navigate('/help-center')
         break
       case 'settings':
-        navigate('/settings/ai')
+        navigate('/settings/channels')
         break
     }
   }
@@ -247,11 +247,7 @@ function AppContent({ initialAuthenticated }: { initialAuthenticated?: boolean }
           onResolveTicket={chat.handleResolveTicket}
           onSaveInternalNote={chat.setInternalNote}
           onOpenSettings={() => {
-            if (getActiveTab(location.pathname) === 'settings') {
-              modals.setIsBotFlowBuilderOpen(true)
-            } else {
-              navigate('/settings/ai')
-            }
+            navigate('/settings/channels')
           }}
           onOpenTemplateDialog={() => modals.setIsTemplateDialogOpen(true)}
           onLogout={handleLogout}
@@ -399,7 +395,7 @@ function AppContent({ initialAuthenticated }: { initialAuthenticated?: boolean }
           </ProtectedRoute>
         }
       />
-      <Route path="/settings" element={<Navigate to="/settings/ai" replace />} />
+      <Route path="/settings" element={<Navigate to="/settings/channels" replace />} />
       <Route
         path="/settings/ai"
         element={
