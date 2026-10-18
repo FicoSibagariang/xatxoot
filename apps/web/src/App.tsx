@@ -420,7 +420,9 @@ function AppContent({ initialAuthenticated }: { initialAuthenticated?: boolean }
         path="/settings/channels"
         element={
           <ProtectedRoute isAuthenticated={isAuthenticated} onLoginSuccess={handleLoginSuccess}>
-            {renderDashboard(<ChannelWizardPage onBack={() => navigate('/settings/ai')} />)}
+            {renderDashboard(
+              <ChannelWizardPage initialView="list" onBack={() => navigate('/settings/ai')} />,
+            )}
           </ProtectedRoute>
         }
       />
