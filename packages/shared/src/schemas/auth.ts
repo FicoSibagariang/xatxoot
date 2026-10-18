@@ -41,6 +41,22 @@ export const UserRoleSchema = z.object({
 })
 export type UserRole = z.infer<typeof UserRoleSchema>
 
+export const CreateUserInputSchema = z.object({
+  email: z.string().email('Format email tidak valid'),
+  displayName: z.string().min(1, 'Nama lengkap wajib diisi'),
+  role: z.enum(['administrator', 'agent']).default('agent'),
+  inboxIds: z.array(z.string().uuid()).optional(),
+})
+export type CreateUserInput = z.infer<typeof CreateUserInputSchema>
+
+export const UpdateUserInputSchema = z.object({
+  displayName: z.string().min(1).optional(),
+  role: z.enum(['administrator', 'agent']).optional(),
+  active: z.boolean().optional(),
+  inboxIds: z.array(z.string().uuid()).optional(),
+})
+export type UpdateUserInput = z.infer<typeof UpdateUserInputSchema>
+
 export const AuthTokensSchema = z.object({
   accessToken: z.string().min(1),
   refreshToken: z.string().min(1),

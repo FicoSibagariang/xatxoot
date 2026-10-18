@@ -27,6 +27,7 @@ export function useAppModals({ onSendTemplateMessage }: UseAppModalsOptions = {}
   const [isTemplateDialogOpen, setIsTemplateDialogOpen] = useState(false)
   const [isChannelWizardOpen, setIsChannelWizardOpen] = useState(false)
   const [isBusinessHoursOpen, setIsBusinessHoursOpen] = useState(false)
+  const [isUserManagementOpen, setIsUserManagementOpen] = useState(false)
 
   const [teams, setTeams] = useState<TeamWithMembers[]>(INITIAL_TEAMS)
   const [templates] = useState<WhatsAppTemplate[]>(INITIAL_TEMPLATES)
@@ -284,6 +285,8 @@ export function useAppModals({ onSendTemplateMessage }: UseAppModalsOptions = {}
     setIsChannelWizardOpen,
     isBusinessHoursOpen,
     setIsBusinessHoursOpen,
+    isUserManagementOpen,
+    setIsUserManagementOpen,
 
     // Data states
     teams,

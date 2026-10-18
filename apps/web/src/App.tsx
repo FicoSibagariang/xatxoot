@@ -249,6 +249,7 @@ function AppContent({ initialAuthenticated }: { initialAuthenticated?: boolean }
           onOpenSettings={() => {
             navigate('/settings/channels')
           }}
+          onOpenUserManagement={() => modals.setIsUserManagementOpen(true)}
           onOpenTemplateDialog={() => modals.setIsTemplateDialogOpen(true)}
           onLogout={handleLogout}
           onAddChannel={() => modals.setIsChannelWizardOpen(true)}
@@ -305,6 +306,8 @@ function AppContent({ initialAuthenticated }: { initialAuthenticated?: boolean }
           onRemoveTeamMember={modals.handleRemoveTeamMember}
           onToggleRoundRobin={modals.handleToggleRoundRobin}
           onCloseTeamManagement={() => modals.setIsTeamManagementOpen(false)}
+          isUserManagementOpen={modals.isUserManagementOpen}
+          onCloseUserManagement={() => modals.setIsUserManagementOpen(false)}
           isTemplateDialogOpen={modals.isTemplateDialogOpen}
           selectedConversationId={chat.selectedConversationId}
           templates={modals.templates}

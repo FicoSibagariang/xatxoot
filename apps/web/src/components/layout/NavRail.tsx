@@ -9,6 +9,7 @@ import {
   Plus,
   QrCode,
   Settings,
+  UserCog,
   Users,
   Workflow,
   X,
@@ -35,6 +36,7 @@ export interface NavRailProps {
   onChannelFilterChange: (channel: LayoutChannelFilter) => void
   onPresenceChange: (status: PresenceStatus) => void
   onOpenSettings?: () => void
+  onOpenUserManagement?: () => void
   onLogout?: () => void
   onAddChannel?: () => void
   onOpenWhatsAppPairing?: (inboxId?: string, inboxName?: string) => void
@@ -51,6 +53,7 @@ export function NavRail({
   onChannelFilterChange,
   onPresenceChange,
   onOpenSettings,
+  onOpenUserManagement,
   onLogout,
   onAddChannel,
   onOpenWhatsAppPairing,
@@ -64,28 +67,24 @@ export function NavRail({
   // Compute aggregate connection status for WhatsApp indicator badge
   let computedStatus = whatsappConnectionStatus
   if (whatsappChannels && whatsappChannels.length > 0) {
-    if (whatsappChannels.some((ch) => ch.connectionStatus === 'qr_ready')) {
-      computedStatus = 'qr_ready'
-    } else if (whatsappChannels.some((ch) => ch.connectionStatus === 'disconnected')) {
-      computedStatus = 'disconnected'
-    } else if (whatsappChannels.some((ch) => ch.connectionStatus === 'connecting')) {
-      computedStatus = 'connecting'
-    } else if (whatsappChannels.every((ch) => ch.connectionStatus === 'connected')) {
-      computedStatus = 'connected'
-    } else {
-      computedStatus = 'disconnected'
-    }
+    computedStatus = whatsappChannels.some((c) => c.connectionStatus === 'qr_ready')
+      ? 'qr_ready'
+      : whatsappChannels.some((c) => c.connectionStatus === 'disconnected')
+        ? 'disconnected'
+        : whatsappChannels.some((c) => c.connectionStatus === 'connecting')
+          ? 'connecting'
+          : whatsappChannels.every((c) => c.connectionStatus === 'connected')
+            ? 'connected'
+            : 'disconnected'
   }
 
   const handleQrButtonClick = () => {
     if (whatsappChannels && whatsappChannels.length > 1) {
       setShowChannelPicker((prev) => !prev)
-    } else if (whatsappChannels && whatsappChannels.length === 1) {
-      if (onOpenWhatsAppPairing) {
-        onOpenWhatsAppPairing(whatsappChannels[0].id, whatsappChannels[0].name)
-      }
-    } else if (onOpenWhatsAppPairing) {
-      onOpenWhatsAppPairing()
+    } else if (whatsappChannels?.length === 1 && onOpenWhatsAppPairing) {
+      onOpenWhatsAppPairing(whatsappChannels[0].id, whatsappChannels[0].name)
+    } else {
+      onOpenWhatsAppPairing?.()
     }
   }
 
@@ -239,6 +238,18 @@ export function NavRail({
             <BookOpen className="w-5 h-5" />
           </button>
 
+          {onOpenUserManagement && (
+            <button
+              type="button"
+              data-testid="nav-tab-users"
+              onClick={onOpenUserManagement}
+              title="Manajemen Staf & Agen"
+              className="w-10 h-10 rounded-xl flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800/80 transition-all cursor-pointer"
+            >
+              <UserCog className="w-5 h-5" />
+            </button>
+          )}
+
           <button
             type="button"
             data-testid="nav-tab-settings"
@@ -304,15 +315,7 @@ export function NavRail({
                 >
                   <QrCode className="w-3.5 h-3.5" />
                   <span
-                    className={`absolute -top-1 -right-1 w-2 h-2 rounded-full border border-wa-rail-bg ${
-                      computedStatus === 'connected'
-                        ? 'bg-emerald-500'
-                        : computedStatus === 'qr_ready'
-                          ? 'bg-amber-400 animate-pulse'
-                          : computedStatus === 'connecting'
-                            ? 'bg-sky-400 animate-pulse'
-                            : 'bg-rose-500'
-                    }`}
+                    className={`absolute -top-1 -right-1 w-2 h-2 rounded-full border border-wa-rail-bg ${computedStatus === 'connected' ? 'bg-emerald-500' : computedStatus === 'qr_ready' ? 'bg-amber-400 animate-pulse' : computedStatus === 'connecting' ? 'bg-sky-400 animate-pulse' : 'bg-rose-500'}`}
                   />
                 </button>
 

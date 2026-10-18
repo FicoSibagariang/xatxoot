@@ -1,5 +1,6 @@
 import { LoginInputSchema, OrganizationSetupInputSchema } from '@xatxoot/shared'
 import type { Context } from 'hono'
+import { usersService } from '../users/users.service'
 import {
   isGoogleDomainAllowed,
   loginUser,
@@ -93,16 +94,38 @@ export async function handleGoogleCallback(c: Context) {
   const allowedDomainsEnv = process.env.GOOGLE_ALLOWED_DOMAINS
   const allowedDomains = allowedDomainsEnv
     ? allowedDomainsEnv.split(',').map((d) => d.trim())
-    : ['example.com', 'acme.corp']
+    : ['example.com', 'acme.corp', 'nusa.net.id']
 
   if (code === 'mock-code-unauthorized') {
     return c.json({ error: 'Domain email tidak diizinkan mengakses instansi ini' }, 403)
   }
 
-  // Generic check if email query exists
+  // Check email query
   const email = c.req.query('email')
-  if (email && !isGoogleDomainAllowed(email, allowedDomains)) {
-    return c.json({ error: 'Domain email tidak diizinkan' }, 403)
+  if (email) {
+    if (!isGoogleDomainAllowed(email, allowedDomains)) {
+      return c.json({ error: 'Domain email tidak diizinkan' }, 403)
+    }
+
+    // Require manual pre-registration by Administrator (JIT auto-provisioning closed)
+    const existingUser = await usersService.getUserByEmail(email)
+    if (!existingUser) {
+      return c.json(
+        {
+          error: `Akun Google (${email}) belum terdaftar sebagai staf. Silakan hubungi Administrator untuk mendapatkan akses.`,
+        },
+        403,
+      )
+    }
+
+    if (!existingUser.active) {
+      return c.json(
+        {
+          error: `Akun staf (${email}) telah dinonaktifkan. Silakan hubungi Administrator.`,
+        },
+        403,
+      )
+    }
   }
 
   return c.json({ success: true, message: 'Google OAuth callback verified' }, 200)

@@ -33,6 +33,7 @@ import { ssoRoutes } from './modules/sso/sso.routes'
 import { teamRoutes } from './modules/teams/teams.routes'
 import { telegramRoutes } from './modules/telegram/telegram.routes'
 import { ticketRoutes } from './modules/tickets/tickets.routes'
+import { userRoutes } from './modules/users/users.routes'
 import { whatsappCloudWebhookRoutes } from './modules/webhooks/whatsapp-cloud.webhook.routes'
 import { whatsappUnofficialWebhookRoutes } from './modules/webhooks/whatsapp-unofficial.webhook.routes'
 import { whatsappTemplateRoutes } from './modules/whatsapp-templates/whatsapp-templates.routes'
@@ -53,6 +54,7 @@ app.route('/api/v1/inboxes', inboxBusinessHoursRoutes)
 app.route('/api/v1/inboxes', inboxRoutes)
 app.route('/api/v1/conversations', conversationRoutes)
 app.route('/api/v1/contacts', contactRoutes)
+app.route('/api/v1/users', userRoutes)
 app.route('/api/v1/tickets', ticketRoutes)
 app.route('/api/v1/teams', teamRoutes)
 app.route('/api/v1/canned-responses', cannedResponseRoutes)

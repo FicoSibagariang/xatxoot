@@ -140,6 +140,7 @@ export interface WhatsAppLayoutProps {
   onOpenWhatsAppPairing?: (inboxId?: string, inboxName?: string) => void
   whatsappConnectionStatus?: 'connected' | 'qr_ready' | 'connecting' | 'disconnected'
   whatsappChannels?: WhatsAppChannelSummary[]
+  onOpenUserManagement?: () => void
   onUpdateContact?: (updated: Partial<ContactDrawerData>) => Promise<void> | void
   children?: ReactNode
 }
@@ -179,6 +180,7 @@ export function WhatsAppLayout({
   onOpenWhatsAppPairing,
   whatsappConnectionStatus,
   whatsappChannels,
+  onOpenUserManagement,
   onUpdateContact,
   children,
 }: WhatsAppLayoutProps) {
@@ -195,6 +197,7 @@ export function WhatsAppLayout({
         onChannelFilterChange={onChannelFilterChange}
         onPresenceChange={onPresenceChange}
         onOpenSettings={onOpenSettings}
+        onOpenUserManagement={onOpenUserManagement}
         onLogout={onLogout}
         onAddChannel={onAddChannel}
         onOpenWhatsAppPairing={onOpenWhatsAppPairing}

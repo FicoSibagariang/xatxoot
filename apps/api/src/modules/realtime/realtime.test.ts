@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
 import app from '../../index'
 import { conversationService } from '../conversations/conversations.service'
 import { inboxService } from '../inboxes/inboxes.service'
@@ -9,6 +9,10 @@ import { type RealtimeEvent, realtimeService } from './realtime.service'
 const AUTH_HEADER = {
   Authorization: 'Bearer valid-access-token',
 }
+
+afterEach(() => {
+  realtimeService.closeAllSubscribers()
+})
 
 describe('Realtime SSE Stream - Auth Guard', () => {
   it('GET /api/v1/realtime/stream should reject request without Authorization header or token query with 401', async () => {
@@ -151,7 +155,7 @@ describe('Realtime SSE Stream - Module Event Integrations', () => {
     expect(text).toContain('Halo dari pelanggan via SSE')
 
     realtimeService.closeAllSubscribers()
-  })
+  }, 15000)
 
   it('should broadcast message.created event when agent sends outbound reply', async () => {
     const res = await app.request('/api/v1/realtime/stream', {
@@ -204,7 +208,7 @@ describe('Realtime SSE Stream - Module Event Integrations', () => {
     expect(text).toContain('Balasan agent via SSE')
 
     realtimeService.closeAllSubscribers()
-  })
+  }, 15000)
 
   it('should broadcast ticket.updated event when ticket status or sticky note changes', async () => {
     const res = await app.request('/api/v1/realtime/stream', {

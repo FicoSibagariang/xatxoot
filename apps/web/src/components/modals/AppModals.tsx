@@ -5,6 +5,7 @@ import { VisualFlowBuilder } from '../flow-builder'
 import { BaileysPairingDialog, type BaileysPairingState } from '../pairing'
 import { type AgentUser, TeamManagement, type TeamWithMembers } from '../teams'
 import { WhatsAppTemplateDialog } from '../templates'
+import { UserManagementModal } from '../users'
 
 export interface AppModalsProps {
   // Baileys Pairing Dialog
@@ -53,6 +54,10 @@ export interface AppModalsProps {
   isBusinessHoursOpen: boolean
   onCloseBusinessHours: () => void
   onSaveBusinessHours?: (config: unknown) => void
+
+  // User Management
+  isUserManagementOpen?: boolean
+  onCloseUserManagement?: () => void
 }
 
 export function AppModals({
@@ -87,6 +92,8 @@ export function AppModals({
   isBusinessHoursOpen,
   onCloseBusinessHours,
   onSaveBusinessHours,
+  isUserManagementOpen = false,
+  onCloseUserManagement,
 }: AppModalsProps) {
   return (
     <>
@@ -154,6 +161,13 @@ export function AppModals({
             if (onSaveBusinessHours) onSaveBusinessHours(_config)
             onCloseBusinessHours()
           }}
+        />
+      )}
+
+      {isUserManagementOpen && (
+        <UserManagementModal
+          isOpen={isUserManagementOpen}
+          onClose={onCloseUserManagement || (() => {})}
         />
       )}
     </>
