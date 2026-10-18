@@ -122,4 +122,22 @@ describe('ContactsDashboard Component (Kontak & CRM)', () => {
     // The active ticket should be preserved from the conversation that has it
     expect(html).toContain('#T-999')
   })
+
+  it('should render edit contact button and support editing contact modal', () => {
+    const html = renderToStaticMarkup(
+      <ContactsDashboard
+        initialContacts={mockContacts}
+        onStartChat={() => {}}
+        initialEditingContact={mockContacts[0]}
+      />,
+    )
+
+    expect(html).toContain('data-testid="edit-contact-btn-contact-01"')
+    expect(html).toContain('data-testid="edit-contact-modal"')
+    expect(html).toContain('data-testid="input-edit-contact-name"')
+    expect(html).toContain('data-testid="input-edit-contact-phone"')
+    expect(html).toContain('data-testid="input-edit-contact-email"')
+    expect(html).toContain('data-testid="input-edit-contact-company"')
+    expect(html).toContain('data-testid="btn-save-contact"')
+  })
 })

@@ -8,9 +8,50 @@ import type { ActiveTicketData, ContactDrawerData, TicketHistoryItem } from './t
 // ==========================================
 export interface ContactProfileSectionProps {
   contact: ContactDrawerData
+  initialEditing?: boolean
+  onUpdateContact?: (updated: Partial<ContactDrawerData>) => Promise<void> | void
 }
 
-export function ContactProfileSection({ contact }: ContactProfileSectionProps) {
+export function ContactProfileSection({
+  contact,
+  initialEditing = false,
+  onUpdateContact,
+}: ContactProfileSectionProps) {
+  const [isEditingProfile, setIsEditingProfile] = useState(initialEditing)
+  const [name, setName] = useState(contact.contactName)
+  const [phone, setPhone] = useState(contact.contactPhone || '')
+  const [email, setEmail] = useState(contact.contactEmail || '')
+  const [company, setCompany] = useState(contact.companyName || '')
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!name.trim()) return
+
+    setIsSubmitting(true)
+    const updated: Partial<ContactDrawerData> = {
+      contactName: name.trim(),
+      contactPhone: phone.trim() || undefined,
+      contactEmail: email.trim() || undefined,
+      companyName: company.trim() || undefined,
+    }
+
+    if (onUpdateContact) {
+      await onUpdateContact(updated)
+    }
+
+    setIsSubmitting(false)
+    setIsEditingProfile(false)
+  }
+
+  const handleCancel = () => {
+    setName(contact.contactName)
+    setPhone(contact.contactPhone || '')
+    setEmail(contact.contactEmail || '')
+    setCompany(contact.companyName || '')
+    setIsEditingProfile(false)
+  }
+
   return (
     <div
       data-testid="drawer-contact-profile"
@@ -25,24 +66,126 @@ export function ContactProfileSection({ contact }: ContactProfileSectionProps) {
         className="mb-3"
       />
 
-      {/* Name & Phone */}
-      <h3 className="font-bold text-lg text-wa-text-primary leading-tight">
-        {contact.contactName}
-      </h3>
+      {isEditingProfile ? (
+        <form
+          data-testid="drawer-contact-edit-form"
+          onSubmit={handleSave}
+          className="w-full flex flex-col gap-2.5 text-left text-xs bg-slate-50 border border-slate-200/80 rounded-xl p-3 mt-2"
+        >
+          <div>
+            <label
+              htmlFor="drawer-edit-name"
+              className="block text-[11px] font-semibold text-slate-700 mb-1"
+            >
+              Nama Lengkap *
+            </label>
+            <input
+              id="drawer-edit-name"
+              data-testid="input-drawer-contact-name"
+              type="text"
+              required
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="w-full rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs focus:border-wa-teal-primary focus:outline-hidden bg-white"
+            />
+          </div>
+          <div>
+            <label
+              htmlFor="drawer-edit-phone"
+              className="block text-[11px] font-semibold text-slate-700 mb-1"
+            >
+              Nomor Telepon
+            </label>
+            <input
+              id="drawer-edit-phone"
+              data-testid="input-drawer-contact-phone"
+              type="text"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              className="w-full rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs focus:border-wa-teal-primary focus:outline-hidden bg-white"
+            />
+          </div>
+          <div>
+            <label
+              htmlFor="drawer-edit-email"
+              className="block text-[11px] font-semibold text-slate-700 mb-1"
+            >
+              Email
+            </label>
+            <input
+              id="drawer-edit-email"
+              data-testid="input-drawer-contact-email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs focus:border-wa-teal-primary focus:outline-hidden bg-white"
+            />
+          </div>
+          <div>
+            <label
+              htmlFor="drawer-edit-company"
+              className="block text-[11px] font-semibold text-slate-700 mb-1"
+            >
+              Perusahaan
+            </label>
+            <input
+              id="drawer-edit-company"
+              data-testid="input-drawer-contact-company"
+              type="text"
+              value={company}
+              onChange={(e) => setCompany(e.target.value)}
+              className="w-full rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs focus:border-wa-teal-primary focus:outline-hidden bg-white"
+            />
+          </div>
+          <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200/60">
+            <button
+              type="button"
+              onClick={handleCancel}
+              className="px-2.5 py-1 rounded text-[11px] font-semibold text-slate-600 hover:bg-slate-200/60 cursor-pointer"
+            >
+              Batal
+            </button>
+            <button
+              type="submit"
+              data-testid="btn-save-drawer-contact"
+              disabled={isSubmitting}
+              className="px-3 py-1 rounded bg-wa-teal-primary hover:bg-wa-teal-dark text-white text-[11px] font-bold cursor-pointer shadow-2xs"
+            >
+              {isSubmitting ? 'Menyimpan...' : 'Simpan'}
+            </button>
+          </div>
+        </form>
+      ) : (
+        <>
+          {/* Name & Phone */}
+          <h3 className="font-bold text-lg text-wa-text-primary leading-tight">
+            {contact.contactName}
+          </h3>
 
-      {contact.contactPhone && (
-        <p className="text-sm text-wa-text-secondary mt-0.5">{contact.contactPhone}</p>
-      )}
+          {contact.contactPhone && (
+            <p className="text-sm text-wa-text-secondary mt-0.5">{contact.contactPhone}</p>
+          )}
 
-      {contact.contactEmail && (
-        <p className="text-xs text-slate-500 mt-0.5">{contact.contactEmail}</p>
-      )}
+          {contact.contactEmail && (
+            <p className="text-xs text-slate-500 mt-0.5">{contact.contactEmail}</p>
+          )}
 
-      {contact.companyName && (
-        <div className="mt-1.5 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-100 text-slate-700 text-xs font-medium">
-          <span>🏢</span>
-          <span>{contact.companyName}</span>
-        </div>
+          {contact.companyName && (
+            <div className="mt-1.5 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-100 text-slate-700 text-xs font-medium">
+              <span>🏢</span>
+              <span>{contact.companyName}</span>
+            </div>
+          )}
+
+          <button
+            type="button"
+            data-testid="btn-edit-contact-profile"
+            onClick={() => setIsEditingProfile(true)}
+            className="mt-2 text-[11px] font-semibold text-wa-teal-primary hover:text-wa-teal-dark hover:underline flex items-center gap-1 cursor-pointer"
+          >
+            <span>✏️ Ubah Profil</span>
+          </button>
+        </>
       )}
 
       {/* Labels / Tags */}
@@ -298,6 +441,7 @@ export interface ContactDrawerProps {
   onClose: () => void
   onSaveNote?: (note: string) => void
   onSelectTicket?: (ticketId: string) => void
+  onUpdateContact?: (updated: Partial<ContactDrawerData>) => Promise<void> | void
 }
 
 export function ContactDrawer({
@@ -306,6 +450,7 @@ export function ContactDrawer({
   onClose,
   onSaveNote,
   onSelectTicket,
+  onUpdateContact,
 }: ContactDrawerProps) {
   if (!isOpen || !data) {
     return null
@@ -333,7 +478,7 @@ export function ContactDrawer({
       {/* Drawer Scroll Body */}
       <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-5">
         {/* Section 1: Profil Kontak */}
-        <ContactProfileSection contact={data} />
+        <ContactProfileSection contact={data} onUpdateContact={onUpdateContact} />
 
         {/* Section 2: 1:1 Sticky Case Note */}
         <StickyInternalNoteCard ticket={data.activeTicket} onSaveNote={onSaveNote} />

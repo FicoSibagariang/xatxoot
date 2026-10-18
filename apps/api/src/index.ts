@@ -11,6 +11,7 @@ import {
 import { campaignRoutes } from './modules/campaigns/campaigns.routes'
 import { cannedResponseRoutes } from './modules/canned-responses/canned-responses.routes'
 import { capacityRoutes } from './modules/capacity/capacity.routes'
+import { contactRoutes } from './modules/contacts/contacts.routes'
 import { conversationRoutes } from './modules/conversations/conversations.routes'
 import { copilotRoutes } from './modules/copilot/copilot.routes'
 import { csatRoutes } from './modules/csat/csat.routes'
@@ -51,6 +52,7 @@ app.route('/api/v1/auth', authRoutes)
 app.route('/api/v1/inboxes', inboxBusinessHoursRoutes)
 app.route('/api/v1/inboxes', inboxRoutes)
 app.route('/api/v1/conversations', conversationRoutes)
+app.route('/api/v1/contacts', contactRoutes)
 app.route('/api/v1/tickets', ticketRoutes)
 app.route('/api/v1/teams', teamRoutes)
 app.route('/api/v1/canned-responses', cannedResponseRoutes)

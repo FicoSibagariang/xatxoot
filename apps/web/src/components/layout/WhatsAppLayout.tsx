@@ -32,6 +32,7 @@ export interface ContactDrawerProps {
   onClose: () => void
   onSaveInternalNote?: (note: string) => void
   onSelectTicket?: (ticketId: string) => void
+  onUpdateContact?: (updated: Partial<ContactDrawerData>) => Promise<void> | void
 }
 
 export function ContactDrawer({
@@ -42,6 +43,7 @@ export function ContactDrawer({
   onClose,
   onSaveInternalNote,
   onSelectTicket,
+  onUpdateContact,
 }: ContactDrawerProps) {
   if (!isOpen || (!conversation && !contactData)) {
     return null
@@ -95,6 +97,7 @@ export function ContactDrawer({
       onClose={onClose}
       onSaveNote={onSaveInternalNote}
       onSelectTicket={onSelectTicket}
+      onUpdateContact={onUpdateContact}
     />
   )
 }
@@ -137,6 +140,7 @@ export interface WhatsAppLayoutProps {
   onOpenWhatsAppPairing?: (inboxId?: string, inboxName?: string) => void
   whatsappConnectionStatus?: 'connected' | 'qr_ready' | 'connecting' | 'disconnected'
   whatsappChannels?: WhatsAppChannelSummary[]
+  onUpdateContact?: (updated: Partial<ContactDrawerData>) => Promise<void> | void
   children?: ReactNode
 }
 
@@ -175,6 +179,7 @@ export function WhatsAppLayout({
   onOpenWhatsAppPairing,
   whatsappConnectionStatus,
   whatsappChannels,
+  onUpdateContact,
   children,
 }: WhatsAppLayoutProps) {
   const selectedConversation = conversations.find((c) => c.id === selectedConversationId) || null
@@ -252,6 +257,7 @@ export function WhatsAppLayout({
             internalNote={internalNote}
             onClose={onCloseDrawer}
             onSaveInternalNote={onSaveInternalNote}
+            onUpdateContact={onUpdateContact}
           />
         </>
       )}

@@ -90,7 +90,7 @@ Halaman kerja utama agen dan administrator untuk melayani seluruh percakapan pel
      - *AI Copilot Toolbar* ([`AiCopilotToolbar.tsx`](file:///home/bimasakti/agy/xatxoot/apps/web/src/components/chat/AiCopilotToolbar.tsx)): Alat bantu AI 1-klik untuk merevisi gaya bahasa (ramah, formal, ringkas), koreksi tata bahasa, terjemahan instan, ringkasan percakapan, dan saran jawaban cerdas.
      - *Message Composer & Autocomplete* ([`SlashAutocomplete.tsx`](file:///home/bimasakti/agy/xatxoot/apps/web/src/components/chat/SlashAutocomplete.tsx)): Text input multi-baris auto-expand, tombol emoji, tombol klip attachment, menu auto-suggest respon cepat (*Canned Responses* `/`) dan perintah webhook eksternal (*Slash Commands* `/cekresi`, `/order`).
   4. **`ContactDrawer` ([`ContactDrawer.tsx`](file:///home/bimasakti/agy/xatxoot/apps/web/src/components/drawer/ContactDrawer.tsx))**:
-     - *Contact Info Card*: Avatar besar, nomor telepon internasional, email, dan label tag kontak.
+     - *Contact Info Card*: Avatar besar, nomor telepon internasional, email, perusahaan, label tag kontak, dan tombol edit profil kontak (`✏️ Ubah Profil`).
      - *Sticky Internal Note Card*: Kartu catatan internal privat yang terhubung 1-to-1 dengan tiket aktif (tidak membebani riwayat pesan obrolan).
      - *Custom Attributes Panel*: Pasangan kunci-nilai atribut kustom pelanggan (nomor pesanan, paket langganan, domisili).
      - *Ticket History List*: Daftar seluruh tiket masa lalu pelanggan beserta tanggal, prioritas, dan status penyelesaian.
@@ -105,7 +105,7 @@ Halaman pengelolaan basis data kontak pelanggan secara terpusat untuk keperluan 
   1. *Header Kontak*: Pencarian global nama/nomor kontak, tombol ekspor/impor CSV kontak, dan tombol buat kontak baru.
   2. *Filter Kategori Kontak*: Filter tab berdasarkan segmen pelanggan (*Semua Kontak*, *Pelanggan / Customer*, *Prospek / Lead*, *Pengunjung / Visitor*).
   3. *Tabel Data Kontak*: Kolom avatar, nama lengkap, nomor telepon, alamat email, saluran asal pertama kali masuk, daftar label tag aktif, serta tanggal pendaftaran.
-  4. *Panel Aksi Baris*: Tombol cepat untuk langsung memulai obrolan WhatsApp baru atau membuka detail profil lengkap.
+  4. *Panel Aksi Baris & Modal Edit*: Tombol cepat untuk langsung memulai obrolan WhatsApp baru, tombol edit kontak (`✏️ Ubah`), serta modal pengeditan profil pelanggan (nama, nomor telepon, email, perusahaan, tags).
 
 ---
 

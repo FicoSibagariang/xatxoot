@@ -257,6 +257,24 @@ function AppContent({ initialAuthenticated }: { initialAuthenticated?: boolean }
           }
           whatsappConnectionStatus={modals.pairingState.status}
           whatsappChannels={modals.whatsappChannels}
+          onUpdateContact={async (updated) => {
+            if (chat.selectedConversationId && updated.contactName) {
+              chat.setConversations((prev) =>
+                prev.map((c) =>
+                  c.id === chat.selectedConversationId
+                    ? {
+                        ...c,
+                        contactName: updated.contactName || c.contactName,
+                        contactPhone:
+                          updated.contactPhone !== undefined
+                            ? updated.contactPhone
+                            : c.contactPhone,
+                      }
+                    : c,
+                ),
+              )
+            }
+          }}
         >
           {children}
         </WhatsAppLayout>

@@ -83,6 +83,22 @@ describe('Contact CRM Drawer Component (Task 1.26 - apps/web)', () => {
       expect(html).toContain('Gold Platinum')
       expect(html).toContain('24 Transaksi')
     })
+
+    it('should render edit profile button and support editing contact form in drawer', () => {
+      const normalHtml = renderToStaticMarkup(
+        <ContactProfileSection contact={mockDrawerData} initialEditing={false} />,
+      )
+      expect(normalHtml).toContain('data-testid="btn-edit-contact-profile"')
+
+      const editHtml = renderToStaticMarkup(
+        <ContactProfileSection contact={mockDrawerData} initialEditing={true} />,
+      )
+      expect(editHtml).toContain('data-testid="drawer-contact-edit-form"')
+      expect(editHtml).toContain('data-testid="input-drawer-contact-name"')
+      expect(editHtml).toContain('data-testid="input-drawer-contact-phone"')
+      expect(editHtml).toContain('data-testid="input-drawer-contact-email"')
+      expect(editHtml).toContain('data-testid="btn-save-drawer-contact"')
+    })
   })
 
   describe('StickyInternalNoteCard (1:1 Sticky Note)', () => {
