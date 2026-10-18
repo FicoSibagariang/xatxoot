@@ -252,8 +252,11 @@ function AppContent({ initialAuthenticated }: { initialAuthenticated?: boolean }
           onOpenTemplateDialog={() => modals.setIsTemplateDialogOpen(true)}
           onLogout={handleLogout}
           onAddChannel={() => modals.setIsChannelWizardOpen(true)}
-          onOpenWhatsAppPairing={() => modals.openPairingDialog('default', 'WhatsApp Layanan CS')}
+          onOpenWhatsAppPairing={(inboxId, inboxName) =>
+            modals.openPairingDialog(inboxId || 'default', inboxName || 'WhatsApp Layanan CS')
+          }
           whatsappConnectionStatus={modals.pairingState.status}
+          whatsappChannels={modals.whatsappChannels}
         >
           {children}
         </WhatsAppLayout>
@@ -262,7 +265,10 @@ function AppContent({ initialAuthenticated }: { initialAuthenticated?: boolean }
           isPairingDialogOpen={modals.isPairingDialogOpen}
           pairingState={modals.pairingState}
           pairingInboxName={modals.pairingInboxName}
-          onClosePairingDialog={() => modals.setIsPairingDialogOpen(false)}
+          onClosePairingDialog={() => {
+            modals.setIsPairingDialogOpen(false)
+            modals.fetchWhatsAppChannels()
+          }}
           onRefreshPairingQr={modals.handleRefreshPairingQr}
           onRetryPairing={modals.handleRefreshPairingQr}
           isBotFlowBuilderOpen={modals.isBotFlowBuilderOpen}

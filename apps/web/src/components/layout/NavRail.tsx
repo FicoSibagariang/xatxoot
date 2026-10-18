@@ -1,6 +1,7 @@
 import {
   BarChart3,
   BookOpen,
+  ChevronRight,
   Globe,
   LogOut,
   Megaphone,
@@ -10,11 +11,18 @@ import {
   Settings,
   Users,
   Workflow,
+  X,
   Zap,
 } from 'lucide-react'
 import { useState } from 'react'
 import { Avatar } from '../astryx'
-import type { LayoutChannelFilter, LayoutNavTab, LayoutUser, PresenceStatus } from './types'
+import type {
+  LayoutChannelFilter,
+  LayoutNavTab,
+  LayoutUser,
+  PresenceStatus,
+  WhatsAppChannelSummary,
+} from './types'
 
 // ==========================================
 // Kolom 1: NavRail (60px fixed width)
@@ -29,8 +37,10 @@ export interface NavRailProps {
   onOpenSettings?: () => void
   onLogout?: () => void
   onAddChannel?: () => void
-  onOpenWhatsAppPairing?: () => void
+  onOpenWhatsAppPairing?: (inboxId?: string, inboxName?: string) => void
   whatsappConnectionStatus?: 'connected' | 'qr_ready' | 'connecting' | 'disconnected'
+  whatsappChannels?: WhatsAppChannelSummary[]
+  initialChannelPickerOpen?: boolean
 }
 
 export function NavRail({
@@ -45,8 +55,39 @@ export function NavRail({
   onAddChannel,
   onOpenWhatsAppPairing,
   whatsappConnectionStatus = 'disconnected',
+  whatsappChannels,
+  initialChannelPickerOpen = false,
 }: NavRailProps) {
   const [showPresenceMenu, setShowPresenceMenu] = useState(false)
+  const [showChannelPicker, setShowChannelPicker] = useState(initialChannelPickerOpen)
+
+  // Compute aggregate connection status for WhatsApp indicator badge
+  let computedStatus = whatsappConnectionStatus
+  if (whatsappChannels && whatsappChannels.length > 0) {
+    if (whatsappChannels.some((ch) => ch.connectionStatus === 'qr_ready')) {
+      computedStatus = 'qr_ready'
+    } else if (whatsappChannels.some((ch) => ch.connectionStatus === 'disconnected')) {
+      computedStatus = 'disconnected'
+    } else if (whatsappChannels.some((ch) => ch.connectionStatus === 'connecting')) {
+      computedStatus = 'connecting'
+    } else if (whatsappChannels.every((ch) => ch.connectionStatus === 'connected')) {
+      computedStatus = 'connected'
+    } else {
+      computedStatus = 'disconnected'
+    }
+  }
+
+  const handleQrButtonClick = () => {
+    if (whatsappChannels && whatsappChannels.length > 1) {
+      setShowChannelPicker((prev) => !prev)
+    } else if (whatsappChannels && whatsappChannels.length === 1) {
+      if (onOpenWhatsAppPairing) {
+        onOpenWhatsAppPairing(whatsappChannels[0].id, whatsappChannels[0].name)
+      }
+    } else if (onOpenWhatsAppPairing) {
+      onOpenWhatsAppPairing()
+    }
+  }
 
   return (
     <aside
@@ -253,24 +294,130 @@ export function NavRail({
             )}
 
             {onOpenWhatsAppPairing && (
-              <button
-                type="button"
-                data-testid="channel-whatsapp-qr-button"
-                onClick={onOpenWhatsAppPairing}
-                title="Tautkan WhatsApp Web / Scan QR Baileys"
-                className="relative w-5 h-5 rounded text-[11px] flex items-center justify-center bg-slate-800 text-emerald-400 hover:bg-emerald-600 hover:text-white transition-all cursor-pointer font-bold"
-              >
-                <QrCode className="w-3.5 h-3.5" />
-                <span
-                  className={`absolute -top-1 -right-1 w-2 h-2 rounded-full border border-wa-rail-bg ${
-                    whatsappConnectionStatus === 'connected'
-                      ? 'bg-emerald-500'
-                      : whatsappConnectionStatus === 'qr_ready'
-                        ? 'bg-amber-400 animate-pulse'
-                        : 'bg-rose-500'
-                  }`}
-                />
-              </button>
+              <div className="relative">
+                <button
+                  type="button"
+                  data-testid="channel-whatsapp-qr-button"
+                  onClick={handleQrButtonClick}
+                  title="Tautkan WhatsApp Web / Scan QR Baileys"
+                  className="relative w-5 h-5 rounded text-[11px] flex items-center justify-center bg-slate-800 text-emerald-400 hover:bg-emerald-600 hover:text-white transition-all cursor-pointer font-bold"
+                >
+                  <QrCode className="w-3.5 h-3.5" />
+                  <span
+                    className={`absolute -top-1 -right-1 w-2 h-2 rounded-full border border-wa-rail-bg ${
+                      computedStatus === 'connected'
+                        ? 'bg-emerald-500'
+                        : computedStatus === 'qr_ready'
+                          ? 'bg-amber-400 animate-pulse'
+                          : computedStatus === 'connecting'
+                            ? 'bg-sky-400 animate-pulse'
+                            : 'bg-rose-500'
+                    }`}
+                  />
+                </button>
+
+                {/* WhatsApp Channel Picker Popover */}
+                {showChannelPicker && (
+                  <div
+                    data-testid="whatsapp-channel-picker-popover"
+                    className="absolute left-10 bottom-0 bg-wa-surface-dark text-white rounded-2xl shadow-2xl border border-slate-700 py-3 px-3.5 w-72 text-xs z-50 flex flex-col gap-2.5 animate-in fade-in zoom-in-95 duration-100"
+                  >
+                    {/* Popover Header */}
+                    <div className="flex items-center justify-between border-b border-slate-700/80 pb-2">
+                      <div className="flex items-center gap-1.5">
+                        <MessageSquare className="w-3.5 h-3.5 text-wa-teal-primary" />
+                        <span className="font-bold text-slate-100 text-xs">Saluran WhatsApp</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowChannelPicker(false)}
+                        className="text-slate-400 hover:text-white p-0.5 rounded cursor-pointer"
+                        title="Tutup"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+
+                    <p className="text-[11px] text-slate-400 leading-tight">
+                      Pilih saluran untuk memindai QR code atau menautkan ulang:
+                    </p>
+
+                    {/* Channels List */}
+                    <div className="flex flex-col gap-1.5 max-h-56 overflow-y-auto pr-0.5">
+                      {(whatsappChannels || []).map((ch) => {
+                        const isConnected = ch.connectionStatus === 'connected'
+                        const isQrReady = ch.connectionStatus === 'qr_ready'
+
+                        return (
+                          <div
+                            key={ch.id}
+                            className="flex items-center justify-between p-2 rounded-xl bg-slate-800/70 hover:bg-slate-800 border border-slate-700/60 transition-colors"
+                          >
+                            <div className="flex items-center gap-2 min-w-0 pr-2">
+                              <span
+                                className={`w-2 h-2 rounded-full shrink-0 ${
+                                  isConnected
+                                    ? 'bg-emerald-500'
+                                    : isQrReady
+                                      ? 'bg-amber-400 animate-pulse'
+                                      : 'bg-rose-500'
+                                }`}
+                              />
+                              <div className="flex flex-col min-w-0 text-left">
+                                <span className="font-semibold text-slate-100 truncate text-[11px]">
+                                  {ch.name}
+                                </span>
+                                {ch.phoneNumber && (
+                                  <span className="font-mono text-[10px] text-slate-400 truncate">
+                                    {ch.phoneNumber}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            <button
+                              type="button"
+                              data-testid={`pair-channel-${ch.id}`}
+                              onClick={() => {
+                                if (onOpenWhatsAppPairing) {
+                                  onOpenWhatsAppPairing(ch.id, ch.name)
+                                }
+                                setShowChannelPicker(false)
+                              }}
+                              className={`px-2.5 py-1 rounded-lg text-[10px] font-bold shrink-0 transition-colors cursor-pointer flex items-center gap-1 ${
+                                isConnected
+                                  ? 'bg-slate-700 text-slate-300 hover:bg-emerald-600 hover:text-white'
+                                  : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs'
+                              }`}
+                            >
+                              <QrCode className="w-3 h-3" />
+                              <span>{isConnected ? 'Tautkan' : 'Scan QR'}</span>
+                            </button>
+                          </div>
+                        )
+                      })}
+                    </div>
+
+                    {/* Footer: Manage Channels Link */}
+                    {onOpenSettings && (
+                      <div className="border-t border-slate-700/80 pt-2 flex justify-end">
+                        <button
+                          type="button"
+                          data-testid="manage-channels-link"
+                          onClick={() => {
+                            setShowChannelPicker(false)
+                            onOpenSettings()
+                          }}
+                          className="text-[11px] text-wa-teal-primary hover:text-emerald-300 hover:underline flex items-center gap-1 cursor-pointer font-medium"
+                        >
+                          <span>Kelola Semua Saluran</span>
+                          <ChevronRight className="w-3 h-3" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             )}
           </div>
         )}

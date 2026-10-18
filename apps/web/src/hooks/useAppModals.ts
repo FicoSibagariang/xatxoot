@@ -1,6 +1,7 @@
 import type { BotFlowDefinition, WhatsAppTemplate } from '@xatxoot/shared'
 import { useCallback, useEffect, useState } from 'react'
 import type { ChannelWizardPayload } from '../components/channels'
+import type { WhatsAppChannelSummary } from '../components/layout/types'
 import type { BaileysPairingState } from '../components/pairing'
 import type { TeamWithMembers } from '../components/teams'
 import {
@@ -35,6 +36,53 @@ export function useAppModals({ onSendTemplateMessage }: UseAppModalsOptions = {}
   })
   const [pairingInboxId, setPairingInboxId] = useState<string>('default')
   const [pairingInboxName, setPairingInboxName] = useState<string>('WhatsApp Layanan CS')
+  const [whatsappChannels, setWhatsappChannels] = useState<WhatsAppChannelSummary[]>([])
+
+  // Fetch all WhatsApp channels and their connection statuses
+  const fetchWhatsAppChannels = useCallback(async () => {
+    try {
+      const inboxes = (await api.get('/api/v1/inboxes')) as Array<{
+        id: string
+        name: string
+        channelType: string
+      }>
+      if (Array.isArray(inboxes)) {
+        const waInboxes = inboxes.filter((ib) => ib.channelType === 'whatsapp_unofficial')
+        const channelsData: WhatsAppChannelSummary[] = await Promise.all(
+          waInboxes.map(async (ib) => {
+            try {
+              const ch = (await api.get(`/api/v1/inboxes/${ib.id}/channel`)) as {
+                phoneNumber?: string | null
+                connectionStatus?: string
+              }
+              return {
+                id: ib.id,
+                name: ib.name,
+                phoneNumber: ch.phoneNumber || null,
+                connectionStatus:
+                  (ch.connectionStatus as WhatsAppChannelSummary['connectionStatus']) ||
+                  'disconnected',
+              }
+            } catch {
+              return {
+                id: ib.id,
+                name: ib.name,
+                phoneNumber: null,
+                connectionStatus: 'disconnected',
+              }
+            }
+          }),
+        )
+        setWhatsappChannels(channelsData)
+      }
+    } catch {
+      // In offline or testing mode, ignore
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchWhatsAppChannels()
+  }, [fetchWhatsAppChannels])
 
   // Fetch live Baileys pairing QR code from backend API
   const fetchBaileysQr = useCallback(async () => {
@@ -243,9 +291,12 @@ export function useAppModals({ onSendTemplateMessage }: UseAppModalsOptions = {}
     botFlow,
     setBotFlow,
     pairingState,
+    whatsappChannels,
+    setWhatsappChannels,
     availableAgents: AVAILABLE_AGENTS,
 
     // Handlers
+    fetchWhatsAppChannels,
     handleRefreshPairingQr,
     handleSaveTeam,
     handleDeleteTeam,

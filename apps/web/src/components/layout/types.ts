@@ -11,6 +11,13 @@ export type LayoutNavTab =
 
 export type LayoutChannelFilter = 'all' | 'whatsapp' | 'website_widget' | 'api'
 
+export interface WhatsAppChannelSummary {
+  id: string
+  name: string
+  phoneNumber?: string | null
+  connectionStatus: 'connected' | 'qr_ready' | 'connecting' | 'disconnected'
+}
+
 export type ChatFilter = 'all' | 'unread' | 'assigned_me' | 'unassigned'
 
 export interface LayoutUser {

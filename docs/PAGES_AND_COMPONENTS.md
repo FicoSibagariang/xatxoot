@@ -79,7 +79,7 @@ Halaman kerja utama agen dan administrator untuk melayani seluruh percakapan pel
      - *User Avatar & Presence Menu*: Mengubah status kehadiran agen (*Online*, *Sibuk*, *Offline*).
      - *Navigation Tabs*: Pintasan ke Inbox, Kontak, Laporan, Kampanye, Otomasi, Pusat Bantuan, dan Pengaturan.
      - *Channel Quick Filter*: Ikon filter cepat percakapan berdasarkan tipe channel (Semua, WhatsApp, Widget, API).
-     - *Action Buttons*: Tombol cepat scan QR code WhatsApp (`QrCode`) dan tombol tambah saluran baru (`Plus`).
+     - *Action Buttons*: Tombol cepat scan QR code WhatsApp (`QrCode`) dengan lampu indikator status agregat dan popover pemilih saluran (*Channel Picker*) untuk multi-saluran, serta tombol tambah saluran baru (`Plus`).
   2. **`ChatListPanel` ([`ChatListPanel.tsx`](file:///home/bimasakti/agy/xatxoot/apps/web/src/components/layout/ChatListPanel.tsx))**:
      - *Search Input Bar*: Pencarian nama pelanggan, nomor telepon, atau isi pesan dengan shortcut keyboard `/`.
      - *Filter Tabs Pill*: Tab filter status obrolan (*Semua*, *Belum Dibaca*, *Ditugaskan ke Saya*, *Belum Ditugaskan*).

@@ -13,6 +13,7 @@ import type {
   LayoutNavTab,
   LayoutUser,
   PresenceStatus,
+  WhatsAppChannelSummary,
 } from './types'
 
 // Re-export sub-components and types for backward compatibility
@@ -133,8 +134,9 @@ export interface WhatsAppLayoutProps {
   onOpenTemplateDialog?: () => void
   onLogout?: () => void
   onAddChannel?: () => void
-  onOpenWhatsAppPairing?: () => void
+  onOpenWhatsAppPairing?: (inboxId?: string, inboxName?: string) => void
   whatsappConnectionStatus?: 'connected' | 'qr_ready' | 'connecting' | 'disconnected'
+  whatsappChannels?: WhatsAppChannelSummary[]
   children?: ReactNode
 }
 
@@ -172,6 +174,7 @@ export function WhatsAppLayout({
   onAddChannel,
   onOpenWhatsAppPairing,
   whatsappConnectionStatus,
+  whatsappChannels,
   children,
 }: WhatsAppLayoutProps) {
   const selectedConversation = conversations.find((c) => c.id === selectedConversationId) || null
@@ -191,6 +194,7 @@ export function WhatsAppLayout({
         onAddChannel={onAddChannel}
         onOpenWhatsAppPairing={onOpenWhatsAppPairing}
         whatsappConnectionStatus={whatsappConnectionStatus}
+        whatsappChannels={whatsappChannels}
       />
 
       {activeTab === 'reports' ? (
