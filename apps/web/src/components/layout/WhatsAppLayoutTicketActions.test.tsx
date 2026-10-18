@@ -139,4 +139,26 @@ describe('ConversationThread Quick Ticket Actions (Resolve & Assign buttons)', (
     expect(html).toContain('data-testid="btn-assign-ticket"')
     expect(html).toContain('>Ditugaskan<')
   })
+
+  it('should NOT render Assign or Resolve buttons when conversation has no ticket', () => {
+    const conversationWithoutTicket: ConversationItem = {
+      ...baseConversation,
+      ticket: undefined,
+    }
+
+    const html = renderToStaticMarkup(
+      <ConversationThread
+        currentUser={mockUser}
+        conversation={conversationWithoutTicket}
+        isDrawerOpen={false}
+        onToggleDrawer={() => {}}
+        onSendMessage={() => {}}
+        onAssignTicket={() => {}}
+        onResolveTicket={() => {}}
+      />,
+    )
+
+    expect(html).not.toContain('data-testid="btn-assign-ticket"')
+    expect(html).not.toContain('data-testid="btn-resolve-ticket"')
+  })
 })

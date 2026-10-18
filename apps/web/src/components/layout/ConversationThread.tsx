@@ -20,7 +20,12 @@ import {
   filterAutocompleteEntries,
 } from '../chat'
 import { EmptyConversationState } from './EmptyConversationState'
-import { DEFAULT_CANNED_RESPONSES, DEFAULT_SLASH_COMMANDS } from './constants'
+import {
+  COPILOT_TONE_PREFIXES,
+  DEFAULT_CANNED_RESPONSES,
+  DEFAULT_SLASH_COMMANDS,
+  DEFAULT_SUGGESTED_ARTICLES,
+} from './constants'
 import type { ConversationItem, LayoutUser } from './types'
 
 export { DEFAULT_CANNED_RESPONSES, DEFAULT_SLASH_COMMANDS }
@@ -246,13 +251,7 @@ export function ConversationThread({
           `Halo Kak ${conversation.contactName}, terima kasih telah menghubungi kami. Terkait kendala yang disampaikan, tim kami sedang memprosesnya. Mohon ditunggu ya!`,
         )
         setAiResultType('draft')
-        setAiArticles([
-          {
-            id: 'art-1',
-            title: 'Kebijakan Layanan Pelanggan',
-            snippet: 'Layanan bantuan aktif...',
-          },
-        ])
+        setAiArticles(DEFAULT_SUGGESTED_ARTICLES)
       }
     } catch {
       setAiError('Gagal membuat draf balasan.')
@@ -270,14 +269,9 @@ export function ConversationThread({
     setAiLoadingAction(`Menyesuaikan gaya bahasa (${tone})...`)
     setAiError(null)
     try {
-      const tonePrefixes: Record<string, string> = {
-        formal: 'Yth. Pelanggan, dengan hormat kami sampaikan bahwa ',
-        polite: 'Mohon maaf atas ketidaknyamanannya kak, ',
-        friendly: 'Halo sahabat! Senang bisa membantu, ',
-      }
       const res = onAiChangeTone
         ? await onAiChangeTone(inputText, tone)
-        : `${tonePrefixes[tone] || ''}${inputText.trim()}`
+        : `${COPILOT_TONE_PREFIXES[tone] || ''}${inputText.trim()}`
       if (res) {
         setAiResultText(res)
         setAiResultType('tone')
@@ -329,54 +323,56 @@ export function ConversationThread({
           </div>
         </button>
 
-        {/* Quick Ticket Actions */}
-        <div className="flex items-center gap-2">
-          {conversation.ticket && (
-            <>
-              <span className="text-xs font-semibold px-2 py-1 rounded bg-wa-bubble-light text-wa-teal-dark border border-wa-bubble-active">
-                #{conversation.ticket.ticketNumber}
-              </span>
-              {conversation.ticket.slaStatus ? (
-                <TicketSlaBadge
-                  firstResponseDeadline={conversation.ticket.slaStatus.firstResponseDeadline}
-                  resolutionDeadline={conversation.ticket.slaStatus.resolutionDeadline}
-                  isBreached={conversation.ticket.slaStatus.isBreached}
-                  breachedAt={conversation.ticket.slaStatus.breachedAt}
-                  policyName={conversation.ticket.slaStatus.policyName}
-                  ticketStatus={conversation.ticket.status}
-                  now={now}
-                  size="md"
-                  showTooltip={true}
-                />
-              ) : (
-                <DeadlineTimerBadge
-                  deadlineAt={conversation.ticket.deadlineAt}
-                  status={conversation.ticket.status}
-                  now={now}
-                  size="md"
-                />
-              )}
-            </>
-          )}
+        {/* Quick Ticket Actions (Only rendered if conversation has an active ticket) */}
+        {conversation.ticket && (
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold px-2 py-1 rounded bg-wa-bubble-light text-wa-teal-dark border border-wa-bubble-active">
+              #{conversation.ticket.ticketNumber}
+            </span>
+            {conversation.ticket.slaStatus ? (
+              <TicketSlaBadge
+                firstResponseDeadline={conversation.ticket.slaStatus.firstResponseDeadline}
+                resolutionDeadline={conversation.ticket.slaStatus.resolutionDeadline}
+                isBreached={conversation.ticket.slaStatus.isBreached}
+                breachedAt={conversation.ticket.slaStatus.breachedAt}
+                policyName={conversation.ticket.slaStatus.policyName}
+                ticketStatus={conversation.ticket.status}
+                now={now}
+                size="md"
+                showTooltip={true}
+              />
+            ) : (
+              <DeadlineTimerBadge
+                deadlineAt={conversation.ticket.deadlineAt}
+                status={conversation.ticket.status}
+                now={now}
+                size="md"
+              />
+            )}
 
-          <Button
-            data-testid="btn-assign-ticket"
-            variant="secondary"
-            size="sm"
-            onClick={onAssignTicket}
-          >
-            {isTicketAssignedToMe ? 'Unassign' : isTicketAssignedToOther ? 'Ditugaskan' : 'Assign'}
-          </Button>
+            <Button
+              data-testid="btn-assign-ticket"
+              variant="secondary"
+              size="sm"
+              onClick={onAssignTicket}
+            >
+              {isTicketAssignedToMe
+                ? 'Unassign'
+                : isTicketAssignedToOther
+                  ? 'Ditugaskan'
+                  : 'Assign'}
+            </Button>
 
-          <Button
-            data-testid="btn-resolve-ticket"
-            variant={isTicketResolved ? 'secondary' : 'teal'}
-            size="sm"
-            onClick={onResolveTicket}
-          >
-            {isTicketResolved ? 'Buka Kembali' : 'Resolve'}
-          </Button>
-        </div>
+            <Button
+              data-testid="btn-resolve-ticket"
+              variant={isTicketResolved ? 'secondary' : 'teal'}
+              size="sm"
+              onClick={onResolveTicket}
+            >
+              {isTicketResolved ? 'Buka Kembali' : 'Resolve'}
+            </Button>
+          </div>
+        )}
       </header>
 
       {/* Canvas Obrolan (Doodle Wallpaper Background) */}
@@ -396,8 +392,14 @@ export function ConversationThread({
         ) : (
           <div className="h-full flex flex-col items-center justify-center text-center">
             <div className="bg-white/90 backdrop-blur-xs px-4 py-2 rounded-lg shadow-xs text-xs text-wa-text-muted border border-wa-border max-w-sm">
-              <span className="font-semibold text-emerald-800">Tiket Aktif: </span>
-              {conversation.ticket?.ticketNumber || 'T-Baru'} &bull; Mulai percakapan di bawah ini.
+              {conversation.ticket ? (
+                <>
+                  <span className="font-semibold text-emerald-800">Tiket Aktif: </span>#
+                  {conversation.ticket.ticketNumber} &bull; Mulai percakapan di bawah ini.
+                </>
+              ) : (
+                <span>Mulai percakapan di bawah ini.</span>
+              )}
             </div>
           </div>
         )}

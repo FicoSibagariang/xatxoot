@@ -49,3 +49,13 @@ export const DEFAULT_SLASH_COMMANDS: CommandItem[] = [
     endpointUrl: 'https://api.external.com/orders/refund',
   },
 ]
+
+export const COPILOT_TONE_PREFIXES: Record<string, string> = {
+  formal: 'Yth. Pelanggan, dengan hormat kami sampaikan bahwa ',
+  polite: 'Mohon maaf atas ketidaknyamanannya kak, ',
+  friendly: 'Halo sahabat! Senang bisa membantu, ',
+}
+
+export const DEFAULT_SUGGESTED_ARTICLES = [
+  { id: 'art-1', title: 'Kebijakan Layanan Pelanggan', snippet: 'Layanan bantuan aktif...' },
+]
