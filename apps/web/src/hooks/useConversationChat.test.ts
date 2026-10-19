@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, mock } from 'bun:test'
 import type { TimelineMessage } from '../chat'
+import type { ConversationItem } from '../components/layout/types'
 import { api } from '../services/apiClient'
-import { areMessagesIdentical } from './useConversationChat'
+import { areMessagesIdentical, filterConversations } from './useConversationChat'
 
 describe('Conversation Chat Hook & Realtime Reconciliation (Task #272 - apps/web)', () => {
   const originalFetch = globalThis.fetch
@@ -132,6 +133,77 @@ describe('Conversation Chat Hook & Realtime Reconciliation (Task #272 - apps/web
       expect(areMessagesIdentical(msgsA, msgsB)).toBe(false)
       expect(areMessagesIdentical(msgsA, msgsC)).toBe(false)
       expect(areMessagesIdentical(undefined, msgsA)).toBe(false)
+    })
+  })
+
+  describe('filterConversations (Search Input Bar & Filter Safety)', () => {
+    // biome-ignore lint/suspicious/noExplicitAny: test edge cases with missing lastMessage or numeric ticketNumber
+    const mockList: any[] = [
+      {
+        id: 'c-1',
+        contactName: 'Handoko',
+        contactPhone: '+6285359472092',
+        channel: 'whatsapp',
+        lastMessage: undefined, // no messages yet
+        ticket: {
+          id: 't-1',
+          ticketNumber: 1006, // numeric displayId
+          status: 'open',
+        },
+      },
+      {
+        id: 'c-2',
+        contactName: 'Kajel',
+        contactPhone: '+6281263800725',
+        channel: 'whatsapp',
+        lastMessage: 'Halo selamat pagi',
+        ticket: {
+          id: 't-2',
+          ticketNumber: '1005',
+          status: 'pending',
+          assignedTo: 'agent-1',
+        },
+      },
+      {
+        id: 'c-3',
+        contactName: undefined, // missing contact name
+        channel: 'website_widget',
+        lastMessage: null,
+      },
+    ]
+
+    it('should safely search without crashing when lastMessage is undefined or null', () => {
+      expect(() => {
+        const results = filterConversations(mockList as ConversationItem[], {
+          searchQuery: 'selamat',
+        })
+        expect(results).toHaveLength(1)
+        expect(results[0].id).toBe('c-2')
+      }).not.toThrow()
+    })
+
+    it('should safely search by numeric ticket number without throwing .toLowerCase is not a function', () => {
+      expect(() => {
+        const results = filterConversations(mockList as ConversationItem[], {
+          searchQuery: '1006',
+        })
+        expect(results).toHaveLength(1)
+        expect(results[0].id).toBe('c-1')
+      }).not.toThrow()
+    })
+
+    it('should safely search by phone number or contact name even with missing fields', () => {
+      const resultsByPhone = filterConversations(mockList as ConversationItem[], {
+        searchQuery: '63800',
+      })
+      expect(resultsByPhone).toHaveLength(1)
+      expect(resultsByPhone[0].id).toBe('c-2')
+
+      const resultsByName = filterConversations(mockList as ConversationItem[], {
+        searchQuery: 'handoko',
+      })
+      expect(resultsByName).toHaveLength(1)
+      expect(resultsByName[0].id).toBe('c-1')
     })
   })
 })

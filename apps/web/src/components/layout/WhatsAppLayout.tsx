@@ -108,6 +108,7 @@ export function ContactDrawer({
 export interface WhatsAppLayoutProps {
   currentUser: LayoutUser
   conversations: ConversationItem[]
+  allConversations?: ConversationItem[]
   selectedConversationId?: string | null
   isDrawerOpen?: boolean
   activeTab?: LayoutNavTab
@@ -148,6 +149,7 @@ export interface WhatsAppLayoutProps {
 export function WhatsAppLayout({
   currentUser,
   conversations,
+  allConversations,
   selectedConversationId,
   isDrawerOpen = false,
   activeTab = 'inbox',
@@ -184,7 +186,8 @@ export function WhatsAppLayout({
   onUpdateContact,
   children,
 }: WhatsAppLayoutProps) {
-  const selectedConversation = conversations.find((c) => c.id === selectedConversationId) || null
+  const selectedConversation =
+    (allConversations || conversations).find((c) => c.id === selectedConversationId) || null
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-wa-chat-bg text-wa-text-primary antialiased">

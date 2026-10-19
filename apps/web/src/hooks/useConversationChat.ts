@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ContentType, MessageType, TimelineMessage } from '../components/chat'
 import type {
   ChatFilter,
@@ -63,6 +63,57 @@ export function areMessagesIdentical(
   )
 }
 
+export interface FilterConversationOptions {
+  activeChannelFilter?: LayoutChannelFilter | string
+  searchQuery?: string
+  activeFilter?: ChatFilter | string
+  userId?: string
+}
+
+export function filterConversations(
+  conversations: ConversationItem[],
+  options: FilterConversationOptions = {},
+): ConversationItem[] {
+  const { activeChannelFilter = 'all', searchQuery = '', activeFilter = 'all', userId } = options
+
+  const trimmedQuery = searchQuery.trim().toLowerCase()
+
+  return conversations.filter((c) => {
+    // Channel filter
+    if (activeChannelFilter !== 'all' && c.channel !== activeChannelFilter) {
+      return false
+    }
+
+    // Search query filter
+    if (trimmedQuery !== '') {
+      const contactNameStr = String(c.contactName || '').toLowerCase()
+      const contactPhoneStr = String(c.contactPhone || '').toLowerCase()
+      const lastMsgStr = String(c.lastMessage || '').toLowerCase()
+      const ticketNumStr = String(c.ticket?.ticketNumber || c.ticket?.id || '').toLowerCase()
+
+      const matchName = contactNameStr.includes(trimmedQuery)
+      const matchPhone = contactPhoneStr.includes(trimmedQuery)
+      const matchMsg = lastMsgStr.includes(trimmedQuery)
+      const matchTicket = ticketNumStr.includes(trimmedQuery)
+
+      if (!matchName && !matchPhone && !matchMsg && !matchTicket) {
+        return false
+      }
+    }
+
+    // Quick filter pills
+    if (activeFilter === 'unread' && (c.unreadCount ?? 0) === 0) return false
+    if (activeFilter === 'assigned_me') {
+      return Boolean(c.ticket?.assignedTo && c.ticket.assignedTo === userId)
+    }
+    if (activeFilter === 'unassigned') {
+      return Boolean(c.ticket && !c.ticket.assignedTo)
+    }
+
+    return true
+  })
+}
+
 export function useConversationChat({ user, initialConversationId }: UseConversationChatOptions) {
   const [conversations, setConversations] = useState<ConversationItem[]>([])
   const [messagesMap, setMessagesMap] = useState<Record<string, TimelineMessage[]>>({})
@@ -109,7 +160,7 @@ export function useConversationChat({ user, initialConversationId }: UseConversa
               ticket: item.activeTicket
                 ? {
                     id: item.activeTicket.id,
-                    ticketNumber: item.activeTicket.displayId || 'T-000',
+                    ticketNumber: String(item.activeTicket.displayId ?? 'T-000'),
                     status: item.activeTicket.status || 'open',
                     priority: item.activeTicket.priority || 'medium',
                     assignedTo: item.activeTicket.assigneeId,
@@ -152,7 +203,7 @@ export function useConversationChat({ user, initialConversationId }: UseConversa
                   ticket: data.activeTicket
                     ? {
                         id: data.activeTicket.id,
-                        ticketNumber: data.activeTicket.displayId || 'T-000',
+                        ticketNumber: String(data.activeTicket.displayId ?? 'T-000'),
                         status: data.activeTicket.status || 'open',
                         priority: data.activeTicket.priority || 'medium',
                         assignedTo: data.activeTicket.assigneeId,
@@ -173,7 +224,7 @@ export function useConversationChat({ user, initialConversationId }: UseConversa
               ticket: data.activeTicket
                 ? {
                     id: data.activeTicket.id,
-                    ticketNumber: data.activeTicket.displayId || 'T-000',
+                    ticketNumber: String(data.activeTicket.displayId ?? 'T-000'),
                     status: data.activeTicket.status || 'open',
                     priority: data.activeTicket.priority || 'medium',
                     assignedTo: data.activeTicket.assigneeId,
@@ -308,7 +359,7 @@ export function useConversationChat({ user, initialConversationId }: UseConversa
       if (!t) return
       const event: TicketUpdatedEvent = {
         id: t.id,
-        ticketNumber: t.ticketNumber || t.displayId || '',
+        ticketNumber: String(t.ticketNumber ?? t.displayId ?? ''),
         status: t.status,
         priority: t.priority,
         assignedTo: t.assignedTo ?? t.assigneeId ?? null,
@@ -349,35 +400,16 @@ export function useConversationChat({ user, initialConversationId }: UseConversa
   }, [selectedConversationId, fetchMessages])
 
   // Filter conversations
-  const filteredConversations = conversations.filter((c) => {
-    // Channel filter
-    if (activeChannelFilter !== 'all' && c.channel !== activeChannelFilter) {
-      return false
-    }
-
-    // Search query filter
-    if (searchQuery.trim() !== '') {
-      const q = searchQuery.toLowerCase()
-      const matchName = c.contactName.toLowerCase().includes(q)
-      const matchPhone = c.contactPhone?.toLowerCase().includes(q)
-      const matchMsg = c.lastMessage.toLowerCase().includes(q)
-      const matchTicket = c.ticket?.ticketNumber.toLowerCase().includes(q)
-      if (!matchName && !matchPhone && !matchMsg && !matchTicket) {
-        return false
-      }
-    }
-
-    // Quick filter pills
-    if (activeFilter === 'unread' && c.unreadCount === 0) return false
-    if (activeFilter === 'assigned_me') {
-      return Boolean(c.ticket?.assignedTo && c.ticket.assignedTo === user.id)
-    }
-    if (activeFilter === 'unassigned') {
-      return Boolean(c.ticket && !c.ticket.assignedTo)
-    }
-
-    return true
-  })
+  const filteredConversations = useMemo(
+    () =>
+      filterConversations(conversations, {
+        activeChannelFilter,
+        searchQuery,
+        activeFilter,
+        userId: user.id,
+      }),
+    [conversations, activeChannelFilter, searchQuery, activeFilter, user.id],
+  )
 
   const selectedConversation = conversations.find((c) => c.id === selectedConversationId)
   const currentMessages = selectedConversationId ? messagesMap[selectedConversationId] || [] : []

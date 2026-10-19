@@ -222,6 +222,7 @@ function AppContent({ initialAuthenticated }: { initialAuthenticated?: boolean }
         <WhatsAppLayout
           currentUser={user}
           conversations={chat.filteredConversations}
+          allConversations={chat.conversations}
           selectedConversationId={chat.selectedConversationId}
           isDrawerOpen={chat.isDrawerOpen}
           activeTab={getActiveTab(location.pathname)}
