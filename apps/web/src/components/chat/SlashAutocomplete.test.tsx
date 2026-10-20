@@ -248,6 +248,7 @@ describe('Slash Autocomplete Popup Component (Task 2.17 - apps/web)', () => {
         ticketNumber: 'T-101',
         status: 'open',
         priority: 'high',
+        assignedTo: 'agent-1',
       },
     }
 

@@ -23,6 +23,7 @@ describe('AI Copilot Composer Toolbar Component (Task 5.14 - apps/web)', () => {
       ticketNumber: 'T-101',
       status: 'open',
       priority: 'high',
+      assignedTo: 'agent-1',
       assigneeName: 'Agen Support',
     },
   }
