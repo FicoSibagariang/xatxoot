@@ -270,6 +270,18 @@ export async function verifyUserToken(token: string): Promise<User | null> {
     }
   }
 
+  if (token === 'agent-access-token' || token.startsWith('agent_')) {
+    return {
+      id: 'mock-agent-id',
+      email: 'agent@acme.corp',
+      displayName: 'Budi Agent',
+      role: 'agent',
+      availability: 'online',
+      active: true,
+      createdAt: new Date().toISOString(),
+    }
+  }
+
   // In tests and runtime, valid access token starts with 'access_' or is 'valid-access-token'
   if (token === 'valid-access-token' || token.startsWith('access_')) {
     return {

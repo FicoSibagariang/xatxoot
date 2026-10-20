@@ -1,4 +1,7 @@
 import { Lock, MessageSquare } from 'lucide-react'
+import { Button } from '../astryx'
+import { DeadlineTimerBadge, TicketSlaBadge } from '../chat'
+import type { TicketSummary } from './types'
 
 export function EmptyConversationState() {
   return (
@@ -35,6 +38,129 @@ export function EmptyThreadNotice({ ticketNumber }: { ticketNumber?: string }) {
           <span>Mulai percakapan di bawah ini.</span>
         )}
       </div>
+    </div>
+  )
+}
+
+export interface TicketAssignmentLockBannerProps {
+  isUnassigned: boolean
+  assignedAgentName?: string | null
+  onAssignTicket: () => void
+}
+
+export function TicketAssignmentLockBanner({
+  isUnassigned,
+  assignedAgentName,
+  onAssignTicket,
+}: TicketAssignmentLockBannerProps) {
+  if (isUnassigned) {
+    return (
+      <div
+        data-testid="unassigned-ticket-banner"
+        className="flex-1 flex items-center justify-between gap-3 bg-amber-50 border border-amber-200 text-amber-900 rounded-lg px-4 py-2.5 shadow-2xs select-none"
+      >
+        <div className="flex items-center gap-2 text-xs font-medium">
+          <span className="text-base select-none">🔒</span>
+          <span>Percakapan ini belum ditugaskan. Ambil tiket untuk mulai membalas.</span>
+        </div>
+        <button
+          type="button"
+          data-testid="btn-claim-ticket"
+          onClick={onAssignTicket}
+          className="shrink-0 inline-flex items-center justify-center font-medium text-xs px-3 py-1.5 rounded-md bg-wa-teal-primary hover:bg-wa-teal-dark text-white shadow-xs cursor-pointer transition-colors"
+        >
+          Ambil Tiket Ini
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div
+      data-testid="assigned-other-ticket-banner"
+      className="flex-1 flex items-center justify-between gap-3 bg-amber-50 border border-amber-200 text-amber-900 rounded-lg px-4 py-2.5 shadow-2xs select-none"
+    >
+      <div className="flex items-center gap-2 text-xs font-medium">
+        <span className="text-base select-none">⚠️</span>
+        <span>
+          Tiket ini sedang ditangani oleh {assignedAgentName || 'agen lain'}. Anda hanya dapat
+          membaca atau menulis Catatan Internal.
+        </span>
+      </div>
+      <button
+        type="button"
+        data-testid="btn-reassign-ticket"
+        onClick={onAssignTicket}
+        className="shrink-0 inline-flex items-center justify-center font-medium text-xs px-3 py-1.5 rounded-md bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 shadow-2xs cursor-pointer transition-colors"
+      >
+        Ambil Alih
+      </button>
+    </div>
+  )
+}
+
+export interface ThreadTicketHeaderActionsProps {
+  ticket: TicketSummary
+  now?: Date
+  isTicketAssignedToMe: boolean
+  isTicketAssignedToOther: boolean
+  isTicketResolved: boolean
+  onAssignTicket: () => void
+  onResolveTicket: () => void
+}
+
+export function ThreadTicketHeaderActions({
+  ticket,
+  now,
+  isTicketAssignedToMe,
+  isTicketAssignedToOther,
+  isTicketResolved,
+  onAssignTicket,
+  onResolveTicket,
+}: ThreadTicketHeaderActionsProps) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-xs font-semibold px-2 py-1 rounded bg-wa-bubble-light text-wa-teal-dark border border-wa-bubble-active">
+        #{ticket.ticketNumber}
+      </span>
+      {ticket.slaStatus ? (
+        <TicketSlaBadge
+          firstResponseDeadline={ticket.slaStatus.firstResponseDeadline}
+          resolutionDeadline={ticket.slaStatus.resolutionDeadline}
+          isBreached={ticket.slaStatus.isBreached}
+          breachedAt={ticket.slaStatus.breachedAt}
+          policyName={ticket.slaStatus.policyName}
+          ticketStatus={ticket.status}
+          now={now}
+          size="md"
+          showTooltip={true}
+        />
+      ) : (
+        <DeadlineTimerBadge
+          deadlineAt={ticket.deadlineAt}
+          status={ticket.status}
+          now={now}
+          size="md"
+        />
+      )}
+
+      <Button
+        data-testid="btn-assign-ticket"
+        variant="secondary"
+        size="sm"
+        onClick={onAssignTicket}
+      >
+        {isTicketAssignedToMe ? 'Unassign' : isTicketAssignedToOther ? 'Ditugaskan' : 'Assign'}
+      </Button>
+
+      <Button
+        data-testid="btn-resolve-ticket"
+        variant={isTicketResolved ? 'secondary' : 'teal'}
+        size="sm"
+        onClick={onResolveTicket}
+      >
+        {isTicketResolved ? 'Buka Kembali' : 'Resolve'}
+      </Button>
     </div>
   )
 }

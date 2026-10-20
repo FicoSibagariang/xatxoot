@@ -23,6 +23,27 @@ export async function handleSendConversationMessage(c: Context) {
     const user = c.get('user') as User | undefined
     const simulateError = c.req.header('x-simulate-error')
 
+    // Enforcement: Active ticket assignment check before agent replies (Issue #285)
+    const activeTicket = convDetail.activeTicket
+    if (activeTicket && activeTicket.status !== 'resolved') {
+      const isPrivileged =
+        user?.role === 'owner' || user?.role === 'administrator' || user?.role === 'admin'
+
+      if (!activeTicket.assignedTo) {
+        if (!isPrivileged) {
+          return c.json(
+            {
+              error:
+                'Tiket harus ditugaskan secara eksplisit terlebih dahulu sebelum mengirim pesan balasan',
+            },
+            403,
+          )
+        }
+      } else if (activeTicket.assignedTo !== user?.id && !isPrivileged) {
+        return c.json({ error: 'Tiket ini sedang ditangani oleh agen lain' }, 403)
+      }
+    }
+
     const result = await messageService.sendMessage({
       conversationId,
       content: body.content,
