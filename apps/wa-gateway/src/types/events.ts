@@ -47,6 +47,8 @@ export const WaInboundMessageEventSchema = z.object({
   targetExternalId: z.string().optional(),
   newContent: z.string().optional(),
   editedAt: z.string().optional(),
+  isRevoke: z.boolean().optional(),
+  revokedAt: z.string().optional(),
 })
 
 export type WaInboundMessageEvent = z.infer<typeof WaInboundMessageEventSchema>

@@ -129,6 +129,34 @@ export function extractInboundMessage(
       contentObj.documentWithCaptionMessage?.message
   }
 
+  // Handle Baileys revoked message (protocolMessage type 0 / REVOKE)
+  if (contentObj?.protocolMessage && contentObj.protocolMessage.type === 0) {
+    const protoMsg = contentObj.protocolMessage
+    const targetExternalId = protoMsg.key?.id
+    if (!targetExternalId) {
+      return null
+    }
+
+    const timestamp = msg.messageTimestamp
+      ? new Date(Number(msg.messageTimestamp) * 1000).toISOString()
+      : new Date().toISOString()
+
+    return {
+      channelId: context.channelId,
+      inboxId: context.inboxId,
+      senderNumber,
+      senderName: context.isEcho || key.fromMe ? undefined : msg.pushName || undefined,
+      externalMessageId: key.id,
+      targetExternalId,
+      isRevoke: true,
+      revokedAt: timestamp,
+      messageType: 'text',
+      content: undefined,
+      timestamp,
+      isEcho: context.isEcho ? true : undefined,
+    }
+  }
+
   // Handle Baileys edited message (protocolMessage type 14 / MESSAGE_EDIT)
   if (
     contentObj?.protocolMessage &&

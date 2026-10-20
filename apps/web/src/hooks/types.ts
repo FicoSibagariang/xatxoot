@@ -39,6 +39,13 @@ export interface MessageEditedEvent {
   }
 }
 
+export interface MessageRevokedEvent {
+  messageId: string
+  conversationId: string
+  ticketId?: string | null
+  revokedAt: string
+}
+
 export interface TicketUpdatedEvent {
   id: string
   ticketNumber: string
@@ -61,6 +68,7 @@ export interface RealtimeStreamOptions {
   onMessageCreated?: (event: MessageCreatedEvent) => void
   onMessageStatusUpdated?: (event: MessageStatusUpdatedEvent) => void
   onMessageEdited?: (event: MessageEditedEvent) => void
+  onMessageRevoked?: (event: MessageRevokedEvent) => void
   onTicketUpdated?: (event: TicketUpdatedEvent) => void
   onError?: (error: unknown) => void
   onStatusChange?: (status: RealtimeStatus) => void

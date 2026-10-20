@@ -104,7 +104,7 @@ export class BaileysSession {
     }
 
     console.log(
-      `[wa-gateway] [${this.sessionId}] [DEBUG] Extracted ${isEcho ? 'echo outgoing' : 'inbound'} message from ${event.senderNumber} (${event.senderName || 'No Name'}): "${event.content}"`,
+      `[wa-gateway] [${this.sessionId}] [DEBUG] Extracted ${isEcho ? 'echo outgoing' : event.isRevoke ? 'revoke' : 'inbound'} message from ${event.senderNumber} (${event.senderName || 'No Name'}): "${event.content}"`,
     )
 
     // 1. Forward directly to API inbound webhook
@@ -132,6 +132,8 @@ export class BaileysSession {
           targetExternalId: event.targetExternalId,
           newContent: event.newContent,
           editedAt: event.editedAt,
+          isRevoke: event.isRevoke,
+          revokedAt: event.revokedAt,
         }),
       })
       const text = await res.text()

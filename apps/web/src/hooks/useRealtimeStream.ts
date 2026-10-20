@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type {
   MessageCreatedEvent,
   MessageEditedEvent,
+  MessageRevokedEvent,
   MessageStatusUpdatedEvent,
   RealtimeEventHandler,
   RealtimeStatus,
@@ -142,6 +143,12 @@ export class RealtimeStreamClient {
       this.emit('message.edited', data)
     }
 
+    const handleMessageRevoked = (event: unknown) => {
+      const data = this.parseEventData(event)
+      this.options.onMessageRevoked?.(data as MessageRevokedEvent)
+      this.emit('message.revoked', data)
+    }
+
     const handleTicketUpdated = (event: unknown) => {
       const data = this.parseEventData(event)
       this.options.onTicketUpdated?.(data as TicketUpdatedEvent)
@@ -152,12 +159,14 @@ export class RealtimeStreamClient {
     es.addEventListener('message.created', handleMessageCreated as EventListener)
     es.addEventListener('message.status_updated', handleMessageStatusUpdated as EventListener)
     es.addEventListener('message.edited', handleMessageEdited as EventListener)
+    es.addEventListener('message.revoked', handleMessageRevoked as EventListener)
     es.addEventListener('ticket.updated', handleTicketUpdated as EventListener)
 
     this.boundEsListeners.set('connected', handleConnected)
     this.boundEsListeners.set('message.created', handleMessageCreated)
     this.boundEsListeners.set('message.status_updated', handleMessageStatusUpdated)
     this.boundEsListeners.set('message.edited', handleMessageEdited)
+    this.boundEsListeners.set('message.revoked', handleMessageRevoked)
     this.boundEsListeners.set('ticket.updated', handleTicketUpdated)
 
     // Register active custom listeners
@@ -288,6 +297,10 @@ export function useRealtimeStream(
         onMessageEdited: (event) => {
           setLastEvent({ type: 'message.edited', data: event })
           callbacksRef.current.onMessageEdited?.(event)
+        },
+        onMessageRevoked: (event) => {
+          setLastEvent({ type: 'message.revoked', data: event })
+          callbacksRef.current.onMessageRevoked?.(event)
         },
         onTicketUpdated: (event) => {
           setLastEvent({ type: 'ticket.updated', data: event })
@@ -447,6 +460,46 @@ export function applyRealtimeMessageEdit<
           editHistory: existingHistory,
         },
         editHistory: existingHistory,
+      }
+    }
+    return m
+  })
+
+  if (!hasChanged) return messagesMap
+
+  return {
+    ...messagesMap,
+    [event.conversationId]: updatedList,
+  }
+}
+
+export function applyRealtimeMessageRevoke<
+  T extends {
+    id: string
+    conversationId: string
+    status?: string
+    isDeletedBySender?: boolean
+    deletedAt?: string
+    contentAttributes?: Record<string, unknown>
+  },
+>(messagesMap: Record<string, T[]>, event: MessageRevokedEvent): Record<string, T[]> {
+  const currentList = messagesMap[event.conversationId]
+  if (!currentList) return messagesMap
+
+  let hasChanged = false
+  const updatedList = currentList.map((m) => {
+    if (m.id === event.messageId) {
+      hasChanged = true
+      return {
+        ...m,
+        status: 'deleted_by_sender',
+        isDeletedBySender: true,
+        deletedAt: event.revokedAt,
+        contentAttributes: {
+          ...(m.contentAttributes || {}),
+          isDeletedBySender: true,
+          deletedAt: event.revokedAt,
+        },
       }
     }
     return m

@@ -12,6 +12,7 @@ import type { MessageCreatedEvent, TicketUpdatedEvent } from './types'
 import {
   applyRealtimeMessage,
   applyRealtimeMessageEdit,
+  applyRealtimeMessageRevoke,
   applyRealtimeMessageStatus,
   applyRealtimeTicket,
   useRealtimeStream,
@@ -275,6 +276,11 @@ export function useConversationChat({ user, initialConversationId }: UseConversa
               isEdited: Boolean(m.contentAttributes?.isEdited || m.isEdited),
               editedAt: m.contentAttributes?.editedAt || m.editedAt,
               editHistory: m.contentAttributes?.editHistory || m.editHistory || [],
+              isDeletedBySender: Boolean(
+                m.contentAttributes?.isDeletedBySender || m.status === 'deleted_by_sender',
+              ),
+              deletedAt: m.contentAttributes?.deletedAt,
+              revokedOriginalContent: m.contentAttributes?.revokedOriginalContent,
             }
           })
           setMessagesMap((prev) => {
@@ -364,6 +370,20 @@ export function useConversationChat({ user, initialConversationId }: UseConversa
             return {
               ...c,
               lastMessage: event.content,
+            }
+          }
+          return c
+        }),
+      )
+    },
+    onMessageRevoked: (event) => {
+      setMessagesMap((prev) => applyRealtimeMessageRevoke(prev, event))
+      setConversations((prev) =>
+        prev.map((c) => {
+          if (c.id === event.conversationId) {
+            return {
+              ...c,
+              lastMessage: '🚫 Pesan telah ditarik',
             }
           }
           return c

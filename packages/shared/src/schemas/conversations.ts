@@ -120,7 +120,13 @@ export const MessageContentTypeSchema = z.enum([
 ])
 export type MessageContentType = z.infer<typeof MessageContentTypeSchema>
 
-export const MessageStatusSchema = z.enum(['sent', 'delivered', 'read', 'failed'])
+export const MessageStatusSchema = z.enum([
+  'sent',
+  'delivered',
+  'read',
+  'failed',
+  'deleted_by_sender',
+])
 export type MessageStatus = z.infer<typeof MessageStatusSchema>
 
 export const AttachmentInputSchema = z.object({

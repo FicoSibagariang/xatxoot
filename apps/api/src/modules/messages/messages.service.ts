@@ -248,6 +248,56 @@ export class MessageService {
     return { message: updated }
   }
 
+  async revokeMessage(params: {
+    targetExternalId: string
+    revokedAt?: string
+  }): Promise<{ message: Message } | null> {
+    const target = await this.getMessageByExternalId(params.targetExternalId)
+    if (!target) return null
+
+    const now = params.revokedAt || new Date().toISOString()
+    const attrs = (target.contentAttributes as Record<string, unknown>) || {}
+    const contentAttributes = {
+      ...attrs,
+      isDeletedBySender: true,
+      deletedAt: now,
+      revokedOriginalContent: target.content || '',
+    }
+
+    const updated: Message = {
+      ...target,
+      status: 'deleted_by_sender' as Message['status'],
+      contentAttributes,
+      updatedAt: now,
+    }
+
+    messageStore.messages.set(updated.id, updated)
+    try {
+      await sql`
+        UPDATE messages
+        SET
+          status = 'deleted_by_sender',
+          content_attributes = ${JSON.stringify(contentAttributes)},
+          updated_at = ${now}
+        WHERE id = ${updated.id}
+      `
+    } catch {
+      // Memory fallback
+    }
+
+    realtimeService.broadcast({
+      event: 'message.revoked',
+      data: {
+        messageId: updated.id,
+        conversationId: updated.conversationId,
+        ticketId: updated.ticketId,
+        revokedAt: now,
+      },
+    })
+
+    return { message: updated }
+  }
+
   async dispatchWhatsAppCloud(params: {
     phoneNumberId: string
     to: string

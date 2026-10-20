@@ -936,15 +936,34 @@ export class ConversationService {
       let lastMessage: string | null = null
       try {
         const mRows = await sql`
-          SELECT content FROM messages
+          SELECT content, status, content_attributes as "contentAttributes" FROM messages
           WHERE conversation_id = ${conv.id}
           ORDER BY created_at DESC LIMIT 1
         `
         if (mRows && mRows.length > 0) {
-          lastMessage = mRows[0].content as string | null
+          const row = mRows[0]
+          const attrs = (row.contentAttributes as Record<string, unknown>) || {}
+          if (row.status === 'deleted_by_sender' || attrs.isDeletedBySender) {
+            lastMessage = '🚫 Pesan telah ditarik'
+          } else {
+            lastMessage = row.content as string | null
+          }
         }
       } catch {
         // ignore
+      }
+
+      if (!lastMessage) {
+        const convMsgs = memoryStore.messages.get(conv.id)
+        if (convMsgs && convMsgs.length > 0) {
+          const latest = convMsgs[convMsgs.length - 1]
+          const attrs = (latest.contentAttributes as Record<string, unknown>) || {}
+          if (latest.status === 'deleted_by_sender' || attrs.isDeletedBySender) {
+            lastMessage = '🚫 Pesan telah ditarik'
+          } else {
+            lastMessage = latest.content || null
+          }
+        }
       }
 
       result.push({
@@ -994,6 +1013,25 @@ export class ConversationService {
   }): Promise<{ message: Message } | null> {
     const { messageService } = await import('../messages/messages.service')
     const result = await messageService.editMessage(params)
+    if (!result) return null
+
+    const convMsgs = memoryStore.messages.get(result.message.conversationId)
+    if (convMsgs) {
+      const idx = convMsgs.findIndex((m) => m.id === result.message.id)
+      if (idx !== -1) {
+        convMsgs[idx] = result.message
+      }
+    }
+
+    return result
+  }
+
+  async handleRevokedMessage(params: {
+    targetExternalId: string
+    revokedAt?: string
+  }): Promise<{ message: Message } | null> {
+    const { messageService } = await import('../messages/messages.service')
+    const result = await messageService.revokeMessage(params)
     if (!result) return null
 
     const convMsgs = memoryStore.messages.get(result.message.conversationId)
