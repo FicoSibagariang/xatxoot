@@ -57,5 +57,5 @@ export interface ConversationItem {
   lastMessageTimestamp?: string
   unreadCount?: number
   presence?: 'online' | 'typing' | 'offline'
-  ticket?: TicketSummary
+  inboxName?: string
 }

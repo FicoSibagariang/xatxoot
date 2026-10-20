@@ -148,6 +148,7 @@ export function useConversationChat({ user, initialConversationId }: UseConversa
               contactPhone: item.contact?.phoneNumber,
               // biome-ignore lint/suspicious/noExplicitAny: channel type
               channel: (item.channelType as any) || 'whatsapp',
+              inboxName: item.inboxName,
               lastMessage:
                 item.lastMessage ||
                 (item.lastMessageAt ? 'Pesan baru diterima' : 'Percakapan baru'),

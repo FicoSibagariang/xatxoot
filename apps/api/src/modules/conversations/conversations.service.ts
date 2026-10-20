@@ -73,6 +73,7 @@ const memoryStore = {
   contactInboxes: new Map<string, ContactInbox>(),
   conversations: new Map<string, Conversation>(),
   messages: new Map<string, Message[]>(),
+  inboxes: new Map<string, { id: string; name: string; channelType: string }>(),
 }
 
 export function resetConversationStore(): void {
@@ -872,6 +873,8 @@ export class ConversationService {
       Conversation & {
         contact: Contact | null
         activeTicket: Ticket | null
+        inboxName?: string
+        channel?: string
       }
     >
   > {
@@ -880,13 +883,15 @@ export class ConversationService {
     try {
       const rows = filter?.inboxId
         ? await sql`
-            SELECT id, inbox_id as "inboxId", contact_id as "contactId",
-                   contact_inbox_id as "contactInboxId", active_ticket_id as "activeTicketId",
-                   unread_count as "unreadCount", last_message_at as "lastMessageAt",
-                   created_at as "createdAt", updated_at as "updatedAt"
-            FROM conversations
-            WHERE inbox_id = ${filter.inboxId}
-            ORDER BY last_message_at DESC
+            SELECT c.id, c.inbox_id as "inboxId", c.contact_id as "contactId",
+                   c.contact_inbox_id as "contactInboxId", c.active_ticket_id as "activeTicketId",
+                   c.unread_count as "unreadCount", c.last_message_at as "lastMessageAt",
+                   c.created_at as "createdAt", c.updated_at as "updatedAt",
+                   i.name as "inboxName", i.channel_type as "channelType"
+            FROM conversations c
+            LEFT JOIN inboxes i ON c.inbox_id = i.id
+            WHERE c.inbox_id = ${filter.inboxId}
+            ORDER BY c.last_message_at DESC
           `
         : await sql`
             SELECT id, inbox_id as "inboxId", contact_id as "contactId",
@@ -952,6 +957,8 @@ export class ConversationService {
         contact,
         activeTicket,
         lastMessage,
+        inboxName: (conv as unknown as { inboxName?: string }).inboxName,
+        channel: (conv as unknown as { channelType?: string }).channelType,
       })
     }
 
