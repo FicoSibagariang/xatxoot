@@ -1,6 +1,6 @@
 import { FileText, Paperclip, Smile } from 'lucide-react'
 import { type KeyboardEvent, type ReactNode, useEffect, useRef, useState } from 'react'
-import { Avatar, Button } from '../astryx'
+import { Avatar, Button, ChannelBadge } from '../astryx'
 import {
   AiCopilotToolbar,
   AiMagicButton,
@@ -19,7 +19,7 @@ import {
   detectSlashQuery,
   filterAutocompleteEntries,
 } from '../chat'
-import { EmptyConversationState } from './EmptyConversationState'
+import { EmptyConversationState, EmptyThreadNotice } from './EmptyConversationState'
 import {
   COPILOT_TONE_PREFIXES,
   DEFAULT_CANNED_RESPONSES,
@@ -52,27 +52,28 @@ export interface ConversationThreadProps {
   children?: ReactNode
 }
 
-export function ConversationThread({
-  conversation,
-  currentUser,
-  isDrawerOpen,
-  messages,
-  cannedResponses,
-  slashCommands,
-  now,
-  onToggleDrawer,
-  onSendMessage,
-  onAssignTicket,
-  onResolveTicket,
-  onRetryMessage,
-  onOpenTemplateDialog,
-  onAiSummarize,
-  onAiImproveWriting,
-  onAiDraftReply,
-  onAiChangeTone,
-  onSaveInternalNote,
-  children,
-}: ConversationThreadProps) {
+export function ConversationThread(props: ConversationThreadProps) {
+  const {
+    conversation,
+    currentUser,
+    isDrawerOpen,
+    messages,
+    cannedResponses,
+    slashCommands,
+    now,
+    onToggleDrawer,
+    onSendMessage,
+    onAssignTicket,
+    onResolveTicket,
+    onRetryMessage,
+    onOpenTemplateDialog,
+    onAiSummarize,
+    onAiImproveWriting,
+    onAiDraftReply,
+    onAiChangeTone,
+    onSaveInternalNote,
+    children,
+  } = props
   const [inputText, setInputText] = useState('')
   const [isAutocompleteOpen, setIsAutocompleteOpen] = useState(false)
   const [selectedAutocompleteIndex, setSelectedAutocompleteIndex] = useState(0)
@@ -157,8 +158,7 @@ export function ConversationThread({
 
   const handleSelectEntry = (entry: AutocompleteEntry) => {
     if (!slashInfo.isActive) return
-    const newText = applyAutocompleteSelection(inputText, slashInfo.startIndex, entry)
-    setInputText(newText)
+    setInputText(applyAutocompleteSelection(inputText, slashInfo.startIndex, entry))
     setIsAutocompleteOpen(false)
   }
 
@@ -186,9 +186,7 @@ export function ConversationThread({
       }
     }
 
-    if (e.key === 'Enter') {
-      handleSend()
-    }
+    if (e.key === 'Enter') handleSend()
   }
 
   const handleAiSummarize = async () => {
@@ -309,17 +307,28 @@ export function ConversationThread({
           <div>
             <h3 className="font-semibold text-sm text-wa-text-primary flex items-center gap-1.5 leading-tight">
               <span>{conversation.contactName}</span>
+              <ChannelBadge channel={conversation.channel} />
               {conversation.contactPhone && (
                 <span className="text-xs font-normal text-wa-text-secondary">
                   ({conversation.contactPhone})
                 </span>
               )}
             </h3>
-            <p className="text-[11px] text-wa-teal-primary font-medium leading-tight">
-              {conversation.presence === 'typing'
-                ? 'mengetik...'
-                : conversation.presence || 'online'}
-            </p>
+            <div className="flex items-center gap-1.5 leading-tight mt-0.5">
+              {conversation.inboxName && (
+                <span
+                  data-testid="thread-inbox-name"
+                  className="text-[11px] font-medium text-slate-500"
+                >
+                  {conversation.inboxName} •
+                </span>
+              )}
+              <p className="text-[11px] text-wa-teal-primary font-medium">
+                {conversation.presence === 'typing'
+                  ? 'mengetik...'
+                  : conversation.presence || 'online'}
+              </p>
+            </div>
           </div>
         </button>
 
@@ -390,18 +399,7 @@ export function ConversationThread({
         ) : children ? (
           children
         ) : (
-          <div className="h-full flex flex-col items-center justify-center text-center">
-            <div className="bg-white/90 backdrop-blur-xs px-4 py-2 rounded-lg shadow-xs text-xs text-wa-text-muted border border-wa-border max-w-sm">
-              {conversation.ticket ? (
-                <>
-                  <span className="font-semibold text-emerald-800">Tiket Aktif: </span>#
-                  {conversation.ticket.ticketNumber} &bull; Mulai percakapan di bawah ini.
-                </>
-              ) : (
-                <span>Mulai percakapan di bawah ini.</span>
-              )}
-            </div>
-          </div>
+          <EmptyThreadNotice ticketNumber={conversation.ticket?.ticketNumber} />
         )}
       </div>
 
@@ -461,7 +459,7 @@ export function ConversationThread({
             setInputText(text)
             setIsAiToolbarOpen(false)
           }}
-          onInjectNote={onSaveInternalNote ? (note) => onSaveInternalNote(note) : undefined}
+          onInjectNote={onSaveInternalNote}
           onClearResult={() => setAiResultText(null)}
         />
 

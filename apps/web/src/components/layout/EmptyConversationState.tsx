@@ -22,4 +22,21 @@ export function EmptyConversationState() {
   )
 }
 
+export function EmptyThreadNotice({ ticketNumber }: { ticketNumber?: string }) {
+  return (
+    <div className="h-full flex flex-col items-center justify-center text-center">
+      <div className="bg-white/90 backdrop-blur-xs px-4 py-2 rounded-lg shadow-xs text-xs text-wa-text-muted border border-wa-border max-w-sm">
+        {ticketNumber ? (
+          <>
+            <span className="font-semibold text-emerald-800">Tiket Aktif: </span>#{ticketNumber}{' '}
+            &bull; Mulai percakapan di bawah ini.
+          </>
+        ) : (
+          <span>Mulai percakapan di bawah ini.</span>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export default EmptyConversationState

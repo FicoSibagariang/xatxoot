@@ -94,6 +94,9 @@ export const ConversationSchema = z.object({
   activeTicketId: z.string().uuid().nullable().optional(),
   unreadCount: z.number().int().default(0),
   lastMessageAt: z.string().or(z.date()),
+  inboxName: z.string().nullable().optional(),
+  channelType: z.string().nullable().optional(),
+  channel: z.string().nullable().optional(),
   createdAt: z.string().or(z.date()),
   updatedAt: z.string().or(z.date()),
 })
