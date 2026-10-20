@@ -22,6 +22,7 @@ import {
 import {
   EmptyConversationState,
   EmptyThreadNotice,
+  ReplyPreviewBar,
   ThreadTicketHeaderActions,
   TicketAssignmentLockBanner,
 } from './EmptyConversationState'
@@ -40,11 +41,14 @@ export interface ConversationThreadProps {
   currentUser?: LayoutUser
   isDrawerOpen: boolean
   messages?: TimelineMessage[]
+  replyingToMessage?: TimelineMessage | null
+  onCancelReply?: () => void
+  onReplyToMessage?: (message: TimelineMessage) => void
   cannedResponses?: CannedItem[]
   slashCommands?: CommandItem[]
   now?: Date
   onToggleDrawer: () => void
-  onSendMessage: (message: string) => void
+  onSendMessage: (message: string, replyToMessageId?: string | null) => void
   onAssignTicket: () => void
   onResolveTicket: () => void
   onRetryMessage?: (message: TimelineMessage) => void
@@ -63,6 +67,9 @@ export function ConversationThread(props: ConversationThreadProps) {
     currentUser,
     isDrawerOpen,
     messages,
+    replyingToMessage,
+    onCancelReply,
+    onReplyToMessage,
     cannedResponses,
     slashCommands,
     now,
@@ -143,14 +150,19 @@ export function ConversationThread(props: ConversationThreadProps) {
       activeTicket.assignedTo !== currentUser.id &&
       !isTicketResolved,
   )
-  const isTicketUnassigned = Boolean(activeTicket && !activeTicket.assignedTo && !isTicketResolved)
+  const isTicketUnassigned = Boolean(
+    currentUser && activeTicket && !activeTicket.assignedTo && !isTicketResolved,
+  )
   const isTicketLocked = isTicketUnassigned || isTicketAssignedToOther
 
   const handleSend = () => {
     if (!inputText.trim() || isTicketLocked) return
-    onSendMessage(inputText)
+    onSendMessage(inputText, replyingToMessage?.id)
     setInputText('')
     setIsAutocompleteOpen(false)
+    if (onCancelReply) {
+      onCancelReply()
+    }
   }
 
   const handleInputChange = (val: string) => {
@@ -363,7 +375,11 @@ export function ConversationThread(props: ConversationThreadProps) {
       >
         {messages && messages.length > 0 ? (
           <>
-            <ChatTimeline messages={messages} onRetryMessage={onRetryMessage} />
+            <ChatTimeline
+              messages={messages}
+              onRetryMessage={onRetryMessage}
+              onReplyToMessage={onReplyToMessage}
+            />
             <div ref={messagesEndRef} />
           </>
         ) : children ? (
@@ -372,6 +388,11 @@ export function ConversationThread(props: ConversationThreadProps) {
           <EmptyThreadNotice ticketNumber={conversation.ticket?.ticketNumber} />
         )}
       </div>
+
+      {/* Quoted Reply Preview Bar */}
+      {replyingToMessage && (
+        <ReplyPreviewBar replyingTo={replyingToMessage} onCancel={onCancelReply} />
+      )}
 
       {/* Bottom Input Bar */}
       <footer

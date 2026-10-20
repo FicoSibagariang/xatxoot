@@ -131,6 +131,7 @@ export function useConversationChat({ user, initialConversationId }: UseConversa
   const [activeFilter, setActiveFilter] = useState<ChatFilter>('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [internalNote, setInternalNote] = useState('')
+  const [replyingToMessage, setReplyingToMessage] = useState<TimelineMessage | null>(null)
 
   // Initial load: Fetch conversations from backend API
   const fetchConversations = useCallback(async () => {
@@ -294,6 +295,7 @@ export function useConversationChat({ user, initialConversationId }: UseConversa
               ),
               deletedAt: m.contentAttributes?.deletedAt,
               revokedOriginalContent: m.contentAttributes?.revokedOriginalContent,
+              replyTo: m.replyTo || m.contentAttributes?.replyTo || null,
             }
           })
           setMessagesMap((prev) => {
@@ -476,8 +478,11 @@ export function useConversationChat({ user, initialConversationId }: UseConversa
   const selectedConversation = conversations.find((c) => c.id === selectedConversationId)
   const currentMessages = selectedConversationId ? messagesMap[selectedConversationId] || [] : []
 
-  const handleSendMessage = async (text: string) => {
+  const handleSendMessage = async (text: string, replyToMessageId?: string | null) => {
     if (!text.trim() || !selectedConversationId) return
+
+    const resolvedReplyToId = replyToMessageId ?? replyingToMessage?.id ?? null
+    const targetReplyingMsg = replyingToMessage
 
     const now = new Date()
     const timeStr = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
@@ -495,7 +500,16 @@ export function useConversationChat({ user, initialConversationId }: UseConversa
       timestamp: timeStr,
       dateGroup: 'HARI INI',
       status: 'sending',
+      replyTo: targetReplyingMsg
+        ? {
+            messageId: targetReplyingMsg.id,
+            senderName: targetReplyingMsg.senderName || 'Pelanggan',
+            snippet: targetReplyingMsg.content.slice(0, 100),
+          }
+        : null,
     }
+
+    setReplyingToMessage(null)
 
     // Optimistic UI update
     setMessagesMap((prev) => ({
@@ -522,6 +536,7 @@ export function useConversationChat({ user, initialConversationId }: UseConversa
       const data = await api.post<any>(`/api/v1/conversations/${selectedConversationId}/messages`, {
         content: text.trim(),
         contentType: 'text',
+        ...(resolvedReplyToId ? { replyToMessageId: resolvedReplyToId } : {}),
       })
 
       const m = data?.message
@@ -543,6 +558,7 @@ export function useConversationChat({ user, initialConversationId }: UseConversa
             : timeStr,
           dateGroup: 'HARI INI',
           status: m.status || 'sent',
+          replyTo: m.replyTo || m.contentAttributes?.replyTo || optimisticMsg.replyTo,
         }
 
         setMessagesMap((prev) => ({
@@ -633,6 +649,7 @@ export function useConversationChat({ user, initialConversationId }: UseConversa
     (id: string | null) => {
       setSelectedConversationId(id)
       selectedIdRef.current = id
+      setReplyingToMessage(null)
       if (!id) return
       // Clear unread in local state
       setConversations((prev) => prev.map((c) => (c.id === id ? { ...c, unreadCount: 0 } : c)))
@@ -650,6 +667,9 @@ export function useConversationChat({ user, initialConversationId }: UseConversa
     setMessagesMap,
     selectedConversationId,
     setSelectedConversationId,
+    replyingToMessage,
+    setReplyingToMessage,
+    cancelReply: () => setReplyingToMessage(null),
     isDrawerOpen,
     setIsDrawerOpen,
     activeTab,

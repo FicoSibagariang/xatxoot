@@ -15,6 +15,7 @@ export const SendWaMessageJobPayloadSchema = z.object({
   mediaUrl: z.string().url('Media URL harus berupa URL valid').optional(),
   fileName: z.string().optional(),
   replyToExternalId: z.string().optional(),
+  quotedText: z.string().optional(),
 })
 
 export type SendWaMessageJobPayload = z.infer<typeof SendWaMessageJobPayloadSchema>

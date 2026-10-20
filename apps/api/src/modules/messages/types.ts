@@ -14,5 +14,6 @@ export interface SendMessageInput {
   senderType?: 'user' | 'contact' | 'bot' | 'system'
   senderId?: string | null
   senderName?: string | null
+  replyToMessageId?: string | null
   simulateError?: string | null
 }

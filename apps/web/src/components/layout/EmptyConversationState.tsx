@@ -1,7 +1,43 @@
 import { Lock, MessageSquare } from 'lucide-react'
 import { Button } from '../astryx'
-import { DeadlineTimerBadge, TicketSlaBadge } from '../chat'
+import { DeadlineTimerBadge, TicketSlaBadge, type TimelineMessage } from '../chat'
 import type { TicketSummary } from './types'
+
+export function ReplyPreviewBar({
+  replyingTo,
+  onCancel,
+}: {
+  replyingTo: TimelineMessage
+  onCancel?: () => void
+}) {
+  return (
+    <div
+      data-testid="reply-preview-bar"
+      className="bg-wa-header-bg/95 backdrop-blur-xs px-4 py-2 border-t border-wa-border flex items-center justify-between text-xs text-slate-700 shadow-2xs"
+    >
+      <div className="flex items-center gap-2 overflow-hidden border-l-4 border-wa-teal-primary pl-2.5 py-0.5">
+        <span className="text-sm select-none">↩️</span>
+        <div className="truncate">
+          <span className="font-semibold text-wa-teal-dark">
+            Membalas {replyingTo.senderName || 'Pesan'}:
+          </span>{' '}
+          <span className="italic text-slate-600 truncate">&ldquo;{replyingTo.content}&rdquo;</span>
+        </div>
+      </div>
+      {onCancel && (
+        <button
+          type="button"
+          data-testid="btn-cancel-reply"
+          onClick={onCancel}
+          className="p-1 text-slate-400 hover:text-slate-700 rounded-full hover:bg-slate-200/60 cursor-pointer shrink-0"
+          title="Batalkan balasan"
+        >
+          ✕
+        </button>
+      )}
+    </div>
+  )
+}
 
 export function EmptyConversationState() {
   return (

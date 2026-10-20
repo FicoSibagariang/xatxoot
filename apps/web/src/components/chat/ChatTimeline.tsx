@@ -156,11 +156,14 @@ export function TicketSeparatorPill({ ticketNumber, text }: TicketSeparatorPillP
 export interface ChatBubbleProps {
   message: TimelineMessage
   onRetry?: (message: TimelineMessage) => void
+  onReply?: (message: TimelineMessage) => void
 }
 
-export function ChatBubble({ message, onRetry }: ChatBubbleProps) {
+export function ChatBubble({ message, onRetry, onReply }: ChatBubbleProps) {
   const [showAudit, setShowAudit] = useState(false)
   const isRevoked = Boolean(message.isDeletedBySender || message.status === 'deleted_by_sender')
+  // biome-ignore lint/suspicious/noExplicitAny: quoted message resolution
+  const quoted = message.replyTo || (message.contentAttributes as any)?.replyTo
 
   // Activity Pill (Status transisi tiket, assignment, dll)
   if (message.messageType === 'activity') {
@@ -212,7 +215,7 @@ export function ChatBubble({ message, onRetry }: ChatBubbleProps) {
   return (
     <div
       data-testid={isIncoming ? 'chat-bubble-incoming' : 'chat-bubble-outgoing'}
-      className={`flex ${isIncoming ? 'justify-start' : 'justify-end'} my-1 px-3 select-text group`}
+      className={`flex items-center gap-1.5 ${isIncoming ? 'justify-start' : 'justify-end flex-row-reverse'} my-1 px-3 select-text group`}
     >
       <div
         data-tail={isIncoming ? 'incoming' : 'outgoing'}
@@ -322,6 +325,21 @@ export function ChatBubble({ message, onRetry }: ChatBubbleProps) {
           </div>
         ) : (
           <>
+            {/* Quoted Message Box */}
+            {quoted && (
+              <div
+                data-testid="quoted-message-box"
+                className="mb-1.5 p-2 rounded-md bg-black/5 border-l-4 border-wa-teal-primary text-xs select-none"
+              >
+                <div className="font-semibold text-[11px] text-wa-teal-dark">
+                  {quoted.senderName || 'Kutipan'}
+                </div>
+                <div className="text-slate-600 line-clamp-2 text-xs truncate">
+                  {quoted.snippet || quoted.content || ''}
+                </div>
+              </div>
+            )}
+
             {/* Media Attachments Preview */}
             {message.contentType === 'image' && message.mediaUrl && (
               <div className="mb-1.5 rounded-lg overflow-hidden bg-slate-100 max-h-64 border border-black/5">
@@ -422,6 +440,18 @@ export function ChatBubble({ message, onRetry }: ChatBubbleProps) {
           </div>
         )}
       </div>
+
+      {onReply && (
+        <button
+          type="button"
+          data-testid="btn-reply-message"
+          onClick={() => onReply(message)}
+          className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-slate-700 rounded-full hover:bg-slate-200/50 cursor-pointer transition-opacity shrink-0"
+          title="Balas pesan ini"
+        >
+          ↩️ <span className="text-[10px] font-medium hidden sm:inline">Balas</span>
+        </button>
+      )}
     </div>
   )
 }
@@ -432,10 +462,16 @@ export function ChatBubble({ message, onRetry }: ChatBubbleProps) {
 export interface ChatTimelineProps {
   messages: TimelineMessage[]
   onRetryMessage?: (message: TimelineMessage) => void
+  onReplyToMessage?: (message: TimelineMessage) => void
   className?: string
 }
 
-export function ChatTimeline({ messages, onRetryMessage, className = '' }: ChatTimelineProps) {
+export function ChatTimeline({
+  messages,
+  onRetryMessage,
+  onReplyToMessage,
+  className = '',
+}: ChatTimelineProps) {
   let lastDateGroup = ''
   let lastTicketId = ''
 
@@ -466,7 +502,7 @@ export function ChatTimeline({ messages, onRetryMessage, className = '' }: ChatT
                 text={msg.ticketDisplayId ? `Tiket #${msg.ticketDisplayId} Dimulai` : undefined}
               />
             )}
-            <ChatBubble message={msg} onRetry={onRetryMessage} />
+            <ChatBubble message={msg} onRetry={onRetryMessage} onReply={onReplyToMessage} />
           </Fragment>
         )
       })}

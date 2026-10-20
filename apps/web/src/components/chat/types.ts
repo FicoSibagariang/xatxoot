@@ -17,6 +17,13 @@ export type DeliveryStatus =
   | 'failed'
   | 'deleted_by_sender'
 
+export interface QuotedMessagePayload {
+  messageId: string
+  externalId?: string | null
+  senderName?: string
+  snippet?: string
+}
+
 export interface TimelineMessage {
   id: string
   conversationId: string
@@ -25,6 +32,7 @@ export interface TimelineMessage {
   senderId?: string
   senderType?: 'contact' | 'user' | 'bot' | 'system'
   senderName?: string
+  replyTo?: QuotedMessagePayload | null
   messageType: MessageType
   contentType: ContentType
   content: string

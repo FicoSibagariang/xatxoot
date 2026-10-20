@@ -52,6 +52,7 @@ export async function handleSendConversationMessage(c: Context) {
       senderType: body.senderType || 'user',
       senderId: user?.id || body.senderId || 'mock-user-id',
       senderName: user?.displayName || body.senderName,
+      replyToMessageId: body.replyToMessageId,
       simulateError,
     })
 

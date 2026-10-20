@@ -87,10 +87,26 @@ export class OutboundMessageDispatcher {
       sendMessage: (
         jid: string,
         content: Record<string, unknown>,
+        options?: Record<string, unknown>,
       ) => Promise<{ key?: { id?: string } }>
     }
 
-    const sent = await socket.sendMessage(jid, content)
+    const options = validated.replyToExternalId
+      ? {
+          quoted: {
+            key: {
+              remoteJid: jid,
+              id: validated.replyToExternalId,
+              fromMe: false,
+            },
+            message: {
+              conversation: validated.quotedText || '',
+            },
+          },
+        }
+      : undefined
+
+    const sent = await socket.sendMessage(jid, content, options)
     const externalMessageId = sent?.key?.id || `WAM_OUT_${Date.now()}`
 
     if (sent?.key?.id) {
@@ -135,10 +151,26 @@ export class OutboundMessageDispatcher {
       sendMessage: (
         jid: string,
         content: Record<string, unknown>,
+        options?: Record<string, unknown>,
       ) => Promise<{ key?: { id?: string } }>
     }
 
-    const sent = await socket.sendMessage(jid, content)
+    const options = validated.replyToExternalId
+      ? {
+          quoted: {
+            key: {
+              remoteJid: jid,
+              id: validated.replyToExternalId,
+              fromMe: false,
+            },
+            message: {
+              conversation: validated.quotedText || '',
+            },
+          },
+        }
+      : undefined
+
+    const sent = await socket.sendMessage(jid, content, options)
     const externalMessageId = sent?.key?.id || validated.targetExternalMessageId
 
     return {
