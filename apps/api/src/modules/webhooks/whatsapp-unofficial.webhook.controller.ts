@@ -18,6 +18,8 @@ export interface WhatsAppUnofficialInboundBody {
   targetExternalId?: string
   newContent?: string
   editedAt?: string
+  isRevoke?: boolean
+  revokedAt?: string
 }
 
 export async function handleWhatsAppUnofficialInbound(c: Context) {
@@ -33,6 +35,39 @@ export async function handleWhatsAppUnofficialInbound(c: Context) {
     if (!body || !body.senderNumber) {
       console.warn('[api-webhook] [DEBUG] Rejected: senderNumber is required')
       return c.json({ error: 'senderNumber is required' }, 400)
+    }
+
+    // Handle revoked message
+    if (body.isRevoke) {
+      const targetExternalId = body.targetExternalId
+      if (!targetExternalId) {
+        return c.json({ error: 'targetExternalId is required for revoked message' }, 400)
+      }
+
+      const result = await conversationService.handleRevokedMessage({
+        targetExternalId,
+        revokedAt: body.revokedAt || body.timestamp,
+      })
+
+      if (!result) {
+        console.warn(
+          `[api-webhook] [DEBUG] Target message not found for revoke, targetExternalId=${targetExternalId}`,
+        )
+        return c.json({ error: 'Target message not found' }, 404)
+      }
+
+      console.log(
+        `[api-webhook] [DEBUG] Message revoked successfully! messageId=${result.message.id}, conversationId=${result.message.conversationId}`,
+      )
+
+      return c.json({
+        success: true,
+        isRevoke: true,
+        messageId: result.message.id,
+        conversationId: result.message.conversationId,
+        ticketId: result.message.ticketId,
+        message: result.message,
+      })
     }
 
     // Handle edited message

@@ -9,7 +9,13 @@ export type ContentType =
   | 'location'
   | 'interactive'
 
-export type DeliveryStatus = 'pending' | 'sent' | 'delivered' | 'read' | 'failed'
+export type DeliveryStatus =
+  | 'pending'
+  | 'sent'
+  | 'delivered'
+  | 'read'
+  | 'failed'
+  | 'deleted_by_sender'
 
 export interface TimelineMessage {
   id: string
@@ -35,4 +41,7 @@ export interface TimelineMessage {
     previousContent: string
     editedAt: string
   }>
+  isDeletedBySender?: boolean
+  deletedAt?: string
+  revokedOriginalContent?: string
 }

@@ -1,4 +1,4 @@
-import { Fragment } from 'react'
+import { Fragment, useState } from 'react'
 import type { DeliveryStatus, TimelineMessage } from './types'
 
 // ==========================================
@@ -159,6 +159,9 @@ export interface ChatBubbleProps {
 }
 
 export function ChatBubble({ message, onRetry }: ChatBubbleProps) {
+  const [showAudit, setShowAudit] = useState(false)
+  const isRevoked = Boolean(message.isDeletedBySender || message.status === 'deleted_by_sender')
+
   // Activity Pill (Status transisi tiket, assignment, dll)
   if (message.messageType === 'activity') {
     return (
@@ -226,43 +229,80 @@ export function ChatBubble({ message, onRetry }: ChatBubbleProps) {
           </div>
         )}
 
-        {/* Media Attachments Preview */}
-        {message.contentType === 'image' && message.mediaUrl && (
-          <div className="mb-1.5 rounded-lg overflow-hidden bg-slate-100 max-h-64 border border-black/5">
-            <img
-              data-testid="bubble-media-image"
-              src={message.mediaUrl}
-              alt={message.content || 'Lampiran Gambar'}
-              className="w-full h-auto object-cover cursor-pointer hover:opacity-95 transition-opacity"
-            />
-          </div>
-        )}
-
-        {message.contentType === 'document' && (
-          <div className="mb-1.5 p-2 rounded-lg bg-black/5 flex items-center gap-2 border border-black/5">
-            <span className="text-xl">📄</span>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-semibold truncate text-wa-text-primary">
-                {message.fileName || 'Dokumen.pdf'}
-              </p>
-              {message.fileSize && (
-                <span className="text-[10px] text-slate-500">
-                  {Math.round(message.fileSize / 1024)} KB
-                </span>
-              )}
+        {isRevoked ? (
+          <div className="flex flex-col gap-1 pr-2 my-0.5">
+            <div
+              data-testid="message-revoked-placeholder"
+              className="flex items-center gap-1.5 text-xs italic text-slate-500 font-normal select-none"
+            >
+              <span className="not-italic text-sm">🚫</span>
+              <span>Pesan ini telah dihapus oleh pengirim</span>
             </div>
+            {Boolean(message.revokedOriginalContent) && (
+              <div className="mt-1">
+                <button
+                  type="button"
+                  data-testid="toggle-audit-button"
+                  onClick={() => setShowAudit((prev) => !prev)}
+                  className="text-[10px] font-semibold text-emerald-700 hover:text-emerald-800 underline cursor-pointer select-none"
+                >
+                  {showAudit ? '[Tutup Pesan Asli (Audit)]' : '[Lihat Pesan Asli (Audit)]'}
+                </button>
+                {showAudit && (
+                  <div
+                    data-testid="revoked-audit-content"
+                    className="mt-1.5 p-2 rounded bg-amber-50/90 border border-amber-200 text-xs text-amber-950 font-normal leading-relaxed break-words"
+                  >
+                    <div className="text-[10px] uppercase font-bold text-amber-800 mb-0.5">
+                      Pesan Asli Sebelum Ditarik:
+                    </div>
+                    {message.revokedOriginalContent}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
-        )}
+        ) : (
+          <>
+            {/* Media Attachments Preview */}
+            {message.contentType === 'image' && message.mediaUrl && (
+              <div className="mb-1.5 rounded-lg overflow-hidden bg-slate-100 max-h-64 border border-black/5">
+                <img
+                  data-testid="bubble-media-image"
+                  src={message.mediaUrl}
+                  alt={message.content || 'Lampiran Gambar'}
+                  className="w-full h-auto object-cover cursor-pointer hover:opacity-95 transition-opacity"
+                />
+              </div>
+            )}
 
-        {/* Text Message Content with WhatsApp formatting */}
-        {message.content && (
-          <div
-            className="text-sm leading-relaxed whitespace-pre-wrap break-words pr-2"
-            // biome-ignore lint/security/noDangerouslySetInnerHtml: Sanitized via formatWhatsAppText
-            dangerouslySetInnerHTML={{
-              __html: formatWhatsAppText(message.content),
-            }}
-          />
+            {message.contentType === 'document' && (
+              <div className="mb-1.5 p-2 rounded-lg bg-black/5 flex items-center gap-2 border border-black/5">
+                <span className="text-xl">📄</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold truncate text-wa-text-primary">
+                    {message.fileName || 'Dokumen.pdf'}
+                  </p>
+                  {message.fileSize && (
+                    <span className="text-[10px] text-slate-500">
+                      {Math.round(message.fileSize / 1024)} KB
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Text Message Content with WhatsApp formatting */}
+            {message.content && (
+              <div
+                className="text-sm leading-relaxed whitespace-pre-wrap break-words pr-2"
+                // biome-ignore lint/security/noDangerouslySetInnerHtml: Sanitized via formatWhatsAppText
+                dangerouslySetInnerHTML={{
+                  __html: formatWhatsAppText(message.content),
+                }}
+              />
+            )}
+          </>
         )}
 
         {/* Bottom Metadata: Timestamp + Outgoing Delivery Tick */}

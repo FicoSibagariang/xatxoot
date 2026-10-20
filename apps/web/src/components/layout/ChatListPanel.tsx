@@ -207,7 +207,13 @@ export function ChatListPanel({
                           )}
                         </>
                       )}
-                      <p className="text-xs text-wa-text-secondary truncate">
+                      <p
+                        className={`text-xs truncate ${
+                          conv.lastMessage?.includes('Pesan telah ditarik')
+                            ? 'italic text-slate-400'
+                            : 'text-wa-text-secondary'
+                        }`}
+                      >
                         {conv.lastMessage || 'Tidak ada pesan'}
                       </p>
                     </div>
