@@ -173,6 +173,11 @@ export function ChatListPanel({
                     <span className="font-semibold text-sm text-wa-text-primary truncate">
                       {conv.contactName}
                     </span>
+                    {conv.inboxName && (
+                      <span className="ml-2 text-[10px] text-slate-500 bg-slate-100 rounded px-1">
+                        {conv.inboxName}
+                      </span>
+                    )}
                     {conv.lastMessageTimestamp && (
                       <span className="text-[11px] text-wa-text-secondary shrink-0 ml-2">
                         {conv.lastMessageTimestamp}
