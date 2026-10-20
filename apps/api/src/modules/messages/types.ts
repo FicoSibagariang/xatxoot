@@ -13,5 +13,6 @@ export interface SendMessageInput {
   attachments?: AttachmentInputDto[]
   senderType?: 'user' | 'contact' | 'bot' | 'system'
   senderId?: string | null
+  senderName?: string | null
   simulateError?: string | null
 }

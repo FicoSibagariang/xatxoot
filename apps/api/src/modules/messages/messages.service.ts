@@ -97,31 +97,53 @@ export class MessageService {
     try {
       const rows = await sql`
         SELECT
-          id,
-          conversation_id as "conversationId",
-          ticket_id as "ticketId",
-          sender_type as "senderType",
-          sender_id as "senderId",
-          message_type as "messageType",
-          content,
-          content_type as "contentType",
-          status,
-          external_source_id as "externalSourceId",
-          content_attributes as "contentAttributes",
-          created_at as "createdAt",
-          updated_at as "updatedAt"
-        FROM messages
-        WHERE conversation_id = ${conversationId}
-        ORDER BY created_at ASC
+          m.id,
+          m.conversation_id as "conversationId",
+          m.ticket_id as "ticketId",
+          m.sender_type as "senderType",
+          m.sender_id as "senderId",
+          COALESCE(u.display_name, m.content_attributes->>'senderName', CASE WHEN m.sender_type = 'bot' THEN 'Bot Otomasi' ELSE NULL END) as "senderName",
+          u.email as "senderEmail",
+          m.message_type as "messageType",
+          m.content,
+          m.content_type as "contentType",
+          m.status,
+          m.external_source_id as "externalSourceId",
+          m.content_attributes as "contentAttributes",
+          m.created_at as "createdAt",
+          m.updated_at as "updatedAt"
+        FROM messages m
+        LEFT JOIN users u ON m.sender_id = u.id
+        WHERE m.conversation_id = ${conversationId}
+        ORDER BY m.created_at ASC
       `
-      return (rows || []) as unknown as Message[]
+      return ((rows || []) as unknown as Message[]).map((m) => {
+        const attrs = (m.contentAttributes as Record<string, unknown>) || {}
+        return {
+          ...m,
+          isEcho: Boolean(m.isEcho || attrs.echo),
+        }
+      })
     } catch {
       // Memory fallback if DB is offline
       const messageIds = messageStore.conversationIndex.get(conversationId) || []
-      return messageIds
+      const memoryMsgs = messageIds
         .map((id) => messageStore.messages.get(id))
         .filter((m): m is Message => m !== undefined)
         .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+
+      return memoryMsgs.map((m) => {
+        const attrs = (m.contentAttributes as Record<string, unknown>) || {}
+        let senderName = m.senderName || (attrs.senderName as string | undefined)
+        if (!senderName && m.senderType === 'bot') {
+          senderName = 'Bot Otomasi'
+        }
+        return {
+          ...m,
+          senderName,
+          isEcho: Boolean(m.isEcho || attrs.echo),
+        }
+      })
     }
   }
 
@@ -506,6 +528,28 @@ export class MessageService {
       })
     }
 
+    // Resolve senderName
+    let senderName = input.senderName
+    if (!senderName && input.senderType === 'bot') {
+      senderName = 'Bot Otomasi'
+    } else if (!senderName && input.senderId && input.senderType === 'user') {
+      try {
+        const { UsersService } = await import('../users/users.service')
+        const usersService = new UsersService()
+        const u = await usersService.getUserById(input.senderId)
+        if (u) {
+          senderName = u.displayName
+        }
+      } catch {
+        // fallback
+      }
+    }
+
+    const mergedContentAttributes: Record<string, unknown> = {
+      ...contentAttributes,
+      ...(senderName ? { senderName } : {}),
+    }
+
     // 5. Construct Message record
     const message: Message = {
       id: messageId,
@@ -513,12 +557,14 @@ export class MessageService {
       ticketId: conversation.activeTicketId || null,
       senderType: input.senderType || 'user',
       senderId: input.senderId || 'mock-user-id',
+      senderName: senderName || null,
+      isEcho: false,
       messageType: 'outgoing',
       content: input.content?.trim() || null,
       contentType,
       status,
       externalSourceId,
-      contentAttributes,
+      contentAttributes: mergedContentAttributes,
       attachments,
       createdAt: now,
       updatedAt: now,
@@ -536,7 +582,21 @@ export class MessageService {
 
     realtimeService.broadcast({
       event: 'message.created',
-      data: { message, conversationId: conversation.id },
+      data: {
+        id: message.id,
+        conversationId: conversation.id,
+        content: message.content || '',
+        messageType: message.messageType,
+        contentType: message.contentType,
+        senderId: message.senderId,
+        senderType: message.senderType,
+        senderName: message.senderName || 'Petugas CS',
+        isEcho: false,
+        timestamp: message.createdAt,
+        createdAt: message.createdAt,
+        message,
+        conversation: convDetail.conversation,
+      },
     })
 
     return { message }
