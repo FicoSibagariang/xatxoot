@@ -19,7 +19,12 @@ import {
   detectSlashQuery,
   filterAutocompleteEntries,
 } from '../chat'
-import { EmptyConversationState, EmptyThreadNotice } from './EmptyConversationState'
+import {
+  EmptyConversationState,
+  EmptyThreadNotice,
+  ThreadTicketHeaderActions,
+  TicketAssignmentLockBanner,
+} from './EmptyConversationState'
 import {
   COPILOT_TONE_PREFIXES,
   DEFAULT_CANNED_RESPONSES,
@@ -127,19 +132,22 @@ export function ConversationThread(props: ConversationThreadProps) {
     return <EmptyConversationState />
   }
 
+  const activeTicket = conversation.ticket
+  const isTicketResolved = activeTicket?.status === 'resolved'
   const isTicketAssignedToMe = Boolean(
-    conversation.ticket?.assignedTo &&
-      (!currentUser || conversation.ticket.assignedTo === currentUser.id),
+    activeTicket?.assignedTo && (!currentUser || activeTicket.assignedTo === currentUser.id),
   )
   const isTicketAssignedToOther = Boolean(
-    conversation.ticket?.assignedTo &&
+    activeTicket?.assignedTo &&
       currentUser &&
-      conversation.ticket.assignedTo !== currentUser.id,
+      activeTicket.assignedTo !== currentUser.id &&
+      !isTicketResolved,
   )
-  const isTicketResolved = conversation.ticket?.status === 'resolved'
+  const isTicketUnassigned = Boolean(activeTicket && !activeTicket.assignedTo && !isTicketResolved)
+  const isTicketLocked = isTicketUnassigned || isTicketAssignedToOther
 
   const handleSend = () => {
-    if (!inputText.trim()) return
+    if (!inputText.trim() || isTicketLocked) return
     onSendMessage(inputText)
     setInputText('')
     setIsAutocompleteOpen(false)
@@ -334,53 +342,15 @@ export function ConversationThread(props: ConversationThreadProps) {
 
         {/* Quick Ticket Actions (Only rendered if conversation has an active ticket) */}
         {conversation.ticket && (
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold px-2 py-1 rounded bg-wa-bubble-light text-wa-teal-dark border border-wa-bubble-active">
-              #{conversation.ticket.ticketNumber}
-            </span>
-            {conversation.ticket.slaStatus ? (
-              <TicketSlaBadge
-                firstResponseDeadline={conversation.ticket.slaStatus.firstResponseDeadline}
-                resolutionDeadline={conversation.ticket.slaStatus.resolutionDeadline}
-                isBreached={conversation.ticket.slaStatus.isBreached}
-                breachedAt={conversation.ticket.slaStatus.breachedAt}
-                policyName={conversation.ticket.slaStatus.policyName}
-                ticketStatus={conversation.ticket.status}
-                now={now}
-                size="md"
-                showTooltip={true}
-              />
-            ) : (
-              <DeadlineTimerBadge
-                deadlineAt={conversation.ticket.deadlineAt}
-                status={conversation.ticket.status}
-                now={now}
-                size="md"
-              />
-            )}
-
-            <Button
-              data-testid="btn-assign-ticket"
-              variant="secondary"
-              size="sm"
-              onClick={onAssignTicket}
-            >
-              {isTicketAssignedToMe
-                ? 'Unassign'
-                : isTicketAssignedToOther
-                  ? 'Ditugaskan'
-                  : 'Assign'}
-            </Button>
-
-            <Button
-              data-testid="btn-resolve-ticket"
-              variant={isTicketResolved ? 'secondary' : 'teal'}
-              size="sm"
-              onClick={onResolveTicket}
-            >
-              {isTicketResolved ? 'Buka Kembali' : 'Resolve'}
-            </Button>
-          </div>
+          <ThreadTicketHeaderActions
+            ticket={conversation.ticket}
+            now={now}
+            isTicketAssignedToMe={isTicketAssignedToMe}
+            isTicketAssignedToOther={isTicketAssignedToOther}
+            isTicketResolved={isTicketResolved}
+            onAssignTicket={onAssignTicket}
+            onResolveTicket={onResolveTicket}
+          />
         )}
       </header>
 
@@ -408,85 +378,95 @@ export function ConversationThread(props: ConversationThreadProps) {
         data-testid="thread-input-bar"
         className="bg-wa-header-bg px-4 py-2.5 flex items-center gap-2.5 border-t border-wa-border shrink-0 relative"
       >
-        <button
-          type="button"
-          title="Emoji"
-          className="p-2 text-slate-500 hover:text-slate-800 rounded-full hover:bg-slate-200/60 cursor-pointer"
-        >
-          <Smile className="w-5 h-5" />
-        </button>
-
-        <button
-          type="button"
-          title="Lampiran Gambar/File"
-          className="p-2 text-slate-500 hover:text-slate-800 rounded-full hover:bg-slate-200/60 cursor-pointer"
-        >
-          <Paperclip className="w-5 h-5" />
-        </button>
-
-        <button
-          type="button"
-          data-testid="btn-open-template-dialog"
-          title="Template Pesan WhatsApp Resmi"
-          onClick={onOpenTemplateDialog}
-          className="p-2 text-slate-500 hover:text-emerald-700 rounded-full hover:bg-slate-200/60 cursor-pointer"
-        >
-          <FileText className="w-5 h-5" />
-        </button>
-
-        <AiMagicButton
-          isOpen={isAiToolbarOpen}
-          onToggle={() => setIsAiToolbarOpen(!isAiToolbarOpen)}
-          isLoading={isAiLoading}
-          hasResult={Boolean(aiResultText)}
-        />
-
-        <AiCopilotToolbar
-          isOpen={isAiToolbarOpen}
-          isLoading={isAiLoading}
-          loadingAction={aiLoadingAction}
-          errorMessage={aiError}
-          resultText={aiResultText}
-          resultType={aiResultType}
-          suggestedArticles={aiArticles}
-          currentText={inputText}
-          onToggle={() => setIsAiToolbarOpen(false)}
-          onSummarize={handleAiSummarize}
-          onImproveWriting={handleAiImprove}
-          onDraftReply={handleAiDraftReply}
-          onChangeTone={handleAiChangeTone}
-          onApplyText={(text) => {
-            setInputText(text)
-            setIsAiToolbarOpen(false)
-          }}
-          onInjectNote={onSaveInternalNote}
-          onClearResult={() => setAiResultText(null)}
-        />
-
-        <div className="relative flex-1">
-          <SlashAutocompletePopup
-            isOpen={isAutocompleteOpen && slashInfo.isActive}
-            query={slashInfo.query}
-            entries={filteredEntries}
-            selectedIndex={selectedAutocompleteIndex}
-            onSelect={handleSelectEntry}
-            onHover={setSelectedAutocompleteIndex}
-            onClose={() => setIsAutocompleteOpen(false)}
+        {isTicketLocked ? (
+          <TicketAssignmentLockBanner
+            isUnassigned={isTicketUnassigned}
+            assignedAgentName={activeTicket?.assignedAgentName}
+            onAssignTicket={onAssignTicket}
           />
+        ) : (
+          <>
+            <button
+              type="button"
+              title="Emoji"
+              className="p-2 text-slate-500 hover:text-slate-800 rounded-full hover:bg-slate-200/60 cursor-pointer"
+            >
+              <Smile className="w-5 h-5" />
+            </button>
 
-          <input
-            type="text"
-            placeholder="Ketik pesan atau ketik / untuk balasan cepat..."
-            value={inputText}
-            onChange={(e) => handleInputChange(e.target.value)}
-            onKeyDown={handleKeyDown}
-            className="w-full bg-white text-sm text-wa-text-primary rounded-lg px-4 py-2 border border-wa-border focus:outline-none focus:border-wa-teal-primary"
-          />
-        </div>
+            <button
+              type="button"
+              title="Lampiran Gambar/File"
+              className="p-2 text-slate-500 hover:text-slate-800 rounded-full hover:bg-slate-200/60 cursor-pointer"
+            >
+              <Paperclip className="w-5 h-5" />
+            </button>
 
-        <Button variant="teal" size="sm" onClick={handleSend} className="rounded-lg px-4 py-2">
-          Kirim
-        </Button>
+            <button
+              type="button"
+              data-testid="btn-open-template-dialog"
+              title="Template Pesan WhatsApp Resmi"
+              onClick={onOpenTemplateDialog}
+              className="p-2 text-slate-500 hover:text-emerald-700 rounded-full hover:bg-slate-200/60 cursor-pointer"
+            >
+              <FileText className="w-5 h-5" />
+            </button>
+
+            <AiMagicButton
+              isOpen={isAiToolbarOpen}
+              onToggle={() => setIsAiToolbarOpen(!isAiToolbarOpen)}
+              isLoading={isAiLoading}
+              hasResult={Boolean(aiResultText)}
+            />
+
+            <AiCopilotToolbar
+              isOpen={isAiToolbarOpen}
+              isLoading={isAiLoading}
+              loadingAction={aiLoadingAction}
+              errorMessage={aiError}
+              resultText={aiResultText}
+              resultType={aiResultType}
+              suggestedArticles={aiArticles}
+              currentText={inputText}
+              onToggle={() => setIsAiToolbarOpen(false)}
+              onSummarize={handleAiSummarize}
+              onImproveWriting={handleAiImprove}
+              onDraftReply={handleAiDraftReply}
+              onChangeTone={handleAiChangeTone}
+              onApplyText={(text) => {
+                setInputText(text)
+                setIsAiToolbarOpen(false)
+              }}
+              onInjectNote={onSaveInternalNote}
+              onClearResult={() => setAiResultText(null)}
+            />
+
+            <div className="relative flex-1">
+              <SlashAutocompletePopup
+                isOpen={isAutocompleteOpen && slashInfo.isActive}
+                query={slashInfo.query}
+                entries={filteredEntries}
+                selectedIndex={selectedAutocompleteIndex}
+                onSelect={handleSelectEntry}
+                onHover={setSelectedAutocompleteIndex}
+                onClose={() => setIsAutocompleteOpen(false)}
+              />
+
+              <input
+                type="text"
+                placeholder="Ketik pesan atau ketik / untuk balasan cepat..."
+                value={inputText}
+                onChange={(e) => handleInputChange(e.target.value)}
+                onKeyDown={handleKeyDown}
+                className="w-full bg-white text-sm text-wa-text-primary rounded-lg px-4 py-2 border border-wa-border focus:outline-none focus:border-wa-teal-primary"
+              />
+            </div>
+
+            <Button variant="teal" size="sm" onClick={handleSend} className="rounded-lg px-4 py-2">
+              Kirim
+            </Button>
+          </>
+        )}
       </footer>
     </main>
   )

@@ -43,6 +43,7 @@ export interface TicketSummary {
   status: 'open' | 'pending' | 'resolved' | 'snoozed'
   priority?: 'low' | 'medium' | 'high' | 'urgent'
   assignedTo?: string
+  assignedAgentName?: string | null
   deadlineAt?: string | Date | null
   slaStatus?: TicketSlaSummary
 }
