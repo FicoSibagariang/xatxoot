@@ -28,8 +28,9 @@ export async function handleSendConversationMessage(c: Context) {
       content: body.content,
       contentType: body.contentType,
       attachments: body.attachments,
-      senderType: 'user',
-      senderId: user?.id || 'mock-user-id',
+      senderType: body.senderType || 'user',
+      senderId: user?.id || body.senderId || 'mock-user-id',
+      senderName: user?.displayName || body.senderName,
       simulateError,
     })
 

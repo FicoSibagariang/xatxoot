@@ -35,6 +35,8 @@ export interface TimelineMessage {
   dateGroup?: string
   status?: DeliveryStatus
   errorMessage?: string
+  isEcho?: boolean
+  contentAttributes?: Record<string, unknown>
   isEdited?: boolean
   editedAt?: string
   editHistory?: Array<{

@@ -254,16 +254,27 @@ export function useConversationChat({ user, initialConversationId }: UseConversa
                   ? 'incoming'
                   : 'outgoing'
 
+            const isEcho = Boolean(
+              m.isEcho ||
+                m.contentAttributes?.echo ||
+                m.contentAttributes?.source === 'whatsapp_mobile',
+            )
+            const senderName = isCustomer
+              ? data.contact?.name || data.contact?.phoneNumber || 'Pelanggan'
+              : m.senderName ||
+                m.contentAttributes?.senderName ||
+                (isEcho ? 'WhatsApp HP' : m.senderType === 'bot' ? 'Bot Otomasi' : user.name)
+
             return {
               id: m.id,
               conversationId: m.conversationId,
               ticketId: m.ticketId,
               ticketDisplayId: m.ticketDisplayId,
               senderId: m.senderId || (isCustomer ? 'customer' : user.id),
-              senderType: isCustomer ? 'contact' : 'user',
-              senderName: isCustomer
-                ? data.contact?.name || data.contact?.phoneNumber || 'Pelanggan'
-                : user.name,
+              senderType: isCustomer ? 'contact' : m.senderType || 'user',
+              senderName,
+              isEcho,
+              contentAttributes: m.contentAttributes,
               messageType: msgType,
               contentType: (m.contentType as ContentType) || 'text',
               content: m.content || '',
@@ -334,6 +345,20 @@ export function useConversationChat({ user, initialConversationId }: UseConversa
             })
           : rawTime || 'Baru saja'
 
+      const isEcho = Boolean(
+        anyEvt.isEcho ||
+          rawMsg.isEcho ||
+          rawMsg.contentAttributes?.echo ||
+          anyEvt.contentAttributes?.echo,
+      )
+
+      const senderName = isCustomer
+        ? anyEvt.contact?.name || 'Pelanggan WhatsApp'
+        : anyEvt.senderName ||
+          rawMsg.senderName ||
+          rawMsg.contentAttributes?.senderName ||
+          (isEcho ? 'WhatsApp HP' : rawMsg.senderType === 'bot' ? 'Bot Otomasi' : user.name)
+
       const event: MessageCreatedEvent = {
         id: rawMsg.id || anyEvt.id,
         conversationId: convId,
@@ -344,11 +369,8 @@ export function useConversationChat({ user, initialConversationId }: UseConversa
         messageType: msgType,
         contentType: (rawMsg.contentType || anyEvt.contentType || 'text') as ContentType,
         senderId: rawMsg.senderId || anyEvt.contact?.id || anyEvt.senderId,
-        senderType: isCustomer ? 'contact' : 'user',
-        senderName:
-          anyEvt.contact?.name ||
-          anyEvt.senderName ||
-          (isCustomer ? 'Pelanggan WhatsApp' : user.name),
+        senderType: isCustomer ? 'contact' : rawMsg.senderType || anyEvt.senderType || 'user',
+        senderName,
         timestamp: timeStr,
         status: rawMsg.status || (isCustomer ? 'delivered' : 'sent'),
       }

@@ -694,12 +694,14 @@ export class ConversationService {
       ticketId: activeTicketId,
       senderType: 'user',
       senderId: null,
+      senderName: 'WhatsApp HP',
+      isEcho: true,
       messageType: 'outgoing',
       content: payload.content ?? null,
       contentType: (payload.contentType as unknown as Message['contentType']) || 'text',
       status: 'sent',
       externalSourceId: payload.externalId ?? null,
-      contentAttributes: { echo: true },
+      contentAttributes: { echo: true, source: 'whatsapp_mobile', senderName: 'WhatsApp HP' },
       attachments: [],
       createdAt: now,
       updatedAt: now,
@@ -742,7 +744,8 @@ export class ConversationService {
         contentType: message.contentType,
         senderId: message.senderId,
         senderType: message.senderType,
-        senderName: 'Petugas CS (WhatsApp HP)',
+        senderName: 'WhatsApp HP',
+        isEcho: true,
         timestamp: message.createdAt,
         createdAt: message.createdAt,
         message,
@@ -842,11 +845,15 @@ export class ConversationService {
         SELECT m.id, m.conversation_id as "conversationId", m.ticket_id as "ticketId",
                t.display_id as "ticketDisplayId",
                m.sender_id as "senderId", m.sender_type as "senderType",
+               COALESCE(u.display_name, m.content_attributes->>'senderName', CASE WHEN m.sender_type = 'bot' THEN 'Bot Otomasi' ELSE NULL END) as "senderName",
+               u.email as "senderEmail",
                m.message_type as "messageType", m.content_type as "contentType",
                m.content, m.status, m.external_source_id as "externalSourceId",
+               m.content_attributes as "contentAttributes",
                m.created_at as "createdAt", m.updated_at as "updatedAt"
         FROM messages m
         LEFT JOIN tickets t ON m.ticket_id = t.id
+        LEFT JOIN users u ON m.sender_id = u.id
         WHERE m.conversation_id = ${id}
         ORDER BY m.created_at ASC
       `
@@ -865,6 +872,19 @@ export class ConversationService {
       messages =
         storeMessages.length > 0 ? storeMessages : memoryStore.messages.get(conversation.id) || []
     }
+
+    messages = messages.map((m) => {
+      const attrs = (m.contentAttributes as Record<string, unknown>) || {}
+      let senderName = m.senderName || (attrs.senderName as string | undefined)
+      if (!senderName && m.senderType === 'bot') {
+        senderName = 'Bot Otomasi'
+      }
+      return {
+        ...m,
+        senderName,
+        isEcho: Boolean(m.isEcho || attrs.echo),
+      }
+    })
 
     if (conversation.unreadCount && conversation.unreadCount > 0) {
       conversation.unreadCount = 0

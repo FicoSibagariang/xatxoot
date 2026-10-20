@@ -188,6 +188,27 @@ export function ChatBubble({ message, onRetry }: ChatBubbleProps) {
     message.senderType === 'user' ||
     message.senderType === 'bot'
 
+  const isEcho = Boolean(
+    message.isEcho ||
+      message.contentAttributes?.echo ||
+      message.contentAttributes?.source === 'whatsapp_mobile' ||
+      message.senderName === 'WhatsApp HP',
+  )
+  const isBot =
+    !isEcho && (message.senderType === 'bot' || message.senderName?.toLowerCase().includes('bot'))
+
+  const tooltipText = isEcho
+    ? message.timestamp
+      ? `Disinkronkan dari Aplikasi WhatsApp HP pada ${message.timestamp}`
+      : 'Disinkronkan dari Aplikasi WhatsApp HP'
+    : isBot
+      ? message.timestamp
+        ? `Dikirim oleh ${message.senderName || 'Bot Otomasi'} pada ${message.timestamp}`
+        : `Dikirim oleh ${message.senderName || 'Bot Otomasi'}`
+      : message.timestamp
+        ? `Dikirim oleh ${message.senderName || 'Agen CS'} via Dashboard pada ${message.timestamp}`
+        : `Dikirim oleh ${message.senderName || 'Agen CS'} via Dashboard`
+
   return (
     <div
       data-testid={isIncoming ? 'chat-bubble-incoming' : 'chat-bubble-outgoing'}
@@ -198,7 +219,9 @@ export function ChatBubble({ message, onRetry }: ChatBubbleProps) {
         className={`relative max-w-[85%] sm:max-w-[70%] md:max-w-[60%] rounded-2xl px-3.5 pt-2 pb-1.5 shadow-2xs ${
           isIncoming
             ? 'bg-wa-bubble-in text-wa-text-primary rounded-tl-xs border border-black/5'
-            : 'bg-wa-bubble-out text-wa-text-primary rounded-tr-xs border border-emerald-900/5'
+            : isEcho
+              ? 'bg-wa-bubble-out text-wa-text-primary rounded-tr-xs border border-amber-300'
+              : 'bg-wa-bubble-out text-wa-text-primary rounded-tr-xs border border-emerald-900/5'
         }`}
       >
         {/* WhatsApp-style Tail SVG */}
@@ -226,6 +249,41 @@ export function ChatBubble({ message, onRetry }: ChatBubbleProps) {
         {isIncoming && message.senderName && (
           <div className="text-[11px] font-bold text-emerald-800 mb-0.5 leading-tight">
             {message.senderName}
+          </div>
+        )}
+
+        {/* Sender Tag for outgoing messages (Agent vs WhatsApp Mobile HP vs Bot) */}
+        {isOutgoing && (
+          <div
+            data-testid="outgoing-sender-tag"
+            title={tooltipText}
+            className="flex items-center gap-1 mb-1 leading-tight select-none"
+          >
+            {isEcho ? (
+              <span
+                data-testid="sender-badge-echo"
+                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-sm bg-amber-100 text-amber-900 font-semibold text-[10px] border border-amber-300"
+              >
+                <span>📱</span>
+                <span>WhatsApp HP (Perangkat Fisik)</span>
+              </span>
+            ) : isBot ? (
+              <span
+                data-testid="sender-badge-bot"
+                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-sm bg-purple-100 text-purple-900 font-semibold text-[10px] border border-purple-300"
+              >
+                <span>🤖</span>
+                <span>{message.senderName || 'Bot Otomasi'}</span>
+              </span>
+            ) : (
+              <span
+                data-testid="sender-badge-agent"
+                className="inline-flex items-center gap-1 text-[11px] font-semibold text-wa-teal-dark"
+              >
+                <span>👤</span>
+                <span>{message.senderName || 'Agen CS'}</span>
+              </span>
+            )}
           </div>
         )}
 
