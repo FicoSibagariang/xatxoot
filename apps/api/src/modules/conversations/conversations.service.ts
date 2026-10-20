@@ -14,6 +14,12 @@ import { resetTicketStore, ticketService } from '../tickets/tickets.service'
 
 export type { Contact, ContactInbox, Conversation, Message, Ticket, TicketStatus }
 
+export interface ConversationWithInbox extends Conversation {
+  inboxName?: string | null
+  channelType?: string | null
+  channel?: string | null
+}
+
 export interface InboundMessagePayload {
   inboxId: string
   sourceId: string
@@ -755,21 +761,28 @@ export class ConversationService {
     try {
       const rows = await sql`
         SELECT
-          id,
-          inbox_id as "inboxId",
-          contact_id as "contactId",
-          contact_inbox_id as "contactInboxId",
-          active_ticket_id as "activeTicketId",
-          unread_count as "unreadCount",
-          last_message_at as "lastMessageAt",
-          created_at as "createdAt",
-          updated_at as "updatedAt"
-        FROM conversations
-        WHERE id = ${id}
+          c.id,
+          c.inbox_id as "inboxId",
+          c.contact_id as "contactId",
+          c.contact_inbox_id as "contactInboxId",
+          c.active_ticket_id as "activeTicketId",
+          c.unread_count as "unreadCount",
+          c.last_message_at as "lastMessageAt",
+          c.created_at as "createdAt",
+          c.updated_at as "updatedAt",
+          i.name as "inboxName",
+          i.channel_type as "channelType"
+        FROM conversations c
+        LEFT JOIN inboxes i ON c.inbox_id = i.id
+        WHERE c.id = ${id}
         LIMIT 1
       `
       if (rows && rows.length > 0) {
-        conversation = rows[0] as unknown as Conversation
+        const row = rows[0] as unknown as ConversationWithInbox
+        conversation = {
+          ...row,
+          channel: row.channel || row.channelType || 'whatsapp',
+        }
         memoryStore.conversations.set(id, conversation)
       } else {
         memoryStore.conversations.delete(id)
@@ -782,6 +795,24 @@ export class ConversationService {
 
     if (!conversation) {
       return null
+    }
+
+    const currentConv = conversation as ConversationWithInbox
+    if ((!currentConv.inboxName || !currentConv.channelType) && currentConv.inboxId) {
+      try {
+        const { inboxService } = await import('../inboxes/inboxes.service')
+        const res = await inboxService.getInboxById(currentConv.inboxId)
+        if (res?.inbox) {
+          conversation = {
+            ...currentConv,
+            inboxName: currentConv.inboxName || res.inbox.name,
+            channelType: currentConv.channelType || res.inbox.channelType,
+            channel: currentConv.channel || currentConv.channelType || res.inbox.channelType,
+          }
+        }
+      } catch {
+        // ignore
+      }
     }
 
     let contact: Contact | null = null
@@ -872,6 +903,10 @@ export class ConversationService {
       Conversation & {
         contact: Contact | null
         activeTicket: Ticket | null
+        inboxName?: string | null
+        channelType?: string | null
+        channel?: string | null
+        lastMessage?: string | null
       }
     >
   > {
@@ -880,21 +915,25 @@ export class ConversationService {
     try {
       const rows = filter?.inboxId
         ? await sql`
-            SELECT id, inbox_id as "inboxId", contact_id as "contactId",
-                   contact_inbox_id as "contactInboxId", active_ticket_id as "activeTicketId",
-                   unread_count as "unreadCount", last_message_at as "lastMessageAt",
-                   created_at as "createdAt", updated_at as "updatedAt"
-            FROM conversations
-            WHERE inbox_id = ${filter.inboxId}
-            ORDER BY last_message_at DESC
+            SELECT c.id, c.inbox_id as "inboxId", c.contact_id as "contactId",
+                   c.contact_inbox_id as "contactInboxId", c.active_ticket_id as "activeTicketId",
+                   c.unread_count as "unreadCount", c.last_message_at as "lastMessageAt",
+                   c.created_at as "createdAt", c.updated_at as "updatedAt",
+                   i.name as "inboxName", i.channel_type as "channelType"
+            FROM conversations c
+            LEFT JOIN inboxes i ON c.inbox_id = i.id
+            WHERE c.inbox_id = ${filter.inboxId}
+            ORDER BY c.last_message_at DESC
           `
         : await sql`
-            SELECT id, inbox_id as "inboxId", contact_id as "contactId",
-                   contact_inbox_id as "contactInboxId", active_ticket_id as "activeTicketId",
-                   unread_count as "unreadCount", last_message_at as "lastMessageAt",
-                   created_at as "createdAt", updated_at as "updatedAt"
-            FROM conversations
-            ORDER BY last_message_at DESC
+            SELECT c.id, c.inbox_id as "inboxId", c.contact_id as "contactId",
+                   c.contact_inbox_id as "contactInboxId", c.active_ticket_id as "activeTicketId",
+                   c.unread_count as "unreadCount", c.last_message_at as "lastMessageAt",
+                   c.created_at as "createdAt", c.updated_at as "updatedAt",
+                   i.name as "inboxName", i.channel_type as "channelType"
+            FROM conversations c
+            LEFT JOIN inboxes i ON c.inbox_id = i.id
+            ORDER BY c.last_message_at DESC
           `
       conversations = (rows || []) as unknown as Conversation[]
       if (!filter?.inboxId) {
@@ -911,8 +950,25 @@ export class ConversationService {
       }
     }
 
+    const { inboxService } = await import('../inboxes/inboxes.service')
+
     const result = []
     for (const conv of conversations) {
+      const convWithInbox = conv as ConversationWithInbox
+      let inboxName = convWithInbox.inboxName
+      let channelType = convWithInbox.channelType || convWithInbox.channel
+      if ((!inboxName || !channelType) && conv.inboxId) {
+        try {
+          const res = await inboxService.getInboxById(conv.inboxId)
+          if (res?.inbox) {
+            inboxName = inboxName || res.inbox.name
+            channelType = channelType || res.inbox.channelType
+          }
+        } catch {
+          // ignore
+        }
+      }
+
       let contact: Contact | null = null
       if (conv.contactId) {
         try {
@@ -968,6 +1024,9 @@ export class ConversationService {
 
       result.push({
         ...conv,
+        inboxName: inboxName || null,
+        channelType: channelType || 'whatsapp',
+        channel: channelType || 'whatsapp',
         contact,
         activeTicket,
         lastMessage,

@@ -53,6 +53,8 @@ export interface ConversationItem {
   contactPhone?: string
   contactAvatarUrl?: string
   channel: 'whatsapp' | 'website_widget' | 'api'
+  inboxId?: string
+  inboxName?: string
   lastMessage?: string
   lastMessageTimestamp?: string
   unreadCount?: number

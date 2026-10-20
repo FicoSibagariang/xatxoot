@@ -207,6 +207,14 @@ export function ChatListPanel({
                           )}
                         </>
                       )}
+                      {conv.inboxName && (
+                        <span
+                          data-testid="inbox-name-pill"
+                          className="px-1.5 py-0.5 text-[10px] font-medium rounded bg-slate-100 text-slate-600 border border-slate-200 shrink-0"
+                        >
+                          {conv.inboxName}
+                        </span>
+                      )}
                       <p
                         className={`text-xs truncate ${
                           conv.lastMessage?.includes('Pesan telah ditarik')

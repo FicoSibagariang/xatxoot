@@ -34,9 +34,21 @@ export function Avatar({ src, name, size = 'md', presence, channel, className = 
     offline: 'bg-slate-400 border-white',
   }
 
+  const channelBgColor: Record<string, string> = {
+    whatsapp: 'bg-wa-badge-unread',
+    whatsapp_cloud: 'bg-wa-badge-unread',
+    whatsapp_unofficial: 'bg-wa-badge-unread',
+    website_widget: 'bg-blue-600',
+    web_widget: 'bg-blue-600',
+    api: 'bg-purple-600',
+  }
+
   const channelIcons: Record<string, React.ReactNode> = {
     whatsapp: <MessageSquare className="w-2.5 h-2.5 text-white" />,
+    whatsapp_cloud: <MessageSquare className="w-2.5 h-2.5 text-white" />,
+    whatsapp_unofficial: <MessageSquare className="w-2.5 h-2.5 text-white" />,
     website_widget: <Globe className="w-2.5 h-2.5 text-white" />,
+    web_widget: <Globe className="w-2.5 h-2.5 text-white" />,
     api: <Zap className="w-2.5 h-2.5 text-white" />,
   }
 
@@ -62,13 +74,65 @@ export function Avatar({ src, name, size = 'md', presence, channel, className = 
       {/* Channel Mini Badge */}
       {channel && (
         <span
+          data-testid="channel-avatar-badge"
           title={`Channel: ${channel}`}
-          className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-wa-teal-primary text-white flex items-center justify-center shadow-xs"
+          className={`absolute -top-1 -right-1 w-4 h-4 rounded-full ${channelBgColor[channel] || 'bg-slate-500'} text-white flex items-center justify-center shadow-xs`}
         >
           {channelIcons[channel] || <MessageSquare className="w-2.5 h-2.5 text-white" />}
         </span>
       )}
     </div>
+  )
+}
+
+// --- ChannelBadge Primitive ---
+export interface ChannelBadgeProps {
+  channel: 'whatsapp' | 'website_widget' | 'api' | string
+  className?: string
+  showLabel?: boolean
+}
+
+export function ChannelBadge({ channel, className = '', showLabel = false }: ChannelBadgeProps) {
+  const channelColors: Record<string, string> = {
+    whatsapp: 'bg-wa-badge-unread text-white',
+    whatsapp_cloud: 'bg-wa-badge-unread text-white',
+    whatsapp_unofficial: 'bg-wa-badge-unread text-white',
+    website_widget: 'bg-blue-600 text-white',
+    web_widget: 'bg-blue-600 text-white',
+    api: 'bg-purple-600 text-white',
+  }
+
+  const channelIcons: Record<string, React.ReactNode> = {
+    whatsapp: <MessageSquare className="w-2.5 h-2.5" />,
+    whatsapp_cloud: <MessageSquare className="w-2.5 h-2.5" />,
+    whatsapp_unofficial: <MessageSquare className="w-2.5 h-2.5" />,
+    website_widget: <Globe className="w-2.5 h-2.5" />,
+    web_widget: <Globe className="w-2.5 h-2.5" />,
+    api: <Zap className="w-2.5 h-2.5" />,
+  }
+
+  const channelLabels: Record<string, string> = {
+    whatsapp: 'WhatsApp',
+    whatsapp_cloud: 'WhatsApp',
+    whatsapp_unofficial: 'WhatsApp',
+    website_widget: 'Web Widget',
+    web_widget: 'Web Widget',
+    api: 'API',
+  }
+
+  const colorClass = channelColors[channel] || 'bg-slate-500 text-white'
+  const icon = channelIcons[channel] || <MessageSquare className="w-2.5 h-2.5" />
+  const label = channelLabels[channel] || channel
+
+  return (
+    <span
+      data-testid="channel-badge"
+      title={`Channel: ${label}`}
+      className={`inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-semibold leading-none shadow-2xs ${colorClass} ${className}`}
+    >
+      {icon}
+      {showLabel && <span>{label}</span>}
+    </span>
   )
 }
 
