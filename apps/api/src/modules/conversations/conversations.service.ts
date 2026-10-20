@@ -443,18 +443,21 @@ export class ConversationService {
       })
     }
 
+    const customerSenderName = contact.name || payload.senderName || 'Pelanggan'
+
     const message: Message = {
       id: crypto.randomUUID(),
       conversationId: conversation.id,
       ticketId: ticket.id,
       senderType: 'contact',
       senderId: contact.id,
+      senderName: customerSenderName,
       messageType: (payload.messageType as unknown as Message['messageType']) || 'incoming',
       content: payload.content ?? null,
       contentType: (payload.contentType as unknown as Message['contentType']) || 'text',
       status: 'delivered',
       externalSourceId: payload.externalId ?? null,
-      contentAttributes: {},
+      contentAttributes: { senderName: customerSenderName },
       attachments: [],
       createdAt: now,
       updatedAt: now,

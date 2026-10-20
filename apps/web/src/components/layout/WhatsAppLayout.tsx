@@ -125,7 +125,10 @@ export interface WhatsAppLayoutProps {
   onNewChat?: () => void
   onToggleDrawer?: () => void
   onCloseDrawer?: () => void
-  onSendMessage?: (msg: string) => void
+  onSendMessage?: (msg: string, replyToMessageId?: string | null) => void
+  replyingToMessage?: TimelineMessage | null
+  onCancelReply?: () => void
+  onReplyToMessage?: (message: TimelineMessage) => void
   onAssignTicket?: () => void
   onResolveTicket?: () => void
   onSaveInternalNote?: (note: string) => void
@@ -171,6 +174,9 @@ export function WhatsAppLayout({
   onToggleDrawer = () => {},
   onCloseDrawer = () => {},
   onSendMessage = () => {},
+  replyingToMessage,
+  onCancelReply,
+  onReplyToMessage,
   onAssignTicket = () => {},
   onResolveTicket = () => {},
   onSaveInternalNote = () => {},
@@ -245,6 +251,9 @@ export function WhatsAppLayout({
             currentUser={currentUser}
             isDrawerOpen={isDrawerOpen}
             messages={messages}
+            replyingToMessage={replyingToMessage}
+            onCancelReply={onCancelReply}
+            onReplyToMessage={onReplyToMessage}
             cannedResponses={cannedResponses}
             slashCommands={slashCommands}
             now={now}

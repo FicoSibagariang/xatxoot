@@ -155,12 +155,21 @@ export const AttachmentSchema = z.object({
 })
 export type Attachment = z.infer<typeof AttachmentSchema>
 
+export const QuotedMessageSchema = z.object({
+  messageId: z.string(),
+  externalId: z.string().nullable().optional(),
+  senderName: z.string().optional(),
+  snippet: z.string().optional(),
+})
+export type QuotedMessage = z.infer<typeof QuotedMessageSchema>
+
 export const CreateMessageInputSchema = z.object({
   conversationId: z.string().uuid('Conversation ID harus berupa UUID valid'),
   ticketId: z.string().uuid().nullable().optional(),
   senderType: MessageSenderTypeSchema,
   senderId: z.string().uuid().nullable().optional(),
   senderName: z.string().nullable().optional(),
+  replyToMessageId: z.string().uuid().optional(),
   messageType: MessageTypeSchema.default('incoming'),
   content: z.string().nullable().optional(),
   contentType: MessageContentTypeSchema.default('text'),
@@ -180,6 +189,7 @@ export const MessageSchema = z.object({
   senderName: z.string().nullable().optional(),
   senderEmail: z.string().nullable().optional(),
   isEcho: z.boolean().optional(),
+  replyTo: QuotedMessageSchema.nullable().optional(),
   messageType: MessageTypeSchema,
   content: z.string().nullable().optional(),
   contentType: MessageContentTypeSchema,

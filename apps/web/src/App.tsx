@@ -243,6 +243,9 @@ function AppContent({ initialAuthenticated }: { initialAuthenticated?: boolean }
           }}
           onToggleDrawer={() => chat.setIsDrawerOpen(!chat.isDrawerOpen)}
           onCloseDrawer={() => chat.setIsDrawerOpen(false)}
+          replyingToMessage={chat.replyingToMessage}
+          onCancelReply={chat.cancelReply}
+          onReplyToMessage={chat.setReplyingToMessage}
           onSendMessage={chat.handleSendMessage}
           onAssignTicket={chat.handleAssignTicket}
           onResolveTicket={chat.handleResolveTicket}

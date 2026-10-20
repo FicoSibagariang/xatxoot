@@ -29,6 +29,8 @@ export interface QueuedBaileysJob {
     text?: string
     mediaUrl?: string
     fileName?: string
+    replyToExternalId?: string
+    quotedText?: string
   }
 }
 

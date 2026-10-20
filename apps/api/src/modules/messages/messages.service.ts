@@ -121,6 +121,7 @@ export class MessageService {
         const attrs = (m.contentAttributes as Record<string, unknown>) || {}
         return {
           ...m,
+          replyTo: (attrs.replyTo as Message['replyTo']) || m.replyTo,
           isEcho: Boolean(m.isEcho || attrs.echo),
         }
       })
@@ -141,6 +142,7 @@ export class MessageService {
         return {
           ...m,
           senderName,
+          replyTo: (attrs.replyTo as Message['replyTo']) || m.replyTo,
           isEcho: Boolean(m.isEcho || attrs.echo),
         }
       })
@@ -460,6 +462,41 @@ export class MessageService {
     let status: MessageStatus = 'sent'
     const contentAttributes: Record<string, unknown> = {}
 
+    // 4. Resolve Quoted Reply context if replyToMessageId is provided (Issue #286)
+    let replyTo: {
+      messageId: string
+      externalId?: string | null
+      senderName?: string
+      snippet?: string
+    } | null = null
+
+    if (input.replyToMessageId) {
+      const targetMsg = await this.getMessageById(input.replyToMessageId)
+      if (targetMsg) {
+        const targetAttrs = (targetMsg.contentAttributes as Record<string, unknown>) || {}
+        let targetSender = targetMsg.senderName || (targetAttrs.senderName as string | undefined)
+
+        if (!targetSender && targetMsg.senderType === 'contact') {
+          try {
+            const conv = await conversationService.getConversationById(targetMsg.conversationId)
+            targetSender = conv?.contact?.name || 'Pelanggan'
+          } catch {
+            targetSender = 'Pelanggan'
+          }
+        } else if (!targetSender) {
+          targetSender = targetMsg.senderType === 'bot' ? 'Bot Otomasi' : 'Agen CS'
+        }
+
+        const snippet = targetMsg.content ? targetMsg.content.slice(0, 150) : ''
+        replyTo = {
+          messageId: targetMsg.id,
+          externalId: targetMsg.externalSourceId || null,
+          senderName: targetSender,
+          snippet,
+        }
+      }
+    }
+
     // 4. Dispatch based on channel
     if (channelType === 'whatsapp_cloud') {
       const channel = inboxData?.channel as Record<string, unknown> | undefined
@@ -469,6 +506,10 @@ export class MessageService {
         messaging_product: 'whatsapp',
         to: recipientNumber,
         type: contentType,
+      }
+
+      if (replyTo?.externalId) {
+        metaPayload.context = { message_id: replyTo.externalId }
       }
 
       if (contentType === 'text') {
@@ -525,6 +566,8 @@ export class MessageService {
         text: input.content?.trim() || undefined,
         mediaUrl: attachments[0]?.fileUrl,
         fileName: attachments[0]?.fileName || undefined,
+        replyToExternalId: replyTo?.externalId || undefined,
+        quotedText: replyTo?.snippet || undefined,
       })
     }
 
@@ -548,6 +591,7 @@ export class MessageService {
     const mergedContentAttributes: Record<string, unknown> = {
       ...contentAttributes,
       ...(senderName ? { senderName } : {}),
+      ...(replyTo ? { replyTo } : {}),
     }
 
     // 5. Construct Message record
@@ -559,6 +603,7 @@ export class MessageService {
       senderId: input.senderId || 'mock-user-id',
       senderName: senderName || null,
       isEcho: false,
+      replyTo: replyTo || undefined,
       messageType: 'outgoing',
       content: input.content?.trim() || null,
       contentType,
