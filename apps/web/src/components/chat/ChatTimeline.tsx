@@ -1,4 +1,5 @@
 import { Fragment, useState } from 'react'
+import { TicketOpenedPill, TicketResolvedPill } from './TicketLifecyclePills'
 import type { DeliveryStatus, TimelineMessage } from './types'
 
 // ==========================================
@@ -130,11 +131,31 @@ export function DateSeparatorPill({ dateText }: DateSeparatorPillProps) {
 // TicketSeparatorPill (Visual Boundary Between Tickets)
 // ==========================================
 export interface TicketSeparatorPillProps {
-  ticketNumber?: string
+  ticketNumber?: string | number
   text?: string
+  timestamp?: string
+  dateText?: string
+  openedAt?: string
 }
 
-export function TicketSeparatorPill({ ticketNumber, text }: TicketSeparatorPillProps) {
+export function TicketSeparatorPill({
+  ticketNumber,
+  text,
+  timestamp,
+  dateText,
+  openedAt,
+}: TicketSeparatorPillProps) {
+  if (!text) {
+    return (
+      <TicketOpenedPill
+        ticketNumber={ticketNumber}
+        timestamp={timestamp}
+        dateText={dateText}
+        openedAt={openedAt}
+      />
+    )
+  }
+
   return (
     <div
       data-testid="ticket-separator-pill"
@@ -143,7 +164,7 @@ export function TicketSeparatorPill({ ticketNumber, text }: TicketSeparatorPillP
       <div className="flex-1 border-t border-slate-300/80 max-w-xs" />
       <span className="mx-3 px-3 py-1 bg-emerald-50 text-emerald-800 font-semibold text-xs rounded-full border border-emerald-300 shadow-2xs flex items-center gap-1.5">
         <span>🎫</span>
-        <span>{text || (ticketNumber ? `Tiket #${ticketNumber} Dimulai` : 'Batas Tiket')}</span>
+        <span>{text}</span>
       </span>
       <div className="flex-1 border-t border-slate-300/80 max-w-xs" />
     </div>
@@ -165,8 +186,40 @@ export function ChatBubble({ message, onRetry, onReply }: ChatBubbleProps) {
   // biome-ignore lint/suspicious/noExplicitAny: quoted message resolution
   const quoted = message.replyTo || (message.contentAttributes as any)?.replyTo
 
-  // Activity Pill (Status transisi tiket, assignment, dll)
+  // Activity Pill (Status transisi tiket, assignment, lifecycle, dll)
   if (message.messageType === 'activity') {
+    // biome-ignore lint/suspicious/noExplicitAny: lifecycle attributes
+    const attrs = (message.contentAttributes as any) || {}
+    const isResolved =
+      attrs.eventType === 'ticket_resolved' ||
+      message.content?.toLowerCase().includes('diselesaikan')
+    const isOpened = attrs.eventType === 'ticket_opened'
+
+    if (isResolved) {
+      return (
+        <TicketResolvedPill
+          ticketNumber={attrs.ticketDisplayId || message.ticketDisplayId}
+          resolvedBy={attrs.resolvedBy}
+          timestamp={message.timestamp}
+          durationText={attrs.durationText}
+          openedAt={attrs.openedAt}
+          resolvedAt={attrs.resolvedAt}
+          durationMs={attrs.durationMs}
+        />
+      )
+    }
+
+    if (isOpened) {
+      return (
+        <TicketOpenedPill
+          ticketNumber={attrs.ticketDisplayId || message.ticketDisplayId}
+          timestamp={message.timestamp}
+          dateText={message.dateGroup}
+          openedAt={attrs.openedAt}
+        />
+      )
+    }
+
     return (
       <div className="flex justify-center my-2 select-none px-4">
         <span
@@ -474,6 +527,22 @@ export function ChatTimeline({
 }: ChatTimelineProps) {
   let lastDateGroup = ''
   let lastTicketId = ''
+  const seenOpenedTickets = new Set<string>()
+
+  // Pre-scan messages that already contain a ticket_opened activity message
+  for (const msg of messages) {
+    if (msg.ticketId && msg.messageType === 'activity') {
+      // biome-ignore lint/suspicious/noExplicitAny: contentAttributes resolution
+      const attrs = (msg.contentAttributes as any) || {}
+      if (
+        attrs.eventType === 'ticket_opened' ||
+        (msg.content?.toLowerCase().includes('tiket #') &&
+          msg.content?.toLowerCase().includes('dibuka'))
+      ) {
+        seenOpenedTickets.add(msg.ticketId)
+      }
+    }
+  }
 
   return (
     <div data-testid="chat-timeline" className={`flex flex-col py-2 w-full ${className}`}>
@@ -483,14 +552,20 @@ export function ChatTimeline({
           lastDateGroup = msg.dateGroup
         }
 
-        const showTicketSeparator = Boolean(
+        const isNewTicketBoundary = Boolean(
           msg.ticketId &&
-            lastTicketId &&
-            msg.ticketId !== lastTicketId &&
+            (!lastTicketId || msg.ticketId !== lastTicketId) &&
             msg.messageType !== 'activity',
         )
+
+        const showTicketSeparator =
+          isNewTicketBoundary && Boolean(msg.ticketId && !seenOpenedTickets.has(msg.ticketId))
+
         if (msg.ticketId) {
           lastTicketId = msg.ticketId
+          if (showTicketSeparator) {
+            seenOpenedTickets.add(msg.ticketId)
+          }
         }
 
         return (
@@ -499,7 +574,8 @@ export function ChatTimeline({
             {showTicketSeparator && (
               <TicketSeparatorPill
                 ticketNumber={msg.ticketDisplayId}
-                text={msg.ticketDisplayId ? `Tiket #${msg.ticketDisplayId} Dimulai` : undefined}
+                timestamp={msg.timestamp}
+                dateText={msg.dateGroup}
               />
             )}
             <ChatBubble message={msg} onRetry={onRetryMessage} onReply={onReplyToMessage} />

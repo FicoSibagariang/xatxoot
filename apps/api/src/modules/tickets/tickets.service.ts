@@ -42,6 +42,26 @@ export function resetTicketStore(): void {
   memoryStore.tickets.clear()
 }
 
+export function formatDuration(durationMs: number): string {
+  if (durationMs < 60 * 1000) {
+    return 'kurang dari 1 menit'
+  }
+  const totalMinutes = Math.round(durationMs / (60 * 1000))
+  if (totalMinutes < 60) {
+    return `${totalMinutes} menit`
+  }
+  const totalHours = Math.floor(durationMs / (60 * 60 * 1000))
+  const remainingMinutes = Math.round((durationMs % (60 * 60 * 1000)) / (60 * 1000))
+  if (totalHours < 24) {
+    return remainingMinutes > 0
+      ? `${totalHours} jam ${remainingMinutes} menit`
+      : `${totalHours} jam`
+  }
+  const totalDays = Math.floor(durationMs / (24 * 60 * 60 * 1000))
+  const remainingHours = Math.floor((durationMs % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000))
+  return remainingHours > 0 ? `${totalDays} hari ${remainingHours} jam` : `${totalDays} hari`
+}
+
 export class TicketService {
   async createTicket(dto: CreateTicketDto): Promise<Ticket> {
     const id = crypto.randomUUID()
@@ -105,6 +125,63 @@ export class TicketService {
     if (ticket.status === 'resolved') {
       csatService.onTicketResolved(ticket).catch(() => {})
       analyticsService.onTicketResolved(ticket).catch(() => {})
+    }
+
+    if (ticket.conversationId) {
+      const activityMsg: Message = {
+        id: crypto.randomUUID(),
+        conversationId: ticket.conversationId,
+        ticketId: ticket.id,
+        senderType: 'system',
+        senderId: null,
+        messageType: 'activity',
+        content: `Tiket #${ticket.displayId} dibuka.`,
+        contentType: 'text',
+        status: 'sent',
+        externalSourceId: null,
+        contentAttributes: {
+          eventType: 'ticket_opened',
+          ticketDisplayId: ticket.displayId,
+          openedAt: ticket.createdAt,
+        },
+        attachments: [],
+        createdAt: ticket.createdAt,
+        updatedAt: ticket.createdAt,
+      }
+
+      saveMessageToStore(activityMsg)
+
+      try {
+        await sql`
+          INSERT INTO messages (
+            id, conversation_id, ticket_id, sender_type, sender_id, message_type, content, content_type,
+            status, external_source_id, content_attributes, created_at, updated_at
+          ) VALUES (
+            ${activityMsg.id}, ${activityMsg.conversationId}, ${activityMsg.ticketId}, ${activityMsg.senderType},
+            ${null}, ${activityMsg.messageType}, ${activityMsg.content}, ${activityMsg.contentType},
+            ${activityMsg.status}, ${activityMsg.externalSourceId}, ${JSON.stringify(activityMsg.contentAttributes)},
+            ${activityMsg.createdAt}, ${activityMsg.updatedAt}
+          )
+        `
+      } catch {
+        // Memory fallback
+      }
+
+      realtimeService.broadcast({
+        event: 'message.created',
+        data: {
+          id: activityMsg.id,
+          conversationId: ticket.conversationId,
+          ticketId: ticket.id,
+          ticketDisplayId: ticket.displayId,
+          content: activityMsg.content,
+          messageType: 'activity',
+          contentType: 'text',
+          senderType: 'system',
+          contentAttributes: activityMsg.contentAttributes,
+          timestamp: activityMsg.createdAt,
+        },
+      })
     }
 
     return ticket
@@ -224,6 +301,7 @@ export class TicketService {
     id: string,
     status: TicketStatus | string,
     snoozedUntil?: string | null,
+    options?: { agentName?: string | null; agentId?: string | null },
   ): Promise<Ticket> {
     const parsed = TicketStatusSchema.safeParse(status)
     if (!parsed.success) {
@@ -270,10 +348,31 @@ export class TicketService {
     })
 
     let activityContent: string | null = null
+    let activityAttributes: Record<string, unknown> = {}
+
     if (validatedStatus === 'resolved' && existing.status !== 'resolved') {
-      activityContent = `Tiket #${existing.displayId || 'T-Baru'} diselesaikan.`
+      const openedAt = existing.openedAt || existing.createdAt
+      const durationMs = Math.max(0, new Date(now).getTime() - new Date(openedAt).getTime())
+      const durationText = formatDuration(durationMs)
+      const resolverName = options?.agentName || 'Sistem'
+
+      activityContent = `Tiket #${existing.displayId || 'T-Baru'} diselesaikan oleh ${resolverName}. (Waktu penanganan: ${durationText})`
+      activityAttributes = {
+        eventType: 'ticket_resolved',
+        ticketDisplayId: existing.displayId,
+        resolvedBy: resolverName,
+        durationMs,
+        durationText,
+        openedAt,
+        resolvedAt: now,
+      }
     } else if (validatedStatus === 'open' && existing.status === 'resolved') {
       activityContent = `Tiket #${existing.displayId || 'T-Baru'} dibuka kembali.`
+      activityAttributes = {
+        eventType: 'ticket_reopened',
+        ticketDisplayId: existing.displayId,
+        reopenedAt: now,
+      }
     }
 
     if (activityContent && existing.conversationId) {
@@ -288,7 +387,7 @@ export class TicketService {
         contentType: 'text',
         status: 'sent',
         externalSourceId: null,
-        contentAttributes: {},
+        contentAttributes: activityAttributes,
         attachments: [],
         createdAt: now,
         updatedAt: now,
@@ -317,10 +416,13 @@ export class TicketService {
         data: {
           id: activityMsg.id,
           conversationId: existing.conversationId,
+          ticketId: existing.id,
+          ticketDisplayId: existing.displayId,
           content: activityMsg.content,
           messageType: 'activity',
           contentType: 'text',
           senderType: 'system',
+          contentAttributes: activityMsg.contentAttributes,
           timestamp: activityMsg.createdAt,
         },
       })

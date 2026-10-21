@@ -408,56 +408,7 @@ export class ConversationService {
 
     // 4. Create Message record
     const convMessages = memoryStore.messages.get(conversation.id) || []
-
-    if (isNewTicket) {
-      const ticketActivityMsg: Message = {
-        id: crypto.randomUUID(),
-        conversationId: conversation.id,
-        ticketId: ticket.id,
-        senderType: 'system',
-        senderId: null,
-        messageType: 'activity',
-        content: `Tiket #${ticket.displayId || 'T-Baru'} dibuat otomatis dari pesan WhatsApp.`,
-        contentType: 'text',
-        status: 'sent',
-        externalSourceId: null,
-        contentAttributes: {},
-        attachments: [],
-        createdAt: new Date(Date.now() - 50).toISOString(),
-        updatedAt: new Date(Date.now() - 50).toISOString(),
-      }
-      convMessages.push(ticketActivityMsg)
-      saveMessageToStore(ticketActivityMsg)
-
-      try {
-        await sql`
-          INSERT INTO messages (
-            id, conversation_id, ticket_id, sender_type, sender_id, message_type, content, content_type,
-            status, external_source_id, content_attributes, created_at, updated_at
-          ) VALUES (
-            ${ticketActivityMsg.id}, ${ticketActivityMsg.conversationId}, ${ticketActivityMsg.ticketId}, ${ticketActivityMsg.senderType},
-            ${null}, ${ticketActivityMsg.messageType}, ${ticketActivityMsg.content}, ${ticketActivityMsg.contentType},
-            ${ticketActivityMsg.status}, ${ticketActivityMsg.externalSourceId}, ${JSON.stringify(ticketActivityMsg.contentAttributes)},
-            ${ticketActivityMsg.createdAt}, ${ticketActivityMsg.updatedAt}
-          )
-        `
-      } catch {
-        // Memory fallback
-      }
-
-      realtimeService.broadcast({
-        event: 'message.created',
-        data: {
-          id: ticketActivityMsg.id,
-          conversationId: conversation.id,
-          content: ticketActivityMsg.content,
-          messageType: 'activity',
-          contentType: 'text',
-          senderType: 'system',
-          timestamp: ticketActivityMsg.createdAt,
-        },
-      })
-    }
+    memoryStore.messages.set(conversation.id, convMessages)
 
     const customerSenderName = contact.name || payload.senderName || 'Pelanggan'
 
