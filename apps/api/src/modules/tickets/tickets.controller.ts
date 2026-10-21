@@ -51,7 +51,16 @@ export async function handleUpdateStatus(c: Context) {
       return c.json({ error: 'Ticket not found' }, 404)
     }
 
-    const ticket = await ticketService.updateTicketStatus(id, parsedStatus.data, body.snoozedUntil)
+    const user = c.get('user') as User | undefined
+    const agentName = user?.displayName || (user as { name?: string })?.name || user?.email
+    const agentId = user?.id
+
+    const ticket = await ticketService.updateTicketStatus(
+      id,
+      parsedStatus.data,
+      body.snoozedUntil,
+      { agentName, agentId },
+    )
     return c.json({ ticket }, 200)
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Internal Server Error'
