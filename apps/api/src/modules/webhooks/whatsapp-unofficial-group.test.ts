@@ -110,4 +110,94 @@ describe('WhatsApp Unofficial Webhook - WhatsApp Group Handling (TDD RED)', () =
     expect(convData.conversation.isGroup).toBe(true)
     expect(convData.conversation.groupJid).toBe(groupJid)
   })
+
+  it('should use groupName when provided in payload as contact name', async () => {
+    const payload = {
+      sessionId: 'session_group_test_01',
+      inboxId,
+      senderNumber: '120363209784423627@g.us',
+      senderName: 'Wardi',
+      isGroup: true,
+      groupJid,
+      groupName: 'NOC Alert & Monitoring',
+      participant: '62811638688',
+      participantName: 'Wardi',
+      content: '!status',
+      externalMessageId: 'WA_GRP_MSG_003',
+    }
+
+    const res = await app.request('/api/v1/webhooks/whatsapp-unofficial/inbound', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+
+    expect(res.status).toBe(200)
+    const data = (await res.json()) as { success: boolean; conversationId: string }
+    expect(data.success).toBe(true)
+
+    const convRes = await app.request(`/api/v1/conversations/${data.conversationId}`, {
+      method: 'GET',
+      headers: { Authorization: 'Bearer valid-access-token' },
+    })
+    const convData = (await convRes.json()) as {
+      contact: { name?: string }
+    }
+
+    expect(convData.contact.name).toBe('NOC Alert & Monitoring')
+  })
+
+  it('should update existing contact name from Grup WhatsApp to real groupName', async () => {
+    // 1. Initial message without groupName (gets default 'Grup WhatsApp')
+    const payload1 = {
+      sessionId: 'session_group_test_01',
+      inboxId,
+      senderNumber: '120363209784423627@g.us',
+      isGroup: true,
+      groupJid,
+      content: 'Pesan awal',
+      externalMessageId: 'WA_GRP_MSG_004',
+    }
+
+    const res1 = await app.request('/api/v1/webhooks/whatsapp-unofficial/inbound', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload1),
+    })
+    expect(res1.status).toBe(200)
+    const data1 = (await res1.json()) as { conversationId: string }
+
+    const convRes1 = await app.request(`/api/v1/conversations/${data1.conversationId}`, {
+      method: 'GET',
+      headers: { Authorization: 'Bearer valid-access-token' },
+    })
+    const convData1 = (await convRes1.json()) as { contact: { name?: string } }
+    expect(convData1.contact.name).toBe('Grup WhatsApp')
+
+    // 2. Second message arrives with groupName fetched from Baileys
+    const payload2 = {
+      sessionId: 'session_group_test_01',
+      inboxId,
+      senderNumber: '120363209784423627@g.us',
+      isGroup: true,
+      groupJid,
+      groupName: 'Tim Infrastruktur Network',
+      content: 'Pesan lanjutan',
+      externalMessageId: 'WA_GRP_MSG_005',
+    }
+
+    const res2 = await app.request('/api/v1/webhooks/whatsapp-unofficial/inbound', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload2),
+    })
+    expect(res2.status).toBe(200)
+
+    const convRes2 = await app.request(`/api/v1/conversations/${data1.conversationId}`, {
+      method: 'GET',
+      headers: { Authorization: 'Bearer valid-access-token' },
+    })
+    const convData2 = (await convRes2.json()) as { contact: { name?: string } }
+    expect(convData2.contact.name).toBe('Tim Infrastruktur Network')
+  })
 })

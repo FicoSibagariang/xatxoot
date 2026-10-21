@@ -35,6 +35,7 @@ export class BaileysSession {
   // biome-ignore lint/suspicious/noExplicitAny: Baileys socket instance
   socket?: any
   flushInterval?: ReturnType<typeof setInterval>
+  private groupMetadataCache = new Map<string, { subject: string; fetchedAt: number }>()
 
   constructor(params: SessionInitParams) {
     this.sessionId = params.sessionId
@@ -42,6 +43,43 @@ export class BaileysSession {
     this.inboxId = params.inboxId
     this.handlers = params.handlers
     this.redisPublisher = params.redisPublisher
+  }
+
+  updateGroupSubjectCache(groupJid: string, subject: string): void {
+    this.groupMetadataCache.set(groupJid, { subject, fetchedAt: Date.now() })
+  }
+
+  async getGroupSubject(groupJid: string): Promise<string | undefined> {
+    const cached = this.groupMetadataCache.get(groupJid)
+    const now = Date.now()
+    if (cached && now - cached.fetchedAt < 3600_000) {
+      return cached.subject
+    }
+
+    if (!this.socket || typeof this.socket.groupMetadata !== 'function') {
+      return cached?.subject
+    }
+
+    try {
+      console.log(
+        `[wa-gateway] [${this.sessionId}] [DEBUG] Fetching groupMetadata for ${groupJid}...`,
+      )
+      const metadata = await this.socket.groupMetadata(groupJid)
+      if (metadata?.subject) {
+        this.groupMetadataCache.set(groupJid, { subject: metadata.subject, fetchedAt: now })
+        console.log(
+          `[wa-gateway] [${this.sessionId}] [DEBUG] Retrieved group subject for ${groupJid}: "${metadata.subject}"`,
+        )
+        return metadata.subject
+      }
+    } catch (err) {
+      console.warn(
+        `[wa-gateway] [${this.sessionId}] [DEBUG] Could not fetch groupMetadata for ${groupJid}:`,
+        (err as Error).message,
+      )
+    }
+
+    return cached?.subject
   }
 
   async emitQr(qr: string): Promise<void> {
@@ -107,6 +145,13 @@ export class BaileysSession {
       `[wa-gateway] [${this.sessionId}] [DEBUG] Extracted ${isEcho ? 'echo outgoing' : event.isRevoke ? 'revoke' : 'inbound'} message from ${event.senderNumber} (${event.senderName || 'No Name'}): "${event.content}"`,
     )
 
+    if (event.isGroup && event.groupJid) {
+      const subject = await this.getGroupSubject(event.groupJid)
+      if (subject) {
+        event.groupName = subject
+      }
+    }
+
     // 1. Forward directly to API inbound webhook
     const apiPort = Number(process.env.PORT_API || 8800)
     const apiHost = '127.0.0.1'
@@ -136,6 +181,7 @@ export class BaileysSession {
           revokedAt: event.revokedAt,
           isGroup: event.isGroup,
           groupJid: event.groupJid,
+          groupName: event.groupName,
           participant: event.participant,
           participantName: event.participantName,
         }),
@@ -422,6 +468,19 @@ export class BaileysSession {
           `[wa-gateway] [${this.sessionId}] [DUMP message-receipt.update] RAW:\n`,
           JSON.stringify(events['message-receipt.update'], null, 2),
         )
+      }
+
+      // 7. Groups Update
+      if (events['groups.update']) {
+        console.log(
+          `[wa-gateway] [${this.sessionId}] [DUMP groups.update] RAW:\n`,
+          JSON.stringify(events['groups.update'], null, 2),
+        )
+        for (const update of events['groups.update']) {
+          if (update.id && update.subject) {
+            this.updateGroupSubjectCache(update.id, update.subject)
+          }
+        }
       }
     })
   }

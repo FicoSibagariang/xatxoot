@@ -175,13 +175,15 @@ export class ConversationService {
         contact.name === 'Unknown' ||
         contact.name === contact.phoneNumber ||
         contact.name === contact.identifier ||
-        contact.name === 'Nia'
+        contact.name === 'Nia' ||
+        contact.name === 'Grup WhatsApp'
 
       if (
         dto.name &&
         isPlaceholderName &&
         dto.name !== contact.phoneNumber &&
-        dto.name !== 'Unknown'
+        dto.name !== 'Unknown' &&
+        dto.name !== 'Grup WhatsApp'
       ) {
         contact = {
           ...contact,

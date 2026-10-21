@@ -173,6 +173,27 @@ export function createGatewayServer(
       return
     }
 
+    // Match /api/sessions/:sessionId/groups/:groupJid
+    const groupMatch = pathname.match(/^\/api\/sessions\/([^/]+)\/groups\/([^/]+)$/)
+    if (groupMatch && method === 'GET') {
+      const sessionId = groupMatch[1]
+      const groupJid = decodeURIComponent(groupMatch[2])
+      const session = manager.getSession(sessionId)
+
+      if (!session) {
+        sendJson(res, 404, { error: 'Session not found' })
+        return
+      }
+
+      const subject = await session.getGroupSubject(groupJid)
+      sendJson(res, 200, {
+        sessionId,
+        groupJid,
+        subject: subject || null,
+      })
+      return
+    }
+
     // 404 Not Found
     sendJson(res, 404, { error: 'Not Found' })
   })

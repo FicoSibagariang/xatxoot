@@ -186,7 +186,7 @@ export async function handleWhatsAppUnofficialInbound(c: Context) {
         inboxId,
         sourceId,
         senderPhone: formattedPhone,
-        senderName: body.senderName || formattedPhone,
+        senderName: contactName,
         content: body.content || '',
         externalId: body.externalMessageId || `wa_${Date.now()}`,
         messageType: body.messageType || 'text',
