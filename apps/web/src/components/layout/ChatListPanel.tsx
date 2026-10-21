@@ -1,4 +1,4 @@
-import { Search, SquarePen } from 'lucide-react'
+import { Search, SquarePen, Users } from 'lucide-react'
 import { Avatar, Badge, Button, Input } from '../astryx'
 import { DeadlineTimerBadge, TicketSlaBadge } from '../chat'
 import type { ChatFilter, ConversationItem, LayoutChannelFilter } from './types'
@@ -170,9 +170,20 @@ export function ChatListPanel({
                 {/* Info Container */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between mb-0.5">
-                    <span className="font-semibold text-sm text-wa-text-primary truncate">
-                      {conv.contactName}
-                    </span>
+                    <div className="flex items-center gap-1.5 min-w-0 truncate">
+                      {conv.isGroup && (
+                        <span
+                          data-testid="group-badge"
+                          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200 shrink-0"
+                        >
+                          <Users className="w-3 h-3" />
+                          Grup
+                        </span>
+                      )}
+                      <span className="font-semibold text-sm text-wa-text-primary truncate">
+                        {conv.contactName}
+                      </span>
+                    </div>
                     {conv.lastMessageTimestamp && (
                       <span className="text-[11px] text-wa-text-secondary shrink-0 ml-2">
                         {conv.lastMessageTimestamp}

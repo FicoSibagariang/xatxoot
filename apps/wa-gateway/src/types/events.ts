@@ -49,6 +49,11 @@ export const WaInboundMessageEventSchema = z.object({
   editedAt: z.string().optional(),
   isRevoke: z.boolean().optional(),
   revokedAt: z.string().optional(),
+  isGroup: z.boolean().optional(),
+  groupJid: z.string().optional(),
+  groupName: z.string().optional(),
+  participant: z.string().optional(),
+  participantName: z.string().optional(),
 })
 
 export type WaInboundMessageEvent = z.infer<typeof WaInboundMessageEventSchema>

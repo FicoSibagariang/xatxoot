@@ -61,4 +61,7 @@ export interface ConversationItem {
   unreadCount?: number
   presence?: 'online' | 'typing' | 'offline'
   ticket?: TicketSummary
+  isGroup?: boolean
+  groupJid?: string
+  availableChannels?: Array<{ id: string; name: string; phoneNumber?: string }>
 }

@@ -54,4 +54,7 @@ export interface TimelineMessage {
   isDeletedBySender?: boolean
   deletedAt?: string
   revokedOriginalContent?: string
+  isGroup?: boolean
+  participant?: string
+  participantName?: string
 }

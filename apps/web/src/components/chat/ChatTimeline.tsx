@@ -302,10 +302,29 @@ export function ChatBubble({ message, onRetry, onReply }: ChatBubbleProps) {
         )}
 
         {/* Sender Name for incoming group/contact */}
-        {isIncoming && message.senderName && (
-          <div className="text-[11px] font-bold text-emerald-800 mb-0.5 leading-tight">
-            {message.senderName}
+        {isIncoming &&
+        (message.isGroup ||
+          Boolean(message.participant) ||
+          (message.contentAttributes as Record<string, unknown> | undefined)?.isGroup ||
+          (message.contentAttributes as Record<string, unknown> | undefined)?.groupJid) ? (
+          <div
+            data-testid="group-participant-name"
+            className="text-[11px] font-bold text-emerald-800 mb-0.5 leading-tight flex items-center gap-1.5"
+          >
+            <span>{message.participantName || message.senderName}</span>
+            {message.participant && (
+              <span className="text-[10px] font-normal text-slate-500">
+                ({message.participant})
+              </span>
+            )}
           </div>
+        ) : (
+          isIncoming &&
+          message.senderName && (
+            <div className="text-[11px] font-bold text-emerald-800 mb-0.5 leading-tight">
+              {message.senderName}
+            </div>
+          )
         )}
 
         {/* Sender Tag for outgoing messages (Agent vs WhatsApp Mobile HP vs Bot) */}

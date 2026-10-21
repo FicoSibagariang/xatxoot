@@ -78,7 +78,7 @@ describe('Echo Outgoing Sync — Message Parser & Outbound Tracker (TDD RED)', (
     expect(result?.senderName).toBeUndefined()
   })
 
-  it('extractInboundMessage should ignore @g.us group and @broadcast even if isEcho: true', () => {
+  it('extractInboundMessage should parse group message with isGroup: true and ignore @broadcast even if isEcho: true', () => {
     const groupMsg = {
       key: {
         remoteJid: '12036304123456789@g.us',
@@ -97,13 +97,13 @@ describe('Echo Outgoing Sync — Message Parser & Outbound Tracker (TDD RED)', (
       message: { conversation: 'Status update' },
     }
 
-    expect(
-      extractInboundMessage(groupMsg, {
-        channelId: '11111111-1111-4111-a111-111111111111',
-        inboxId: '22222222-2222-4222-a222-222222222222',
-        isEcho: true,
-      }),
-    ).toBeNull()
+    const parsedGroup = extractInboundMessage(groupMsg, {
+      channelId: '11111111-1111-4111-a111-111111111111',
+      inboxId: '22222222-2222-4222-a222-222222222222',
+      isEcho: true,
+    })
+    expect(parsedGroup?.isGroup).toBe(true)
+    expect(parsedGroup?.isEcho).toBe(true)
 
     expect(
       extractInboundMessage(broadcastMsg, {

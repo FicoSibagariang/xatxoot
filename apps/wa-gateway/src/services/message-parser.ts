@@ -59,7 +59,14 @@ export interface MinimalWAMessage {
 
 export function extractInboundMessage(
   wam: unknown,
-  context: { channelId: string; inboxId: string; allowSelfChat?: boolean; isEcho?: boolean },
+  context: {
+    channelId: string
+    inboxId: string
+    allowSelfChat?: boolean
+    isEcho?: boolean
+    channelPhone?: string
+    companyPhoneNumbers?: string[]
+  },
 ): WaInboundMessageEvent | null {
   if (!wam || typeof wam !== 'object') {
     return null
@@ -71,15 +78,36 @@ export function extractInboundMessage(
     return null
   }
 
-  // Ignore outgoing messages sent by the device (unless testing via self-chat or echo sync)
-  if (key.fromMe && !context.allowSelfChat && !context.isEcho) {
-    return null
+  const remoteJid = key.remoteJid
+  const isGroup = remoteJid.endsWith('@g.us')
+  // biome-ignore lint/suspicious/noExplicitAny: Baileys alt properties
+  const anyKey = key as any
+  // biome-ignore lint/suspicious/noExplicitAny: Baileys raw msg properties
+  const anyMsg = msg as any
+
+  let groupJid: string | undefined
+  let participant: string | undefined
+
+  if (isGroup) {
+    groupJid = remoteJid
+    const rawParticipant =
+      key.participant || anyKey.participantAlt || anyMsg.participant || anyMsg.key?.participant
+    if (rawParticipant && typeof rawParticipant === 'string') {
+      participant = rawParticipant.split('@')[0].split(':')[0]
+    }
   }
 
-  const remoteJid = key.remoteJid
+  // Check if participant is internal company number
+  const isInternalParticipant = Boolean(
+    participant &&
+      (context.companyPhoneNumbers?.includes(participant) ||
+        (context.channelPhone && context.channelPhone === participant)),
+  )
 
-  // Ignore group messages (@g.us) per FR-WU-12
-  if (remoteJid.endsWith('@g.us')) {
+  const isEcho = Boolean(context.isEcho || isInternalParticipant)
+
+  // Ignore outgoing messages sent by the device (unless testing via self-chat or echo sync)
+  if (key.fromMe && !context.allowSelfChat && !isEcho) {
     return null
   }
 
@@ -90,8 +118,6 @@ export function extractInboundMessage(
 
   // If remoteJid is an LID, extract actual phone number from remoteJidAlt / participantAlt
   let senderJid = remoteJid
-  // biome-ignore lint/suspicious/noExplicitAny: Baileys alt properties
-  const anyKey = key as any
   if (senderJid.endsWith('@lid')) {
     if (
       anyKey.remoteJidAlt &&
@@ -304,13 +330,17 @@ export function extractInboundMessage(
     channelId: context.channelId,
     inboxId: context.inboxId,
     senderNumber,
-    senderName: context.isEcho || key.fromMe ? undefined : msg.pushName || undefined,
+    senderName: isEcho || key.fromMe ? undefined : msg.pushName || undefined,
     externalMessageId: key.id,
     messageType,
     content,
     media,
     replyToExternalId,
     timestamp,
-    isEcho: context.isEcho ? true : undefined,
+    isEcho: isEcho ? true : undefined,
+    isGroup: isGroup ? true : undefined,
+    groupJid,
+    participant,
+    participantName: msg.pushName || undefined,
   }
 }
