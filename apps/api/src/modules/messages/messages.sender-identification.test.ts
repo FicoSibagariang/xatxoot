@@ -138,4 +138,47 @@ describe('Outbound Message Sender Identification (Issue #284 - TDD RED)', () => 
     expect(botMsg?.senderType).toBe('bot')
     expect(botMsg?.senderName).toBe('Bot Otomasi')
   })
+
+  it('should parse contentAttributes properly even when returned as JSON string from database', async () => {
+    const { inbox } = await inboxService.createInbox({
+      name: 'Echo String Test Inbox',
+      channelType: 'whatsapp_unofficial',
+      channel: { sessionId: 'session_echo_str_01' },
+    })
+
+    const echoResult = await conversationService.handleOutboundEcho({
+      inboxId: inbox.id,
+      sourceId: '62811638688@s.whatsapp.net',
+      senderPhone: '+62811638688',
+      content: 'Pesan dari WhatsApp HP',
+    })
+
+    const msgId = echoResult.message.id
+    const convId = echoResult.conversation.id
+
+    // Simulate database returning contentAttributes as raw JSON string
+    const inMemMsg = await messageService.getMessageById(msgId)
+    if (inMemMsg) {
+      // @ts-expect-error test simulating raw JSON string from DB
+      inMemMsg.contentAttributes = JSON.stringify({
+        echo: true,
+        source: 'whatsapp_mobile',
+        senderName: 'WhatsApp HP',
+      })
+      inMemMsg.senderName = null
+      inMemMsg.isEcho = false
+    }
+
+    const messages = await messageService.listConversationMessages(convId)
+    const targetMsg = messages.find((m) => m.id === msgId)
+
+    expect(targetMsg).toBeDefined()
+    expect(targetMsg?.isEcho).toBe(true)
+    expect(targetMsg?.senderName).toBe('WhatsApp HP')
+
+    const convDetail = await conversationService.getConversationById(convId)
+    const convMsg = convDetail?.messages?.find((m) => m.id === msgId)
+    expect(convMsg?.isEcho).toBe(true)
+    expect(convMsg?.senderName).toBe('WhatsApp HP')
+  })
 })

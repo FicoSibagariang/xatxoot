@@ -14,6 +14,22 @@ import { resetTicketStore, ticketService } from '../tickets/tickets.service'
 
 export type { Contact, ContactInbox, Conversation, Message, Ticket, TicketStatus }
 
+export function parseContentAttributes(raw: unknown): Record<string, unknown> {
+  if (!raw) return {}
+  if (typeof raw === 'object' && raw !== null) return raw as Record<string, unknown>
+  if (typeof raw === 'string') {
+    try {
+      const parsed = JSON.parse(raw)
+      return typeof parsed === 'object' && parsed !== null
+        ? (parsed as Record<string, unknown>)
+        : {}
+    } catch {
+      return {}
+    }
+  }
+  return {}
+}
+
 export interface ConversationWithInbox extends Conversation {
   inboxName?: string | null
   channelType?: string | null
@@ -877,7 +893,7 @@ export class ConversationService {
     }
 
     messages = messages.map((m) => {
-      const attrs = (m.contentAttributes as Record<string, unknown>) || {}
+      const attrs = parseContentAttributes(m.contentAttributes)
       let senderName = m.senderName || (attrs.senderName as string | undefined)
       if (!senderName && m.senderType === 'bot') {
         senderName = 'Bot Otomasi'
@@ -885,7 +901,7 @@ export class ConversationService {
       return {
         ...m,
         senderName,
-        isEcho: Boolean(m.isEcho || attrs.echo),
+        isEcho: Boolean(m.isEcho || attrs.echo || attrs.source === 'whatsapp_mobile'),
       }
     })
 

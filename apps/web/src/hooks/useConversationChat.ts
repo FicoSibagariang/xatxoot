@@ -116,6 +116,22 @@ export function filterConversations(
   })
 }
 
+export function parseContentAttributes(raw: unknown): Record<string, unknown> {
+  if (!raw) return {}
+  if (typeof raw === 'object' && raw !== null) return raw as Record<string, unknown>
+  if (typeof raw === 'string') {
+    try {
+      const parsed = JSON.parse(raw)
+      return typeof parsed === 'object' && parsed !== null
+        ? (parsed as Record<string, unknown>)
+        : {}
+    } catch {
+      return {}
+    }
+  }
+  return {}
+}
+
 export function useConversationChat({ user, initialConversationId }: UseConversationChatOptions) {
   const [conversations, setConversations] = useState<ConversationItem[]>([])
   const [messagesMap, setMessagesMap] = useState<Record<string, TimelineMessage[]>>({})
@@ -255,15 +271,12 @@ export function useConversationChat({ user, initialConversationId }: UseConversa
                   ? 'incoming'
                   : 'outgoing'
 
-            const isEcho = Boolean(
-              m.isEcho ||
-                m.contentAttributes?.echo ||
-                m.contentAttributes?.source === 'whatsapp_mobile',
-            )
+            const attrs = parseContentAttributes(m.contentAttributes)
+            const isEcho = Boolean(m.isEcho || attrs.echo || attrs.source === 'whatsapp_mobile')
             const senderName = isCustomer
               ? data.contact?.name || data.contact?.phoneNumber || 'Pelanggan'
               : m.senderName ||
-                m.contentAttributes?.senderName ||
+                attrs.senderName ||
                 (isEcho ? 'WhatsApp HP' : m.senderType === 'bot' ? 'Bot Otomasi' : user.name)
 
             return {
@@ -347,18 +360,16 @@ export function useConversationChat({ user, initialConversationId }: UseConversa
             })
           : rawTime || 'Baru saja'
 
+      const attrs = parseContentAttributes(anyEvt.contentAttributes || rawMsg.contentAttributes)
       const isEcho = Boolean(
-        anyEvt.isEcho ||
-          rawMsg.isEcho ||
-          rawMsg.contentAttributes?.echo ||
-          anyEvt.contentAttributes?.echo,
+        anyEvt.isEcho || rawMsg.isEcho || attrs.echo || attrs.source === 'whatsapp_mobile',
       )
 
       const senderName = isCustomer
         ? anyEvt.contact?.name || 'Pelanggan WhatsApp'
         : anyEvt.senderName ||
           rawMsg.senderName ||
-          rawMsg.contentAttributes?.senderName ||
+          attrs.senderName ||
           (isEcho ? 'WhatsApp HP' : rawMsg.senderType === 'bot' ? 'Bot Otomasi' : user.name)
 
       const event: MessageCreatedEvent = {

@@ -2,7 +2,11 @@ import { afterEach, beforeEach, describe, expect, it, mock } from 'bun:test'
 import type { TimelineMessage } from '../chat'
 import type { ConversationItem } from '../components/layout/types'
 import { api } from '../services/apiClient'
-import { areMessagesIdentical, filterConversations } from './useConversationChat'
+import {
+  areMessagesIdentical,
+  filterConversations,
+  parseContentAttributes,
+} from './useConversationChat'
 
 describe('Conversation Chat Hook & Realtime Reconciliation (Task #272 - apps/web)', () => {
   const originalFetch = globalThis.fetch
@@ -204,6 +208,35 @@ describe('Conversation Chat Hook & Realtime Reconciliation (Task #272 - apps/web
       })
       expect(resultsByName).toHaveLength(1)
       expect(resultsByName[0].id).toBe('c-1')
+    })
+  })
+
+  describe('parseContentAttributes (JSONB / string deserialization)', () => {
+    it('should return empty object for null, undefined, or empty values', () => {
+      expect(parseContentAttributes(null)).toEqual({})
+      expect(parseContentAttributes(undefined)).toEqual({})
+      expect(parseContentAttributes('')).toEqual({})
+    })
+
+    it('should return object untouched if already an object', () => {
+      const obj = { echo: true, source: 'whatsapp_mobile', senderName: 'WhatsApp HP' }
+      expect(parseContentAttributes(obj)).toEqual(obj)
+    })
+
+    it('should parse JSON string serialized from database into an object', () => {
+      const jsonStr = JSON.stringify({
+        echo: true,
+        source: 'whatsapp_mobile',
+        senderName: 'WhatsApp HP',
+      })
+      const result = parseContentAttributes(jsonStr)
+      expect(result.echo).toBe(true)
+      expect(result.source).toBe('whatsapp_mobile')
+      expect(result.senderName).toBe('WhatsApp HP')
+    })
+
+    it('should safely return empty object if JSON string is corrupted', () => {
+      expect(parseContentAttributes('{invalid-json')).toEqual({})
     })
   })
 })

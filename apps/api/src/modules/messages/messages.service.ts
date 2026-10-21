@@ -17,6 +17,22 @@ export type { DispatchedCloudRequest, QueuedBaileysJob }
 export type { AttachmentInputDto, SendMessageInput }
 export { resetMessageStore }
 
+export function parseContentAttributes(raw: unknown): Record<string, unknown> {
+  if (!raw) return {}
+  if (typeof raw === 'object' && raw !== null) return raw as Record<string, unknown>
+  if (typeof raw === 'string') {
+    try {
+      const parsed = JSON.parse(raw)
+      return typeof parsed === 'object' && parsed !== null
+        ? (parsed as Record<string, unknown>)
+        : {}
+    } catch {
+      return {}
+    }
+  }
+  return {}
+}
+
 export class MessageService {
   getDispatchedCloudRequests(): DispatchedCloudRequest[] {
     return [...messageStore.dispatchedCloudRequests]
@@ -118,11 +134,16 @@ export class MessageService {
         ORDER BY m.created_at ASC
       `
       return ((rows || []) as unknown as Message[]).map((m) => {
-        const attrs = (m.contentAttributes as Record<string, unknown>) || {}
+        const attrs = parseContentAttributes(m.contentAttributes)
+        let senderName = m.senderName || (attrs.senderName as string | undefined)
+        if (!senderName && m.senderType === 'bot') {
+          senderName = 'Bot Otomasi'
+        }
         return {
           ...m,
+          senderName,
           replyTo: (attrs.replyTo as Message['replyTo']) || m.replyTo,
-          isEcho: Boolean(m.isEcho || attrs.echo),
+          isEcho: Boolean(m.isEcho || attrs.echo || attrs.source === 'whatsapp_mobile'),
         }
       })
     } catch {
@@ -134,7 +155,7 @@ export class MessageService {
         .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
 
       return memoryMsgs.map((m) => {
-        const attrs = (m.contentAttributes as Record<string, unknown>) || {}
+        const attrs = parseContentAttributes(m.contentAttributes)
         let senderName = m.senderName || (attrs.senderName as string | undefined)
         if (!senderName && m.senderType === 'bot') {
           senderName = 'Bot Otomasi'
@@ -143,7 +164,7 @@ export class MessageService {
           ...m,
           senderName,
           replyTo: (attrs.replyTo as Message['replyTo']) || m.replyTo,
-          isEcho: Boolean(m.isEcho || attrs.echo),
+          isEcho: Boolean(m.isEcho || attrs.echo || attrs.source === 'whatsapp_mobile'),
         }
       })
     }
