@@ -332,7 +332,9 @@ export function ChatBubble({ message, onRetry, onReply }: ChatBubbleProps) {
   return (
     <div
       data-testid={isIncoming ? 'chat-bubble-incoming' : 'chat-bubble-outgoing'}
-      className={`flex items-center gap-1.5 ${isIncoming ? 'justify-start' : 'justify-end flex-row-reverse'} my-1 px-3 select-text group`}
+      className={`flex items-center gap-1.5 ${
+        isIncoming ? 'justify-start pl-1.5 pr-4' : 'justify-end flex-row-reverse pr-1.5 pl-4'
+      } my-1 select-text group`}
     >
       <div
         data-tail={isIncoming ? 'incoming' : 'outgoing'}

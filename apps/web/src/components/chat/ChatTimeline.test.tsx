@@ -113,6 +113,7 @@ describe('Chat Timeline Component (Task 1.25 - apps/web)', () => {
       expect(html).toContain('data-testid="chat-bubble-incoming"')
       expect(html).toContain('bg-wa-bubble-in')
       expect(html).toContain('data-tail="incoming"')
+      expect(html).toContain('pl-1.5')
       expect(html).toContain('14:20')
       expect(html).toContain('<strong>stok</strong>')
       // Incoming messages do not show outgoing delivery ticks
@@ -124,6 +125,7 @@ describe('Chat Timeline Component (Task 1.25 - apps/web)', () => {
       expect(html).toContain('data-testid="chat-bubble-outgoing"')
       expect(html).toContain('bg-wa-bubble-out')
       expect(html).toContain('data-tail="outgoing"')
+      expect(html).toContain('pr-1.5')
       expect(html).toContain('14:21')
       expect(html).toContain('<em>tersedia</em>')
       // Outgoing message shows read delivery tick

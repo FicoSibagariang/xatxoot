@@ -374,7 +374,7 @@ export function ConversationThread(props: ConversationThreadProps) {
         ref={scrollContainerRef}
         onScroll={handleScroll}
         data-testid="doodle-canvas"
-        className="flex-1 overflow-y-auto p-4 wa-doodle-pattern"
+        className="flex-1 overflow-y-auto py-2.5 px-2 sm:px-3 wa-doodle-pattern"
       >
         {messages && messages.length > 0 ? (
           <>
