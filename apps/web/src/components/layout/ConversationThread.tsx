@@ -364,6 +364,7 @@ export function ConversationThread(props: ConversationThreadProps) {
             isTicketResolved={isTicketResolved}
             onAssignTicket={onAssignTicket}
             onResolveTicket={onResolveTicket}
+            onSaveInternalNote={onSaveInternalNote}
           />
         )}
       </header>
@@ -381,6 +382,7 @@ export function ConversationThread(props: ConversationThreadProps) {
               messages={messages}
               onRetryMessage={onRetryMessage}
               onReplyToMessage={onReplyToMessage}
+              onSaveInternalNote={onSaveInternalNote}
             />
             <div ref={messagesEndRef} />
           </>

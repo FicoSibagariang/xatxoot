@@ -46,6 +46,9 @@ export interface TicketSummary {
   assignedAgentName?: string | null
   deadlineAt?: string | Date | null
   slaStatus?: TicketSlaSummary
+  internalNote?: string | null
+  internalNoteUpdatedAt?: string | null
+  internalNoteUpdatedBy?: string | null
 }
 
 export interface ConversationItem {

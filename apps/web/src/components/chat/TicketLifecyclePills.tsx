@@ -123,6 +123,10 @@ export interface TicketOpenedPillProps {
   dateText?: string
   openedAt?: string
   className?: string
+  internalNote?: string | null
+  internalNoteUpdatedAt?: string | null
+  internalNoteUpdatedBy?: string | null
+  onSaveInternalNote?: (note: string) => void | Promise<void>
 }
 
 export function TicketOpenedPill({
@@ -131,6 +135,7 @@ export function TicketOpenedPill({
   dateText,
   openedAt,
   className = '',
+  internalNote,
 }: TicketOpenedPillProps) {
   const [isOpen, setIsOpen] = useState(false)
 
@@ -155,6 +160,15 @@ export function TicketOpenedPill({
             <span>
               Tiket #{ticketNumber || 'T-Baru'} Dibuka • {timeLabel}
             </span>
+            {internalNote && (
+              <span
+                data-testid="ticket-pill-note-badge"
+                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300 text-[10px] font-bold"
+                title={`Catatan Internal: ${internalNote}`}
+              >
+                📌
+              </span>
+            )}
           </span>
         </button>
         {isOpen && (

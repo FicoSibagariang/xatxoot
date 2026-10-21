@@ -1,5 +1,10 @@
 import { Fragment, useState } from 'react'
-import { TicketOpenedPill, TicketResolvedPill } from './TicketLifecyclePills'
+import {
+  TicketLifecyclePopover,
+  TicketOpenedPill,
+  TicketResolvedPill,
+} from './TicketLifecyclePills'
+import { TicketNotePopover } from './TicketNotePopover'
 import type { DeliveryStatus, TimelineMessage } from './types'
 
 // ==========================================
@@ -136,6 +141,10 @@ export interface TicketSeparatorPillProps {
   timestamp?: string
   dateText?: string
   openedAt?: string
+  internalNote?: string | null
+  internalNoteUpdatedAt?: string | null
+  internalNoteUpdatedBy?: string | null
+  onSaveInternalNote?: (note: string) => void | Promise<void>
 }
 
 export function TicketSeparatorPill({
@@ -144,7 +153,14 @@ export function TicketSeparatorPill({
   timestamp,
   dateText,
   openedAt,
+  internalNote,
+  internalNoteUpdatedAt,
+  internalNoteUpdatedBy,
+  onSaveInternalNote,
 }: TicketSeparatorPillProps) {
+  const [isNoteOpen, setIsNoteOpen] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+
   if (!text) {
     return (
       <TicketOpenedPill
@@ -152,20 +168,68 @@ export function TicketSeparatorPill({
         timestamp={timestamp}
         dateText={dateText}
         openedAt={openedAt}
+        internalNote={internalNote}
+        internalNoteUpdatedAt={internalNoteUpdatedAt}
+        internalNoteUpdatedBy={internalNoteUpdatedBy}
+        onSaveInternalNote={onSaveInternalNote}
       />
     )
+  }
+
+  const handleSaveNote = async (note: string) => {
+    if (onSaveInternalNote) {
+      try {
+        setIsSaving(true)
+        await onSaveInternalNote(note)
+      } finally {
+        setIsSaving(false)
+        setIsNoteOpen(false)
+      }
+    } else {
+      setIsNoteOpen(false)
+    }
   }
 
   return (
     <div
       data-testid="ticket-separator-pill"
-      className="flex items-center justify-center my-4 select-none px-4"
+      className="flex items-center justify-center my-4 select-none px-4 relative"
     >
       <div className="flex-1 border-t border-slate-300/80 max-w-xs" />
-      <span className="mx-3 px-3 py-1 bg-emerald-50 text-emerald-800 font-semibold text-xs rounded-full border border-emerald-300 shadow-2xs flex items-center gap-1.5">
-        <span>🎫</span>
-        <span>{text}</span>
-      </span>
+      <div className="relative">
+        <button
+          type="button"
+          onClick={() => setIsNoteOpen((prev) => !prev)}
+          className="mx-3 px-3 py-1 bg-emerald-50 text-emerald-800 font-semibold text-xs rounded-full border border-emerald-300 shadow-2xs flex items-center gap-1.5 cursor-pointer hover:bg-emerald-100/80 transition-colors"
+          title={internalNote ? `Catatan: ${internalNote}` : 'Lihat / Tambah Catatan Internal'}
+        >
+          <span>🎫</span>
+          <span>{text}</span>
+          {internalNote && (
+            <span
+              data-testid="ticket-pill-note-badge"
+              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300 text-[10px] font-bold"
+              title={`Catatan Internal: ${internalNote}`}
+            >
+              📌
+            </span>
+          )}
+        </button>
+
+        {isNoteOpen && (
+          <TicketNotePopover
+            isOpen={isNoteOpen}
+            ticketNumber={ticketNumber}
+            initialNote={internalNote}
+            updatedAt={internalNoteUpdatedAt}
+            updatedBy={internalNoteUpdatedBy}
+            isSaving={isSaving}
+            onSave={handleSaveNote}
+            onClose={() => setIsNoteOpen(false)}
+            onDelete={() => handleSaveNote('')}
+          />
+        )}
+      </div>
       <div className="flex-1 border-t border-slate-300/80 max-w-xs" />
     </div>
   )
@@ -535,6 +599,7 @@ export interface ChatTimelineProps {
   messages: TimelineMessage[]
   onRetryMessage?: (message: TimelineMessage) => void
   onReplyToMessage?: (message: TimelineMessage) => void
+  onSaveInternalNote?: (note: string) => void | Promise<void>
   className?: string
 }
 
@@ -542,6 +607,7 @@ export function ChatTimeline({
   messages,
   onRetryMessage,
   onReplyToMessage,
+  onSaveInternalNote,
   className = '',
 }: ChatTimelineProps) {
   let lastDateGroup = ''
@@ -595,6 +661,13 @@ export function ChatTimeline({
                 ticketNumber={msg.ticketDisplayId}
                 timestamp={msg.timestamp}
                 dateText={msg.dateGroup}
+                internalNote={
+                  msg.ticketInternalNote ||
+                  ((msg.contentAttributes as Record<string, unknown> | undefined)?.internalNote as
+                    | string
+                    | undefined)
+                }
+                onSaveInternalNote={onSaveInternalNote}
               />
             )}
             <ChatBubble message={msg} onRetry={onRetryMessage} onReply={onReplyToMessage} />

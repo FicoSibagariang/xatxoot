@@ -261,6 +261,7 @@ export function WhatsAppLayout({
             onSendMessage={onSendMessage}
             onAssignTicket={onAssignTicket}
             onResolveTicket={onResolveTicket}
+            onSaveInternalNote={onSaveInternalNote}
             onRetryMessage={onRetryMessage}
             onOpenTemplateDialog={onOpenTemplateDialog}
           />

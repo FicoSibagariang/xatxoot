@@ -249,7 +249,7 @@ function AppContent({ initialAuthenticated }: { initialAuthenticated?: boolean }
           onSendMessage={chat.handleSendMessage}
           onAssignTicket={chat.handleAssignTicket}
           onResolveTicket={chat.handleResolveTicket}
-          onSaveInternalNote={chat.setInternalNote}
+          onSaveInternalNote={chat.handleSaveInternalNote}
           onOpenSettings={() => {
             navigate('/settings/channels')
           }}

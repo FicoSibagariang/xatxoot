@@ -1,6 +1,12 @@
 import { FileText, Lock, MessageSquare, Paperclip, Smile } from 'lucide-react'
+import { useState } from 'react'
 import { Button } from '../astryx'
-import { DeadlineTimerBadge, TicketSlaBadge, type TimelineMessage } from '../chat'
+import {
+  DeadlineTimerBadge,
+  TicketNotePopover,
+  TicketSlaBadge,
+  type TimelineMessage,
+} from '../chat'
 import type { TicketSummary } from './types'
 
 export function ReplyPreviewBar({
@@ -143,6 +149,7 @@ export interface ThreadTicketHeaderActionsProps {
   isTicketResolved: boolean
   onAssignTicket: () => void
   onResolveTicket: () => void
+  onSaveInternalNote?: (note: string) => void | Promise<void>
 }
 
 export function ThreadTicketHeaderActions({
@@ -153,12 +160,67 @@ export function ThreadTicketHeaderActions({
   isTicketResolved,
   onAssignTicket,
   onResolveTicket,
+  onSaveInternalNote,
 }: ThreadTicketHeaderActionsProps) {
+  const [isNoteOpen, setIsNoteOpen] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  const hasNote = Boolean(ticket.internalNote && ticket.internalNote.trim().length > 0)
+
+  const handleSaveNote = async (note: string) => {
+    if (onSaveInternalNote) {
+      try {
+        setIsSaving(true)
+        await onSaveInternalNote(note)
+      } finally {
+        setIsSaving(false)
+        setIsNoteOpen(false)
+      }
+    } else {
+      setIsNoteOpen(false)
+    }
+  }
+
   return (
     <div className="flex items-center gap-2">
       <span className="text-xs font-semibold px-2 py-1 rounded bg-wa-bubble-light text-wa-teal-dark border border-wa-bubble-active">
         #{ticket.ticketNumber}
       </span>
+
+      {/* Quick Ticket Note Pin Button */}
+      <div className="relative">
+        <button
+          type="button"
+          data-testid="btn-ticket-note-pin"
+          data-has-note={hasNote ? 'true' : 'false'}
+          onClick={() => setIsNoteOpen((prev) => !prev)}
+          title={hasNote ? `Catatan: ${ticket.internalNote}` : 'Tambah Catatan Internal Tiket'}
+          className={`inline-flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-md border transition-colors cursor-pointer select-none ${
+            hasNote
+              ? 'bg-amber-100 text-amber-900 border-amber-300 font-semibold shadow-2xs hover:bg-amber-200'
+              : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200 font-medium'
+          }`}
+        >
+          <span>📌</span>
+          <span className="hidden sm:inline">Catatan</span>
+          {hasNote && (
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-600 ml-0.5 animate-pulse" />
+          )}
+        </button>
+
+        {isNoteOpen && (
+          <TicketNotePopover
+            isOpen={isNoteOpen}
+            ticketNumber={ticket.ticketNumber}
+            initialNote={ticket.internalNote}
+            updatedAt={ticket.internalNoteUpdatedAt}
+            updatedBy={ticket.internalNoteUpdatedBy}
+            isSaving={isSaving}
+            onSave={handleSaveNote}
+            onClose={() => setIsNoteOpen(false)}
+            onDelete={() => handleSaveNote('')}
+          />
+        )}
+      </div>
       {ticket.slaStatus ? (
         <TicketSlaBadge
           firstResponseDeadline={ticket.slaStatus.firstResponseDeadline}
