@@ -203,7 +203,7 @@ describe('WhatsApp Gateway Inbound Message Event to Redis Pub/Sub (Task 1.13)', 
       expect(parsed?.media?.fileSize).toBe(54321)
     })
 
-    it('should ignore group messages (@g.us) per FR-WU-12', () => {
+    it('should parse group messages (@g.us) with isGroup and groupJid (Issue #288)', () => {
       const rawWam = {
         key: {
           remoteJid: '120363021234567890@g.us',
@@ -216,7 +216,9 @@ describe('WhatsApp Gateway Inbound Message Event to Redis Pub/Sub (Task 1.13)', 
       }
 
       const parsed = extractInboundMessage(rawWam, context)
-      expect(parsed).toBeNull()
+      expect(parsed).not.toBeNull()
+      expect(parsed?.isGroup).toBe(true)
+      expect(parsed?.groupJid).toBe('120363021234567890@g.us')
     })
 
     it('should ignore status broadcast messages (status@broadcast)', () => {
