@@ -989,6 +989,36 @@ export class ConversationService {
         storeMessages.length > 0 ? storeMessages : memoryStore.messages.get(conversation.id) || []
     }
 
+    const convRecord = conversation as Record<string, unknown>
+    const contactRecord = contact as Record<string, unknown> | null
+    const isGroup = Boolean(
+      convRecord.isGroup ||
+        (conversation.customAttributes as Record<string, unknown>)?.isGroup ||
+        contact?.phoneNumber?.includes('@g.us') ||
+        contact?.phoneNumber?.includes('120363') ||
+        contact?.identifier?.includes('@g.us') ||
+        contact?.identifier?.includes('120363') ||
+        contactRecord?.contactType === 'group',
+    )
+    const groupJid =
+      (convRecord.groupJid as string | undefined) ||
+      (conversation.customAttributes as Record<string, unknown>)?.groupJid ||
+      (contact?.phoneNumber?.includes('@g.us') ? contact.phoneNumber : undefined) ||
+      (contact?.identifier?.includes('@g.us') ? contact.identifier : undefined) ||
+      (isGroup && contact?.phoneNumber
+        ? contact.phoneNumber.includes('@g.us')
+          ? contact.phoneNumber
+          : `${contact.phoneNumber.replace(/[^0-9]/g, '')}@g.us`
+        : undefined)
+
+    if (isGroup) {
+      conversation = {
+        ...conversation,
+        isGroup: true,
+        groupJid,
+      } as Conversation
+    }
+
     messages = messages.map((m) => {
       const attrs = parseContentAttributes(m.contentAttributes)
       let senderName = m.senderName || (attrs.senderName as string | undefined)
@@ -998,6 +1028,10 @@ export class ConversationService {
       return {
         ...m,
         senderName,
+        isGroup: Boolean(m.isGroup || attrs.isGroup || isGroup),
+        groupJid: m.groupJid || (attrs.groupJid as string | undefined) || groupJid,
+        participant: m.participant || (attrs.participant as string | undefined),
+        participantName: m.participantName || (attrs.participantName as string | undefined),
         isEcho: Boolean(m.isEcho || attrs.echo || attrs.source === 'whatsapp_mobile'),
       }
     })
@@ -1158,8 +1192,32 @@ export class ConversationService {
         }
       }
 
+      const convRecord = conv as Record<string, unknown>
+      const contactRecord = contact as Record<string, unknown> | null
+      const isGroup = Boolean(
+        convRecord.isGroup ||
+          contact?.phoneNumber?.includes('@g.us') ||
+          contact?.phoneNumber?.includes('120363') ||
+          contact?.identifier?.includes('@g.us') ||
+          contact?.identifier?.includes('120363') ||
+          contactRecord?.contactType === 'group' ||
+          (conv.customAttributes as Record<string, unknown>)?.isGroup,
+      )
+      const groupJid =
+        (convRecord.groupJid as string | undefined) ||
+        (conv.customAttributes as Record<string, unknown>)?.groupJid ||
+        (contact?.phoneNumber?.includes('@g.us') ? contact.phoneNumber : undefined) ||
+        (contact?.identifier?.includes('@g.us') ? contact.identifier : undefined) ||
+        (isGroup && contact?.phoneNumber
+          ? contact.phoneNumber.includes('@g.us')
+            ? contact.phoneNumber
+            : `${contact.phoneNumber.replace(/[^0-9]/g, '')}@g.us`
+          : undefined)
+
       result.push({
         ...conv,
+        isGroup: isGroup ? true : undefined,
+        groupJid: isGroup ? groupJid : undefined,
         inboxName: inboxName || null,
         channelType: channelType || 'whatsapp',
         channel: channelType || 'whatsapp',

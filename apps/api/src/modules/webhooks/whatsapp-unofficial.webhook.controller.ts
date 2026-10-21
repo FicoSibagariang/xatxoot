@@ -20,6 +20,11 @@ export interface WhatsAppUnofficialInboundBody {
   editedAt?: string
   isRevoke?: boolean
   revokedAt?: string
+  isGroup?: boolean
+  groupJid?: string
+  groupName?: string
+  participant?: string
+  participantName?: string
 }
 
 export async function handleWhatsAppUnofficialInbound(c: Context) {
@@ -145,19 +150,41 @@ export async function handleWhatsAppUnofficialInbound(c: Context) {
       return c.json({ error: 'Valid inboxId could not be resolved' }, 400)
     }
 
-    const cleanSenderNumber = body.senderNumber.replace(/[^0-9]/g, '')
-    const formattedPhone = cleanSenderNumber.startsWith('+')
-      ? cleanSenderNumber
-      : `+${cleanSenderNumber}`
+    const rawNumber = String(body.senderNumber || '').trim()
+    const isExplicitGroup = Boolean(
+      body.isGroup || rawNumber.endsWith('@g.us') || body.groupJid?.endsWith('@g.us'),
+    )
+    const cleanSenderNumber = rawNumber.replace(/[^0-9]/g, '')
+    const isAutoDetectedGroup =
+      isExplicitGroup || (cleanSenderNumber.startsWith('120363') && cleanSenderNumber.length >= 16)
+
+    const isGroup = isAutoDetectedGroup
+    const groupJid = isGroup
+      ? body.groupJid || (rawNumber.endsWith('@g.us') ? rawNumber : `${cleanSenderNumber}@g.us`)
+      : undefined
+
+    const sourceId = isGroup && groupJid ? groupJid : cleanSenderNumber
+    const formattedPhone =
+      isGroup && groupJid
+        ? groupJid
+        : cleanSenderNumber.startsWith('+')
+          ? cleanSenderNumber
+          : `+${cleanSenderNumber}`
+    const contactName = isGroup
+      ? body.groupName ||
+        (body.isGroup && body.senderName && body.senderName !== body.participantName
+          ? body.senderName
+          : 'Grup WhatsApp')
+      : body.senderName || formattedPhone
 
     console.log(
-      `[api-webhook] [DEBUG] Processing message for sender=${formattedPhone}, inboxId=${inboxId}`,
+      `[api-webhook] [DEBUG] Processing message for sender=${formattedPhone}, inboxId=${inboxId}, isGroup=${isGroup}`,
     )
 
     if (body.isEcho) {
       const result = await conversationService.handleOutboundEcho({
         inboxId,
-        sourceId: cleanSenderNumber,
+        sourceId,
         senderPhone: formattedPhone,
         senderName: body.senderName || formattedPhone,
         content: body.content || '',
@@ -194,13 +221,18 @@ export async function handleWhatsAppUnofficialInbound(c: Context) {
 
     const result = await conversationService.handleInboundMessage({
       inboxId,
-      sourceId: cleanSenderNumber,
+      sourceId,
       senderPhone: formattedPhone,
-      senderName: body.senderName || formattedPhone,
+      senderName: contactName,
       content: body.content || '',
       externalId: body.externalMessageId || `wa_${Date.now()}`,
       messageType: body.messageType || 'text',
       mediaUrl: body.mediaUrl,
+      isGroup,
+      groupJid,
+      participant: body.participant,
+      participantName: body.participantName || body.senderName,
+      isEcho: Boolean(body.isEcho),
     })
 
     console.log(

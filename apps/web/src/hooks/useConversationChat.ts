@@ -160,14 +160,28 @@ export function useConversationChat({ user, initialConversationId }: UseConversa
           // biome-ignore lint/suspicious/noExplicitAny: mapping backend schema
           const mapped: ConversationItem[] = data.map((item: any) => {
             const isSelected = item.id === currentSelected
+            const isGroup = Boolean(
+              item.isGroup ||
+                item.contact?.phoneNumber?.includes('@g.us') ||
+                item.contact?.phoneNumber?.includes('120363') ||
+                item.contact?.identifier?.includes('@g.us') ||
+                item.contact?.identifier?.includes('120363'),
+            )
+            const groupJid = item.groupJid || item.contact?.phoneNumber || item.contact?.identifier
+
             return {
               id: item.id,
-              contactName: item.contact?.name || item.contact?.phoneNumber || 'Pelanggan WhatsApp',
+              contactName: isGroup
+                ? item.contact?.name || 'Grup WhatsApp'
+                : item.contact?.name || item.contact?.phoneNumber || 'Pelanggan WhatsApp',
               contactPhone: item.contact?.phoneNumber,
               // biome-ignore lint/suspicious/noExplicitAny: channel type
               channel: (item.channel as any) || (item.channelType as any) || 'whatsapp',
               inboxId: item.inboxId,
               inboxName: item.inboxName,
+              isGroup: isGroup ? true : undefined,
+              groupJid: isGroup ? groupJid : undefined,
+              availableChannels: item.availableChannels,
               lastMessage:
                 item.lastMessage ||
                 (item.lastMessageAt ? 'Pesan baru diterima' : 'Percakapan baru'),
@@ -273,8 +287,13 @@ export function useConversationChat({ user, initialConversationId }: UseConversa
 
             const attrs = parseContentAttributes(m.contentAttributes)
             const isEcho = Boolean(m.isEcho || attrs.echo || attrs.source === 'whatsapp_mobile')
+            const isMsgGroup = Boolean(m.isGroup || attrs.isGroup || data.conversation?.isGroup)
+            const participant = m.participant || attrs.participant
+            const participantName = m.participantName || attrs.participantName
             const senderName = isCustomer
-              ? data.contact?.name || data.contact?.phoneNumber || 'Pelanggan'
+              ? isMsgGroup && participantName
+                ? participantName
+                : data.contact?.name || data.contact?.phoneNumber || 'Pelanggan'
               : m.senderName ||
                 attrs.senderName ||
                 (isEcho ? 'WhatsApp HP' : m.senderType === 'bot' ? 'Bot Otomasi' : user.name)
@@ -287,6 +306,9 @@ export function useConversationChat({ user, initialConversationId }: UseConversa
               senderId: m.senderId || (isCustomer ? 'customer' : user.id),
               senderType: isCustomer ? 'contact' : m.senderType || 'user',
               senderName,
+              isGroup: isMsgGroup,
+              participant: participant ? String(participant) : undefined,
+              participantName: participantName ? String(participantName) : undefined,
               isEcho,
               contentAttributes: m.contentAttributes,
               messageType: msgType,
@@ -364,9 +386,15 @@ export function useConversationChat({ user, initialConversationId }: UseConversa
       const isEcho = Boolean(
         anyEvt.isEcho || rawMsg.isEcho || attrs.echo || attrs.source === 'whatsapp_mobile',
       )
+      const isMsgGroup = Boolean(anyEvt.isGroup || rawMsg.isGroup || attrs.isGroup)
+      const participant = anyEvt.participant || rawMsg.participant || attrs.participant
+      const participantName =
+        anyEvt.participantName || rawMsg.participantName || attrs.participantName
 
       const senderName = isCustomer
-        ? anyEvt.contact?.name || 'Pelanggan WhatsApp'
+        ? isMsgGroup && participantName
+          ? participantName
+          : anyEvt.contact?.name || 'Pelanggan WhatsApp'
         : anyEvt.senderName ||
           rawMsg.senderName ||
           attrs.senderName ||
@@ -384,6 +412,11 @@ export function useConversationChat({ user, initialConversationId }: UseConversa
         senderId: rawMsg.senderId || anyEvt.contact?.id || anyEvt.senderId,
         senderType: isCustomer ? 'contact' : rawMsg.senderType || anyEvt.senderType || 'user',
         senderName,
+        isGroup: isMsgGroup,
+        participant: participant ? String(participant) : undefined,
+        participantName: participantName ? String(participantName) : undefined,
+        isEcho,
+        contentAttributes: rawMsg.contentAttributes || anyEvt.contentAttributes,
         timestamp: timeStr,
         status: rawMsg.status || (isCustomer ? 'delivered' : 'sent'),
       }

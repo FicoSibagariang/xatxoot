@@ -134,6 +134,10 @@ export class BaileysSession {
           editedAt: event.editedAt,
           isRevoke: event.isRevoke,
           revokedAt: event.revokedAt,
+          isGroup: event.isGroup,
+          groupJid: event.groupJid,
+          participant: event.participant,
+          participantName: event.participantName,
         }),
       })
       const text = await res.text()
