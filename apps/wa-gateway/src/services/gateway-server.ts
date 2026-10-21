@@ -194,6 +194,41 @@ export function createGatewayServer(
       return
     }
 
+    // Match /media/:filename
+    const mediaMatch = pathname.match(/^\/media\/([^/]+)$/)
+    if (mediaMatch && method === 'GET') {
+      const filename = mediaMatch[1]
+      const { createReadStream, existsSync, statSync } = await import('node:fs')
+      const { join } = await import('node:path')
+      const filePath = join(process.env.WA_GATEWAY_MEDIA_DIR || './data/media', filename)
+      if (!existsSync(filePath)) {
+        sendJson(res, 404, { error: 'Media not found' })
+        return
+      }
+      const stat = statSync(filePath)
+      const ext = filename.split('.').pop()?.toLowerCase() || ''
+      const mimeTypes: Record<string, string> = {
+        jpg: 'image/jpeg',
+        jpeg: 'image/jpeg',
+        png: 'image/png',
+        webp: 'image/webp',
+        gif: 'image/gif',
+        mp4: 'video/mp4',
+        pdf: 'application/pdf',
+        ogg: 'audio/ogg',
+        mp3: 'audio/mpeg',
+        m4a: 'audio/mp4',
+      }
+      res.writeHead(200, {
+        'Content-Type': mimeTypes[ext] || 'application/octet-stream',
+        'Content-Length': stat.size,
+        'Access-Control-Allow-Origin': '*',
+        'Cache-Control': 'public, max-age=31536000, immutable',
+      })
+      createReadStream(filePath).pipe(res)
+      return
+    }
+
     // 404 Not Found
     sendJson(res, 404, { error: 'Not Found' })
   })

@@ -23,6 +23,7 @@ import {
   publicPortalRoutes,
 } from './modules/help-center/help-center.routes'
 import { inboxRoutes } from './modules/inboxes/inboxes.routes'
+import { mediaRoutes } from './modules/media/media.routes'
 import { metaSocialRoutes } from './modules/meta-social/meta-social.routes'
 import { ragRoutes } from './modules/rag/rag.routes'
 import { realtimeRoutes } from './modules/realtime/realtime.routes'
@@ -85,6 +86,7 @@ app.route('/api/v1/copilot', copilotRoutes)
 app.route('/api/v1/sla', slaRoutes)
 app.route('/api/v1/sso', ssoRoutes)
 app.route('/api/v1/capacity', capacityRoutes)
+app.route('/api/v1/media', mediaRoutes)
 
 const apiPort = Number(process.env.PORT_API || process.env.PORT || 3000)
 const apiHost = process.env.HOST || '0.0.0.0'

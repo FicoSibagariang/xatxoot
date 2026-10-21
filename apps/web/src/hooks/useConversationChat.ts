@@ -312,7 +312,17 @@ export function useConversationChat({ user, initialConversationId }: UseConversa
               isEcho,
               contentAttributes: m.contentAttributes,
               messageType: msgType,
-              contentType: (m.contentType as ContentType) || 'text',
+              contentType:
+                (m.contentType && m.contentType !== 'text' ? m.contentType : undefined) ||
+                (m.messageType === 'image' ? 'image' : undefined) ||
+                (attrs.contentType as ContentType) ||
+                (m.contentType as ContentType) ||
+                'text',
+              mediaUrl:
+                m.mediaUrl ||
+                attrs.mediaUrl ||
+                (Array.isArray(m.attachments) && m.attachments[0]?.fileUrl) ||
+                undefined,
               content: m.content || '',
               timestamp: m.createdAt
                 ? new Date(m.createdAt).toLocaleTimeString('id-ID', {
@@ -408,7 +418,12 @@ export function useConversationChat({ user, initialConversationId }: UseConversa
           rawMsg.ticketDisplayId || anyEvt.ticket?.displayId || anyEvt.ticket?.ticketNumber,
         content: rawMsg.content || anyEvt.content || '',
         messageType: msgType,
-        contentType: (rawMsg.contentType || anyEvt.contentType || 'text') as ContentType,
+        contentType: (rawMsg.contentType ||
+          anyEvt.contentType ||
+          (rawMsg.messageType === 'image' || anyEvt.messageType === 'image'
+            ? 'image'
+            : 'text')) as ContentType,
+        mediaUrl: rawMsg.mediaUrl || anyEvt.mediaUrl || attrs.mediaUrl,
         senderId: rawMsg.senderId || anyEvt.contact?.id || anyEvt.senderId,
         senderType: isCustomer ? 'contact' : rawMsg.senderType || anyEvt.senderType || 'user',
         senderName,

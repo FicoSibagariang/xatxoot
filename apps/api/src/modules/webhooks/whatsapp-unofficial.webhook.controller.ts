@@ -190,6 +190,9 @@ export async function handleWhatsAppUnofficialInbound(c: Context) {
         content: body.content || '',
         externalId: body.externalMessageId || `wa_${Date.now()}`,
         messageType: body.messageType || 'text',
+        contentType:
+          (body.contentType as 'text' | 'image' | 'document' | 'video' | 'audio' | undefined) ||
+          (body.messageType === 'image' ? 'image' : 'text'),
         mediaUrl: body.mediaUrl,
       })
 
@@ -227,6 +230,9 @@ export async function handleWhatsAppUnofficialInbound(c: Context) {
       content: body.content || '',
       externalId: body.externalMessageId || `wa_${Date.now()}`,
       messageType: body.messageType || 'text',
+      contentType:
+        (body.contentType as 'text' | 'image' | 'document' | 'video' | 'audio' | undefined) ||
+        (body.messageType === 'image' ? 'image' : 'text'),
       mediaUrl: body.mediaUrl,
       isGroup,
       groupJid,

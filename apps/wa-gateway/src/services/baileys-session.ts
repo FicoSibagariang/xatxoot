@@ -8,6 +8,7 @@ import pino from 'pino'
 import type { ConnectionEventHandlers, GatewayConnectionStatus } from '../types/connection'
 import type { WaInboundMessageEvent } from '../types/events'
 import { mapDisconnectReasonToStatus } from './disconnect-handler'
+import { mediaManager } from './media-manager'
 import { extractInboundMessage } from './message-parser'
 import { outboundTracker } from './outbound-tracker'
 import { rawMessageDumper } from './raw-message-dumper'
@@ -152,6 +153,33 @@ export class BaileysSession {
       }
     }
 
+    let mediaUrl: string | undefined
+    if (['image', 'video', 'audio', 'document', 'sticker'].includes(event.messageType)) {
+      try {
+        const mediaResult = await mediaManager.downloadAndSave(
+          wam,
+          this.sessionId,
+          event.externalMessageId,
+          this.socket,
+        )
+        if (mediaResult) {
+          mediaUrl = mediaResult.mediaUrl
+          event.media = {
+            mimeType: mediaResult.mimeType,
+            fileSize: mediaResult.fileSize,
+          }
+          console.log(
+            `[wa-gateway] [${this.sessionId}] Media downloaded and saved: ${mediaResult.filename} -> ${mediaUrl}`,
+          )
+        }
+      } catch (err) {
+        console.warn(
+          `[wa-gateway] [${this.sessionId}] Media download skipped or failed for ${event.externalMessageId}:`,
+          (err as Error).message,
+        )
+      }
+    }
+
     // 1. Forward directly to API inbound webhook
     const apiPort = Number(process.env.PORT_API || 8800)
     const apiHost = '127.0.0.1'
@@ -170,7 +198,9 @@ export class BaileysSession {
           senderName: event.senderName,
           externalMessageId: event.externalMessageId,
           messageType: event.messageType,
+          contentType: event.messageType === 'image' ? 'image' : undefined,
           content: event.content,
+          mediaUrl,
           timestamp: event.timestamp,
           isEcho: Boolean(isEcho || event.isEcho),
           isEdit: event.isEdit,

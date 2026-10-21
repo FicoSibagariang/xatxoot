@@ -550,6 +550,8 @@ export class ConversationService {
     const finalSenderName = isInternal
       ? payload.participantName || payload.senderName || 'Internal'
       : payload.participantName || customerSenderName
+    const finalContentType =
+      payload.contentType || (payload.messageType === 'image' ? 'image' : undefined) || 'text'
 
     const message: Message = {
       id: crypto.randomUUID(),
@@ -562,7 +564,7 @@ export class ConversationService {
         ? 'outgoing'
         : (payload.messageType as unknown as Message['messageType']) || 'incoming',
       content: payload.content ?? null,
-      contentType: (payload.contentType as unknown as Message['contentType']) || 'text',
+      contentType: finalContentType as unknown as Message['contentType'],
       status: isInternal ? 'sent' : 'delivered',
       externalSourceId: payload.externalId ?? null,
       contentAttributes: {
@@ -571,11 +573,27 @@ export class ConversationService {
         participant: payload.participant || undefined,
         participantName: payload.participantName || undefined,
         senderName: finalSenderName,
+        mediaUrl: payload.mediaUrl || undefined,
         isEcho: isInternal ? true : undefined,
       },
-      attachments: [],
+      attachments: payload.mediaUrl
+        ? [
+            {
+              id: crypto.randomUUID(),
+              messageId: '',
+              fileType: payload.messageType === 'image' ? 'image/jpeg' : 'application/octet-stream',
+              fileUrl: payload.mediaUrl,
+              fileName: payload.mediaUrl.split('/').pop() || null,
+              fileSize: null,
+              createdAt: now,
+            },
+          ]
+        : [],
       createdAt: now,
       updatedAt: now,
+    }
+    if (message.attachments[0]) {
+      message.attachments[0].messageId = message.id
     }
 
     convMessages.push(message)
@@ -594,6 +612,17 @@ export class ConversationService {
           ${message.createdAt}, ${message.updatedAt}
         )
       `
+
+      if (payload.mediaUrl) {
+        await sql`
+          INSERT INTO attachments (
+            id, message_id, file_type, file_url, file_size, file_name, created_at
+          ) VALUES (
+            ${message.attachments[0].id}, ${message.id}, ${message.attachments[0].fileType},
+            ${payload.mediaUrl}, null, ${message.attachments[0].fileName}, ${now}
+          )
+        `
+      }
     } catch {
       // Memory fallback
     }
@@ -1027,9 +1056,23 @@ export class ConversationService {
       if (!senderName && m.senderType === 'bot') {
         senderName = 'Bot Otomasi'
       }
+      const mediaUrl =
+        m.mediaUrl ||
+        (attrs.mediaUrl as string | undefined) ||
+        (Array.isArray(m.attachments) && m.attachments[0]?.fileUrl) ||
+        undefined
+      const contentType =
+        (m.contentType && m.contentType !== 'text' ? m.contentType : undefined) ||
+        (m.messageType === 'image' ? 'image' : undefined) ||
+        (attrs.contentType as string | undefined) ||
+        m.contentType ||
+        'text'
+
       return {
         ...m,
         senderName,
+        contentType,
+        mediaUrl,
         isGroup: Boolean(m.isGroup || attrs.isGroup || isGroup),
         groupJid: m.groupJid || (attrs.groupJid as string | undefined) || groupJid,
         participant: m.participant || (attrs.participant as string | undefined),

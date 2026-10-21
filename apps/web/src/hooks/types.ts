@@ -8,6 +8,7 @@ export interface MessageCreatedEvent {
   content: string
   messageType: 'incoming' | 'outgoing' | 'activity' | string
   contentType: 'text' | 'image' | 'document' | 'audio' | 'video' | string
+  mediaUrl?: string
   senderId?: string
   senderType?: 'contact' | 'user' | 'system' | string
   senderName?: string
