@@ -1,4 +1,4 @@
-import { Lock, MessageSquare } from 'lucide-react'
+import { FileText, Lock, MessageSquare, Paperclip, Smile } from 'lucide-react'
 import { Button } from '../astryx'
 import { DeadlineTimerBadge, TicketSlaBadge, type TimelineMessage } from '../chat'
 import type { TicketSummary } from './types'
@@ -198,6 +198,70 @@ export function ThreadTicketHeaderActions({
         {isTicketResolved ? 'Buka Kembali' : 'Resolve'}
       </Button>
     </div>
+  )
+}
+
+export function ThreadInputMediaButtons({
+  onOpenTemplateDialog,
+}: {
+  onOpenTemplateDialog?: () => void
+}) {
+  return (
+    <>
+      <button
+        type="button"
+        title="Emoji"
+        className="p-2 text-slate-500 hover:text-slate-800 rounded-full hover:bg-slate-200/60 cursor-pointer"
+      >
+        <Smile className="w-5 h-5" />
+      </button>
+
+      <button
+        type="button"
+        title="Lampiran Gambar/File"
+        className="p-2 text-slate-500 hover:text-slate-800 rounded-full hover:bg-slate-200/60 cursor-pointer"
+      >
+        <Paperclip className="w-5 h-5" />
+      </button>
+
+      <button
+        type="button"
+        data-testid="btn-open-template-dialog"
+        title="Template Pesan WhatsApp Resmi"
+        onClick={onOpenTemplateDialog}
+        className="p-2 text-slate-500 hover:text-emerald-700 rounded-full hover:bg-slate-200/60 cursor-pointer"
+      >
+        <FileText className="w-5 h-5" />
+      </button>
+    </>
+  )
+}
+
+export function OutboundChannelSelector({
+  channels,
+  selectedChannelId,
+  onChange,
+}: {
+  channels?: Array<{ id: string; name: string; phoneNumber?: string }>
+  selectedChannelId?: string
+  onChange?: (id: string) => void
+}) {
+  if (!channels || channels.length === 0) return null
+
+  return (
+    <select
+      data-testid="select-outbound-channel"
+      value={selectedChannelId || channels[0]?.id}
+      onChange={(e) => onChange?.(e.target.value)}
+      className="text-xs bg-white border border-wa-border text-slate-700 rounded px-2 py-1.5 focus:outline-none focus:border-wa-teal-primary cursor-pointer shrink-0"
+      title="Kirim sebagai Saluran WhatsApp"
+    >
+      {channels.map((ch) => (
+        <option key={ch.id} value={ch.id}>
+          {ch.name}
+        </option>
+      ))}
+    </select>
   )
 }
 

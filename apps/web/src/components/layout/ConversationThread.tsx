@@ -1,4 +1,3 @@
-import { FileText, Paperclip, Smile } from 'lucide-react'
 import { type KeyboardEvent, type ReactNode, useEffect, useRef, useState } from 'react'
 import { Avatar, Button, ChannelBadge } from '../astryx'
 import {
@@ -22,7 +21,9 @@ import {
 import {
   EmptyConversationState,
   EmptyThreadNotice,
+  OutboundChannelSelector,
   ReplyPreviewBar,
+  ThreadInputMediaButtons,
   ThreadTicketHeaderActions,
   TicketAssignmentLockBanner,
 } from './EmptyConversationState'
@@ -87,6 +88,7 @@ export function ConversationThread(props: ConversationThreadProps) {
     children,
   } = props
   const [inputText, setInputText] = useState('')
+  const [selectedChannelId, setSelectedChannelId] = useState('')
   const [isAutocompleteOpen, setIsAutocompleteOpen] = useState(false)
   const [selectedAutocompleteIndex, setSelectedAutocompleteIndex] = useState(0)
 
@@ -407,31 +409,7 @@ export function ConversationThread(props: ConversationThreadProps) {
           />
         ) : (
           <>
-            <button
-              type="button"
-              title="Emoji"
-              className="p-2 text-slate-500 hover:text-slate-800 rounded-full hover:bg-slate-200/60 cursor-pointer"
-            >
-              <Smile className="w-5 h-5" />
-            </button>
-
-            <button
-              type="button"
-              title="Lampiran Gambar/File"
-              className="p-2 text-slate-500 hover:text-slate-800 rounded-full hover:bg-slate-200/60 cursor-pointer"
-            >
-              <Paperclip className="w-5 h-5" />
-            </button>
-
-            <button
-              type="button"
-              data-testid="btn-open-template-dialog"
-              title="Template Pesan WhatsApp Resmi"
-              onClick={onOpenTemplateDialog}
-              className="p-2 text-slate-500 hover:text-emerald-700 rounded-full hover:bg-slate-200/60 cursor-pointer"
-            >
-              <FileText className="w-5 h-5" />
-            </button>
+            <ThreadInputMediaButtons onOpenTemplateDialog={onOpenTemplateDialog} />
 
             <AiMagicButton
               isOpen={isAiToolbarOpen}
@@ -482,6 +460,14 @@ export function ConversationThread(props: ConversationThreadProps) {
                 className="w-full bg-white text-sm text-wa-text-primary rounded-lg px-4 py-2 border border-wa-border focus:outline-none focus:border-wa-teal-primary"
               />
             </div>
+
+            {conversation?.isGroup && (
+              <OutboundChannelSelector
+                channels={conversation.availableChannels}
+                selectedChannelId={selectedChannelId}
+                onChange={setSelectedChannelId}
+              />
+            )}
 
             <Button variant="teal" size="sm" onClick={handleSend} className="rounded-lg px-4 py-2">
               Kirim

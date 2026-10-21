@@ -235,8 +235,12 @@ describe('Realtime SSE Stream - Module Event Integrations', () => {
     })
 
     // Subscriber should receive ticket.updated
-    const chunk = await reader.read()
-    const text = new TextDecoder().decode(chunk.value)
+    let text = ''
+    while (!text.includes('event: ticket.updated')) {
+      const chunk = await reader.read()
+      if (!chunk.value) break
+      text += new TextDecoder().decode(chunk.value)
+    }
 
     expect(text).toContain('event: ticket.updated')
     expect(text).toContain('"status":"pending"')

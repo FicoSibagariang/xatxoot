@@ -46,6 +46,12 @@ export interface InboundMessagePayload {
   externalId?: string | null
   contentType?: string
   mediaUrl?: string | null
+  isGroup?: boolean
+  groupJid?: string | null
+  groupName?: string | null
+  participant?: string | null
+  participantName?: string | null
+  isEcho?: boolean
 }
 
 export interface InboundMessageResult {
@@ -107,6 +113,17 @@ export function resetConversationStore(): void {
 }
 
 export class ConversationService {
+  private companyPhoneNumbers = new Set<string>()
+
+  setCompanyPhoneNumbers(numbers: string[]): void {
+    this.companyPhoneNumbers = new Set(numbers.map((n) => n.replace(/\D/g, '')))
+  }
+
+  isCompanyPhoneNumber(phone?: string | null): boolean {
+    if (!phone) return false
+    const clean = phone.replace(/\D/g, '')
+    return this.companyPhoneNumbers.has(clean)
+  }
   async findOrCreateContact(
     dto: FindOrCreateContactDto,
   ): Promise<{ contact: Contact; contactInbox: ContactInbox }> {
@@ -277,18 +294,106 @@ export class ConversationService {
   async handleInboundMessage(payload: InboundMessagePayload): Promise<InboundMessageResult> {
     const now = new Date().toISOString()
 
+    // 0. Idempotency Check: prevent duplicate messages and tickets when broadcasted to multiple inboxes
+    if (payload.externalId) {
+      let existingMsg = Array.from(messageStore.messages.values()).find(
+        (m) => m.externalSourceId === payload.externalId,
+      )
+
+      if (!existingMsg) {
+        try {
+          const rows = await sql`
+            SELECT id, conversation_id as "conversationId", ticket_id as "ticketId",
+                   sender_type as "senderType", sender_id as "senderId",
+                   message_type as "messageType", content, content_type as "contentType",
+                   status, external_source_id as "externalSourceId",
+                   content_attributes as "contentAttributes", created_at as "createdAt", updated_at as "updatedAt"
+            FROM messages
+            WHERE external_source_id = ${payload.externalId}
+            LIMIT 1
+          `
+          if (rows && rows.length > 0) {
+            existingMsg = rows[0] as unknown as Message
+            saveMessageToStore(existingMsg)
+          }
+        } catch {
+          // ignore
+        }
+      }
+
+      if (existingMsg) {
+        const conv =
+          memoryStore.conversations.get(existingMsg.conversationId) ||
+          ({ id: existingMsg.conversationId } as Conversation)
+
+        const activeTkt = existingMsg.ticketId
+          ? await ticketService.getTicketById(existingMsg.ticketId)
+          : null
+
+        const cnt =
+          memoryStore.contacts.get(conv.contactId) ||
+          ({ id: conv.contactId, name: payload.senderName || 'Kontak' } as Contact)
+
+        return {
+          contact: cnt,
+          conversation: conv,
+          ticket: activeTkt || ({} as Ticket),
+          isNewTicket: false,
+          message: existingMsg,
+        }
+      }
+    }
+
+    const isGroup = Boolean(
+      payload.isGroup || payload.sourceId?.endsWith('@g.us') || payload.groupJid,
+    )
+    const groupJid =
+      payload.groupJid || (payload.sourceId?.endsWith('@g.us') ? payload.sourceId : undefined)
+
     // 1. Find or create Contact & ContactInbox
     const { contact, contactInbox } = await this.findOrCreateContact({
       inboxId: payload.inboxId,
-      sourceId: payload.sourceId,
-      phone: payload.senderPhone,
-      name: payload.senderName,
+      sourceId: isGroup && groupJid ? groupJid : payload.sourceId,
+      phone: isGroup && groupJid ? groupJid : payload.senderPhone,
+      name: payload.senderName || (isGroup ? 'Grup WhatsApp' : undefined),
     })
 
-    // 2. Find or create persistent Conversation thread
-    let conversation = Array.from(memoryStore.conversations.values()).find(
-      (c) => c.inboxId === payload.inboxId && c.contactId === contact.id,
-    )
+    // 2. Find or create persistent Conversation thread (Unified group architecture)
+    let conversation: Conversation | undefined
+    if (isGroup && groupJid) {
+      conversation = Array.from(memoryStore.conversations.values()).find(
+        (c) =>
+          c.contactId === contact.id ||
+          (c.customAttributes as Record<string, unknown>)?.groupJid === groupJid,
+      )
+
+      if (!conversation) {
+        try {
+          const rows = await sql`
+            SELECT id, inbox_id as "inboxId", contact_id as "contactId",
+                   contact_inbox_id as "contactInboxId", active_ticket_id as "activeTicketId",
+                   unread_count as "unreadCount", last_message_at as "lastMessageAt",
+                   custom_attributes as "customAttributes",
+                   created_at as "createdAt", updated_at as "updatedAt"
+            FROM conversations
+            WHERE contact_id = ${contact.id} OR custom_attributes->>'groupJid' = ${groupJid}
+            LIMIT 1
+          `
+          if (rows && rows.length > 0) {
+            conversation = rows[0] as unknown as Conversation
+            memoryStore.conversations.set(conversation.id, conversation)
+          }
+        } catch {
+          // ignore
+        }
+      }
+    }
+
+    if (!conversation) {
+      conversation = Array.from(memoryStore.conversations.values()).find(
+        (c) => c.inboxId === payload.inboxId && c.contactId === contact.id,
+      )
+    }
 
     if (!conversation) {
       try {
@@ -325,9 +430,10 @@ export class ConversationService {
         activeTicketId: null,
         unreadCount: 0,
         lastMessageAt: now,
+        customAttributes: isGroup && groupJid ? { isGroup: true, groupJid } : {},
         createdAt: now,
         updatedAt: now,
-      }
+      } as unknown as Conversation
       memoryStore.conversations.set(conversation.id, conversation)
 
       try {
@@ -345,7 +451,11 @@ export class ConversationService {
       }
     }
 
-    // 3. Ticket FSM Lifecycle automation
+    // 3. Ticket FSM Lifecycle automation & Internal Participant Check
+    const isInternal = Boolean(
+      payload.isEcho || (payload.participant && this.isCompanyPhoneNumber(payload.participant)),
+    )
+
     let ticket: Ticket
     let isNewTicket = false
 
@@ -353,57 +463,81 @@ export class ConversationService {
       ? await ticketService.getTicketById(conversation.activeTicketId)
       : null
 
-    if (!activeTicket || activeTicket.status === 'resolved') {
-      // Create a brand new ticket with status 'open'
-      ticket = await ticketService.createTicket({
-        conversationId: conversation.id,
-        status: 'open',
-        priority: 'medium',
-      })
-      isNewTicket = true
+    if (isInternal) {
+      ticket = activeTicket || ({} as Ticket)
+      isNewTicket = false
+
+      conversation = {
+        ...conversation,
+        lastMessageAt: now,
+        updatedAt: now,
+      }
+      memoryStore.conversations.set(conversation.id, conversation)
 
       try {
-        const assignResult = await assignmentService.assignTicketRoundRobin(ticket.id, {
-          inboxId: conversation.inboxId,
-        })
-        if (assignResult.success && assignResult.assignedAgentId) {
-          ticket = assignResult.ticket
-        }
+        await sql`
+          UPDATE conversations
+          SET
+            last_message_at = ${now},
+            updated_at = ${now}
+          WHERE id = ${conversation.id}
+        `
       } catch {
-        // Fallback gracefully
+        // Memory fallback
       }
-    } else if (activeTicket.status === 'pending' || activeTicket.status === 'snoozed') {
-      // Customer replied: automatically reopen ticket back to 'open'
-      ticket = await ticketService.updateTicketStatus(activeTicket.id, 'open')
-      isNewTicket = false
     } else {
-      // Active ticket is already 'open'
-      ticket = activeTicket
-      isNewTicket = false
-    }
+      if (!activeTicket || activeTicket.status === 'resolved') {
+        // Create a brand new ticket with status 'open'
+        ticket = await ticketService.createTicket({
+          conversationId: conversation.id,
+          status: 'open',
+          priority: 'medium',
+        })
+        isNewTicket = true
 
-    // Update conversation state
-    conversation = {
-      ...conversation,
-      activeTicketId: ticket.id,
-      unreadCount: (conversation.unreadCount || 0) + 1,
-      lastMessageAt: now,
-      updatedAt: now,
-    }
-    memoryStore.conversations.set(conversation.id, conversation)
+        try {
+          const assignResult = await assignmentService.assignTicketRoundRobin(ticket.id, {
+            inboxId: conversation.inboxId,
+          })
+          if (assignResult.success && assignResult.assignedAgentId) {
+            ticket = assignResult.ticket
+          }
+        } catch {
+          // Fallback gracefully
+        }
+      } else if (activeTicket.status === 'pending' || activeTicket.status === 'snoozed') {
+        // Customer replied: automatically reopen ticket back to 'open'
+        ticket = await ticketService.updateTicketStatus(activeTicket.id, 'open')
+        isNewTicket = false
+      } else {
+        // Active ticket is already 'open'
+        ticket = activeTicket
+        isNewTicket = false
+      }
 
-    try {
-      await sql`
-        UPDATE conversations
-        SET
-          active_ticket_id = ${ticket.id},
-          unread_count = ${conversation.unreadCount},
-          last_message_at = ${now},
-          updated_at = ${now}
-        WHERE id = ${conversation.id}
-      `
-    } catch {
-      // Memory fallback
+      // Update conversation state
+      conversation = {
+        ...conversation,
+        activeTicketId: ticket.id,
+        unreadCount: (conversation.unreadCount || 0) + 1,
+        lastMessageAt: now,
+        updatedAt: now,
+      }
+      memoryStore.conversations.set(conversation.id, conversation)
+
+      try {
+        await sql`
+          UPDATE conversations
+          SET
+            active_ticket_id = ${ticket.id},
+            unread_count = ${conversation.unreadCount},
+            last_message_at = ${now},
+            updated_at = ${now}
+          WHERE id = ${conversation.id}
+        `
+      } catch {
+        // Memory fallback
+      }
     }
 
     // 4. Create Message record
@@ -411,20 +545,32 @@ export class ConversationService {
     memoryStore.messages.set(conversation.id, convMessages)
 
     const customerSenderName = contact.name || payload.senderName || 'Pelanggan'
+    const finalSenderName = isInternal
+      ? payload.participantName || payload.senderName || 'Internal'
+      : payload.participantName || customerSenderName
 
     const message: Message = {
       id: crypto.randomUUID(),
       conversationId: conversation.id,
-      ticketId: ticket.id,
-      senderType: 'contact',
-      senderId: contact.id,
-      senderName: customerSenderName,
-      messageType: (payload.messageType as unknown as Message['messageType']) || 'incoming',
+      ticketId: ticket.id || null,
+      senderType: isInternal ? 'user' : 'contact',
+      senderId: isInternal ? null : contact.id,
+      senderName: finalSenderName,
+      messageType: isInternal
+        ? 'outgoing'
+        : (payload.messageType as unknown as Message['messageType']) || 'incoming',
       content: payload.content ?? null,
       contentType: (payload.contentType as unknown as Message['contentType']) || 'text',
-      status: 'delivered',
+      status: isInternal ? 'sent' : 'delivered',
       externalSourceId: payload.externalId ?? null,
-      contentAttributes: { senderName: customerSenderName },
+      contentAttributes: {
+        isGroup: isGroup ? true : undefined,
+        groupJid,
+        participant: payload.participant || undefined,
+        participantName: payload.participantName || undefined,
+        senderName: finalSenderName,
+        isEcho: isInternal ? true : undefined,
+      },
       attachments: [],
       createdAt: now,
       updatedAt: now,
