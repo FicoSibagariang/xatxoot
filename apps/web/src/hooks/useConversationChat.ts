@@ -656,6 +656,50 @@ export function useConversationChat({ user, initialConversationId }: UseConversa
     }
   }
 
+  const handleSaveInternalNote = useCallback(
+    async (note: string, ticketIdOverride?: string) => {
+      const activeTicketId =
+        ticketIdOverride || conversations.find((c) => c.id === selectedConversationId)?.ticket?.id
+
+      if (!activeTicketId) {
+        setInternalNote(note)
+        return
+      }
+
+      const prevNote = internalNote
+      const prevConversations = conversations
+      const nowIso = new Date().toISOString()
+
+      // Optimistic state update
+      setInternalNote(note)
+      setConversations((prev) =>
+        prev.map((c) =>
+          c.ticket?.id === activeTicketId
+            ? {
+                ...c,
+                ticket: {
+                  ...c.ticket,
+                  internalNote: note,
+                  internalNoteUpdatedAt: nowIso,
+                  internalNoteUpdatedBy: user?.name || 'Agen CS',
+                },
+              }
+            : c,
+        ),
+      )
+
+      try {
+        await api.patch(`/api/v1/tickets/${activeTicketId}/note`, { internalNote: note })
+      } catch (err) {
+        // Rollback on network/server error
+        setInternalNote(prevNote)
+        setConversations(prevConversations)
+        throw err
+      }
+    },
+    [conversations, selectedConversationId, internalNote, user?.name],
+  )
+
   const handleSelectConversation = useCallback(
     (id: string | null) => {
       setSelectedConversationId(id)
@@ -700,6 +744,7 @@ export function useConversationChat({ user, initialConversationId }: UseConversa
     handleSendMessage,
     handleResolveTicket,
     handleAssignTicket,
+    handleSaveInternalNote,
     handleSelectConversation,
     realtime,
   }
