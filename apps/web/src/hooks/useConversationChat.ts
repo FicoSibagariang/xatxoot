@@ -61,7 +61,8 @@ export function areMessagesIdentical(
     (msg, i) =>
       msg.id === incoming[i]?.id &&
       msg.status === incoming[i]?.status &&
-      msg.content === incoming[i]?.content,
+      msg.content === incoming[i]?.content &&
+      Boolean(msg.replyTo) === Boolean(incoming[i]?.replyTo),
   )
 }
 
@@ -431,6 +432,7 @@ export function useConversationChat({ user, initialConversationId }: UseConversa
         participant: participant ? String(participant) : undefined,
         participantName: participantName ? String(participantName) : undefined,
         isEcho,
+        replyTo: rawMsg.replyTo || anyEvt.replyTo || attrs.replyTo || null,
         contentAttributes: rawMsg.contentAttributes || anyEvt.contentAttributes,
         timestamp: timeStr,
         status: rawMsg.status || (isCustomer ? 'delivered' : 'sent'),

@@ -12,6 +12,13 @@ export interface MessageCreatedEvent {
   senderId?: string
   senderType?: 'contact' | 'user' | 'system' | string
   senderName?: string
+  replyTo?: {
+    messageId?: string
+    externalId?: string | null
+    senderName?: string
+    snippet?: string
+  } | null
+  contentAttributes?: Record<string, unknown>
   timestamp?: string
   createdAt?: string
   status?: string

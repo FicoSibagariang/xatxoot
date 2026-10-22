@@ -41,6 +41,8 @@ export const WaInboundMessageEventSchema = z.object({
     })
     .optional(),
   replyToExternalId: z.string().optional(),
+  quotedText: z.string().optional(),
+  quotedParticipant: z.string().optional(),
   timestamp: z.string().min(1, 'Timestamp wajib diisi'),
   isEcho: z.boolean().optional(),
   isEdit: z.boolean().optional(),

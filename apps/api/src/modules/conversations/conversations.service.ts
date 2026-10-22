@@ -38,8 +38,9 @@ export interface ConversationWithInbox extends Conversation {
 
 export interface InboundMessagePayload {
   inboxId: string
-  sourceId: string
+  sourceId?: string
   senderPhone?: string | null
+  senderNumber?: string | null
   senderName?: string | null
   content?: string | null
   messageType?: string
@@ -52,6 +53,9 @@ export interface InboundMessagePayload {
   participant?: string | null
   participantName?: string | null
   isEcho?: boolean
+  replyToExternalId?: string | null
+  quotedText?: string | null
+  quotedParticipant?: string | null
 }
 
 export interface InboundMessageResult {
@@ -72,6 +76,9 @@ export interface OutboundEchoPayload {
   externalId?: string | null
   contentType?: string
   mediaUrl?: string | null
+  replyToExternalId?: string | null
+  quotedText?: string | null
+  quotedParticipant?: string | null
 }
 
 export interface OutboundEchoResult {
@@ -293,6 +300,35 @@ export class ConversationService {
     return { contact, contactInbox }
   }
 
+  async findMessageByExternalId(externalId: string): Promise<Message | null> {
+    if (!externalId) return null
+    const fromStore = Array.from(messageStore.messages.values()).find(
+      (m) => m.externalSourceId === externalId,
+    )
+    if (fromStore) return fromStore
+
+    try {
+      const rows = await sql`
+        SELECT id, conversation_id as "conversationId", ticket_id as "ticketId",
+               sender_type as "senderType", sender_id as "senderId",
+               message_type as "messageType", content, content_type as "contentType",
+               status, external_source_id as "externalSourceId",
+               content_attributes as "contentAttributes", created_at as "createdAt", updated_at as "updatedAt"
+        FROM messages
+        WHERE external_source_id = ${externalId}
+        LIMIT 1
+      `
+      if (rows && rows.length > 0) {
+        const msg = rows[0] as unknown as Message
+        saveMessageToStore(msg)
+        return msg
+      }
+    } catch {
+      // Memory fallback
+    }
+    return null
+  }
+
   async handleInboundMessage(payload: InboundMessagePayload): Promise<InboundMessageResult> {
     const now = new Date().toISOString()
 
@@ -352,11 +388,18 @@ export class ConversationService {
     const groupJid =
       payload.groupJid || (payload.sourceId?.endsWith('@g.us') ? payload.sourceId : undefined)
 
+    const effectivePhone =
+      (isGroup && groupJid ? groupJid : payload.senderPhone) ||
+      payload.senderNumber ||
+      ((payload as Record<string, unknown>).senderNumber as string | undefined)
+    const effectiveSourceId =
+      (isGroup && groupJid ? groupJid : payload.sourceId) || effectivePhone || payload.inboxId
+
     // 1. Find or create Contact & ContactInbox
     const { contact, contactInbox } = await this.findOrCreateContact({
       inboxId: payload.inboxId,
-      sourceId: isGroup && groupJid ? groupJid : payload.sourceId,
-      phone: isGroup && groupJid ? groupJid : payload.senderPhone,
+      sourceId: effectiveSourceId,
+      phone: effectivePhone,
       name: payload.senderName || (isGroup ? 'Grup WhatsApp' : undefined),
     })
 
@@ -546,6 +589,75 @@ export class ConversationService {
     const convMessages = memoryStore.messages.get(conversation.id) || []
     memoryStore.messages.set(conversation.id, convMessages)
 
+    // Resolve Quoted Reply context if replyToExternalId is provided (Issue #301)
+    let replyTo:
+      | {
+          messageId: string
+          externalId?: string | null
+          senderName?: string
+          snippet?: string
+        }
+      | undefined
+
+    if (payload.replyToExternalId) {
+      try {
+        const targetMsg = await this.findMessageByExternalId(payload.replyToExternalId)
+        if (targetMsg) {
+          const targetAttrs = parseContentAttributes(targetMsg.contentAttributes)
+          let targetSenderName =
+            targetMsg.senderName ||
+            (targetAttrs.senderName as string | undefined) ||
+            (targetAttrs.participantName as string | undefined)
+          if (!targetSenderName) {
+            if (targetMsg.senderType === 'user') {
+              targetSenderName = 'Petugas CS'
+            } else if (targetMsg.senderType === 'contact') {
+              targetSenderName = 'Pelanggan'
+            } else {
+              targetSenderName = 'Bot Otomasi'
+            }
+          }
+          const snippet = (
+            targetMsg.content ||
+            (targetMsg.contentType === 'image' || targetAttrs.contentType === 'image'
+              ? '[Gambar]'
+              : '') ||
+            payload.quotedText ||
+            ''
+          ).slice(0, 100)
+
+          replyTo = {
+            messageId: targetMsg.id,
+            externalId: targetMsg.externalSourceId || payload.replyToExternalId,
+            senderName: targetSenderName,
+            snippet,
+          }
+        } else {
+          let fallbackSenderName = 'Kutipan'
+          if (payload.quotedParticipant) {
+            const rawPart = payload.quotedParticipant
+              .replace(/@s\.whatsapp\.net$/, '')
+              .replace(/@c\.us$/, '')
+              .replace(/:.*$/, '')
+            fallbackSenderName = rawPart.startsWith('+') ? rawPart : `+${rawPart}`
+          }
+          replyTo = {
+            messageId: payload.replyToExternalId,
+            externalId: payload.replyToExternalId,
+            senderName: fallbackSenderName,
+            snippet: (payload.quotedText || '').slice(0, 100),
+          }
+        }
+      } catch {
+        replyTo = {
+          messageId: payload.replyToExternalId,
+          externalId: payload.replyToExternalId,
+          senderName: 'Kutipan',
+          snippet: (payload.quotedText || '').slice(0, 100),
+        }
+      }
+    }
+
     const customerSenderName = contact.name || payload.senderName || 'Pelanggan'
     const finalSenderName = isInternal
       ? payload.participantName || payload.senderName || 'Internal'
@@ -567,6 +679,7 @@ export class ConversationService {
       contentType: finalContentType as unknown as Message['contentType'],
       status: isInternal ? 'sent' : 'delivered',
       externalSourceId: payload.externalId ?? null,
+      replyTo: replyTo || undefined,
       contentAttributes: {
         isGroup: isGroup ? true : undefined,
         groupJid,
@@ -575,6 +688,7 @@ export class ConversationService {
         senderName: finalSenderName,
         mediaUrl: payload.mediaUrl || undefined,
         isEcho: isInternal ? true : undefined,
+        ...(replyTo ? { replyTo } : {}),
       },
       attachments: payload.mediaUrl
         ? [
@@ -646,6 +760,8 @@ export class ConversationService {
         senderId: message.senderId,
         senderType: message.senderType,
         senderName: contact.name || 'Pelanggan WhatsApp',
+        replyTo: message.replyTo,
+        contentAttributes: message.contentAttributes,
         timestamp: message.createdAt,
         createdAt: message.createdAt,
         message,
@@ -835,6 +951,69 @@ export class ConversationService {
 
     // 5. Create Outgoing Message
     const convMessages = memoryStore.messages.get(conversation.id) || []
+
+    let echoReplyTo:
+      | {
+          messageId: string
+          externalId?: string | null
+          senderName?: string
+          snippet?: string
+        }
+      | undefined
+
+    if (payload.replyToExternalId) {
+      try {
+        const targetMsg = await this.findMessageByExternalId(payload.replyToExternalId)
+        if (targetMsg) {
+          const targetAttrs = parseContentAttributes(targetMsg.contentAttributes)
+          let targetSenderName =
+            targetMsg.senderName ||
+            (targetAttrs.senderName as string | undefined) ||
+            (targetAttrs.participantName as string | undefined)
+          if (!targetSenderName) {
+            targetSenderName = targetMsg.senderType === 'user' ? 'Petugas CS' : 'Pelanggan'
+          }
+          const snippet = (
+            targetMsg.content ||
+            (targetMsg.contentType === 'image' || targetAttrs.contentType === 'image'
+              ? '[Gambar]'
+              : '') ||
+            payload.quotedText ||
+            ''
+          ).slice(0, 100)
+
+          echoReplyTo = {
+            messageId: targetMsg.id,
+            externalId: targetMsg.externalSourceId || payload.replyToExternalId,
+            senderName: targetSenderName,
+            snippet,
+          }
+        } else {
+          let fallbackSenderName = 'Kutipan'
+          if (payload.quotedParticipant) {
+            const rawPart = payload.quotedParticipant
+              .replace(/@s\.whatsapp\.net$/, '')
+              .replace(/@c\.us$/, '')
+              .replace(/:.*$/, '')
+            fallbackSenderName = rawPart.startsWith('+') ? rawPart : `+${rawPart}`
+          }
+          echoReplyTo = {
+            messageId: payload.replyToExternalId,
+            externalId: payload.replyToExternalId,
+            senderName: fallbackSenderName,
+            snippet: (payload.quotedText || '').slice(0, 100),
+          }
+        }
+      } catch {
+        echoReplyTo = {
+          messageId: payload.replyToExternalId,
+          externalId: payload.replyToExternalId,
+          senderName: 'Kutipan',
+          snippet: (payload.quotedText || '').slice(0, 100),
+        }
+      }
+    }
+
     const message: Message = {
       id: crypto.randomUUID(),
       conversationId: conversation.id,
@@ -848,7 +1027,13 @@ export class ConversationService {
       contentType: (payload.contentType as unknown as Message['contentType']) || 'text',
       status: 'sent',
       externalSourceId: payload.externalId ?? null,
-      contentAttributes: { echo: true, source: 'whatsapp_mobile', senderName: 'WhatsApp HP' },
+      replyTo: echoReplyTo || undefined,
+      contentAttributes: {
+        echo: true,
+        source: 'whatsapp_mobile',
+        senderName: 'WhatsApp HP',
+        ...(echoReplyTo ? { replyTo: echoReplyTo } : {}),
+      },
       attachments: [],
       createdAt: now,
       updatedAt: now,
@@ -893,6 +1078,8 @@ export class ConversationService {
         senderType: message.senderType,
         senderName: 'WhatsApp HP',
         isEcho: true,
+        replyTo: message.replyTo,
+        contentAttributes: message.contentAttributes,
         timestamp: message.createdAt,
         createdAt: message.createdAt,
         message,
@@ -1073,6 +1260,8 @@ export class ConversationService {
         senderName,
         contentType,
         mediaUrl,
+        replyTo: (attrs.replyTo as Message['replyTo']) || m.replyTo || null,
+        contentAttributes: attrs,
         isGroup: Boolean(m.isGroup || attrs.isGroup || isGroup),
         groupJid: m.groupJid || (attrs.groupJid as string | undefined) || groupJid,
         participant: m.participant || (attrs.participant as string | undefined),

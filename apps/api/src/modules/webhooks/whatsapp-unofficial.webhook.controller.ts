@@ -25,6 +25,9 @@ export interface WhatsAppUnofficialInboundBody {
   groupName?: string
   participant?: string
   participantName?: string
+  replyToExternalId?: string
+  quotedText?: string
+  quotedParticipant?: string
 }
 
 export async function handleWhatsAppUnofficialInbound(c: Context) {
@@ -194,6 +197,9 @@ export async function handleWhatsAppUnofficialInbound(c: Context) {
           (body.contentType as 'text' | 'image' | 'document' | 'video' | 'audio' | undefined) ||
           (body.messageType === 'image' ? 'image' : 'text'),
         mediaUrl: body.mediaUrl,
+        replyToExternalId: body.replyToExternalId,
+        quotedText: body.quotedText,
+        quotedParticipant: body.quotedParticipant,
       })
 
       if (result.isDuplicate) {
@@ -239,6 +245,9 @@ export async function handleWhatsAppUnofficialInbound(c: Context) {
       participant: body.participant,
       participantName: body.participantName || body.senderName,
       isEcho: Boolean(body.isEcho),
+      replyToExternalId: body.replyToExternalId,
+      quotedText: body.quotedText,
+      quotedParticipant: body.quotedParticipant,
     })
 
     console.log(

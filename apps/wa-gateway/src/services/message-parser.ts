@@ -6,40 +6,51 @@ export interface WAMessageKey {
   id?: string | null
 }
 
+export interface WAMessageContextInfo {
+  stanzaId?: string | null
+  participant?: string | null
+  // biome-ignore lint/suspicious/noExplicitAny: quotedMessage structure varies
+  quotedMessage?: any
+}
+
 export interface WAMessageContent {
   conversation?: string | null
   extendedTextMessage?: {
     text?: string | null
-    contextInfo?: {
-      stanzaId?: string | null
-    } | null
+    contextInfo?: WAMessageContextInfo | null
   } | null
   imageMessage?: {
     caption?: string | null
     mimetype?: string | null
     fileLength?: number | null
+    contextInfo?: WAMessageContextInfo | null
   } | null
   videoMessage?: {
     caption?: string | null
     mimetype?: string | null
     fileLength?: number | null
+    contextInfo?: WAMessageContextInfo | null
   } | null
   audioMessage?: {
     mimetype?: string | null
     fileLength?: number | null
+    contextInfo?: WAMessageContextInfo | null
   } | null
   documentMessage?: {
     caption?: string | null
     fileName?: string | null
     mimetype?: string | null
     fileLength?: number | null
+    contextInfo?: WAMessageContextInfo | null
   } | null
   locationMessage?: {
     degreesLatitude?: number | null
     degreesLongitude?: number | null
+    contextInfo?: WAMessageContextInfo | null
   } | null
   stickerMessage?: {
     mimetype?: string | null
+    contextInfo?: WAMessageContextInfo | null
   } | null
   protocolMessage?: {
     key?: WAMessageKey | null
@@ -55,6 +66,56 @@ export interface MinimalWAMessage {
   pushName?: string | null
   message?: WAMessageContent | null
   messageTimestamp?: number | null
+}
+
+export function extractQuotedText(
+  // biome-ignore lint/suspicious/noExplicitAny: quoted message varies across protocols
+  quotedMsg?: any,
+): string | undefined {
+  if (!quotedMsg || typeof quotedMsg !== 'object') return undefined
+  if (typeof quotedMsg.conversation === 'string' && quotedMsg.conversation) {
+    return quotedMsg.conversation
+  }
+  if (
+    typeof quotedMsg.extendedTextMessage?.text === 'string' &&
+    quotedMsg.extendedTextMessage.text
+  ) {
+    return quotedMsg.extendedTextMessage.text
+  }
+  if (typeof quotedMsg.imageMessage?.caption === 'string' && quotedMsg.imageMessage.caption) {
+    return quotedMsg.imageMessage.caption
+  }
+  if (quotedMsg.imageMessage) {
+    return '[Gambar]'
+  }
+  if (typeof quotedMsg.videoMessage?.caption === 'string' && quotedMsg.videoMessage.caption) {
+    return quotedMsg.videoMessage.caption
+  }
+  if (quotedMsg.videoMessage) {
+    return '[Video]'
+  }
+  if (typeof quotedMsg.documentMessage?.caption === 'string' && quotedMsg.documentMessage.caption) {
+    return quotedMsg.documentMessage.caption
+  }
+  if (
+    typeof quotedMsg.documentMessage?.fileName === 'string' &&
+    quotedMsg.documentMessage.fileName
+  ) {
+    return quotedMsg.documentMessage.fileName
+  }
+  if (quotedMsg.documentMessage) {
+    return '[Dokumen]'
+  }
+  if (quotedMsg.audioMessage) {
+    return '[Audio]'
+  }
+  if (quotedMsg.stickerMessage) {
+    return '[Stiker]'
+  }
+  if (quotedMsg.locationMessage) {
+    return '[Lokasi]'
+  }
+  return undefined
 }
 
 export function extractInboundMessage(
@@ -244,7 +305,6 @@ export function extractInboundMessage(
 
   let messageType: WaInboundMessageType = 'text'
   let content: string | undefined
-  let replyToExternalId: string | undefined
   let media: WaInboundMessageEvent['media'] | undefined
 
   if (typeof contentObj.conversation === 'string') {
@@ -253,7 +313,6 @@ export function extractInboundMessage(
   } else if (contentObj.extendedTextMessage) {
     messageType = 'text'
     content = contentObj.extendedTextMessage.text || undefined
-    replyToExternalId = contentObj.extendedTextMessage.contextInfo?.stanzaId || undefined
   } else if (contentObj.imageMessage) {
     messageType = 'image'
     content = contentObj.imageMessage.caption || undefined
@@ -322,6 +381,26 @@ export function extractInboundMessage(
     return null
   }
 
+  // Extract ContextInfo (Quoted reply info) across all message types
+  const rawContextInfo: WAMessageContextInfo | undefined =
+    contentObj.extendedTextMessage?.contextInfo ||
+    contentObj.imageMessage?.contextInfo ||
+    contentObj.videoMessage?.contextInfo ||
+    contentObj.documentMessage?.contextInfo ||
+    contentObj.audioMessage?.contextInfo ||
+    contentObj.stickerMessage?.contextInfo ||
+    contentObj.locationMessage?.contextInfo ||
+    // biome-ignore lint/suspicious/noExplicitAny: generic fallback
+    (contentObj as any).buttonsResponseMessage?.contextInfo ||
+    // biome-ignore lint/suspicious/noExplicitAny: generic fallback
+    (contentObj as any).templateButtonReplyMessage?.contextInfo ||
+    // biome-ignore lint/suspicious/noExplicitAny: generic fallback
+    (contentObj as any).listResponseMessage?.contextInfo
+
+  const replyToExternalId = rawContextInfo?.stanzaId || undefined
+  const quotedParticipant = rawContextInfo?.participant || undefined
+  const quotedText = extractQuotedText(rawContextInfo?.quotedMessage)
+
   const timestamp = msg.messageTimestamp
     ? new Date(Number(msg.messageTimestamp) * 1000).toISOString()
     : new Date().toISOString()
@@ -336,6 +415,8 @@ export function extractInboundMessage(
     content,
     media,
     replyToExternalId,
+    quotedText,
+    quotedParticipant,
     timestamp,
     isEcho: isEcho ? true : undefined,
     isGroup: isGroup ? true : undefined,

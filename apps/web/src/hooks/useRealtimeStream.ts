@@ -386,6 +386,12 @@ export function applyRealtimeMessage<T extends { id: string; conversationId: str
     messageType: msgType,
     contentType: event.contentType || 'text',
     content: event.content,
+    replyTo:
+      event.replyTo ||
+      // biome-ignore lint/suspicious/noExplicitAny: contentAttributes fallback
+      (event.contentAttributes as any)?.replyTo ||
+      null,
+    contentAttributes: event.contentAttributes,
     timestamp: formattedTime,
     dateGroup: 'HARI INI',
     status: isCustomer ? event.status || 'delivered' : event.status || 'sent',
