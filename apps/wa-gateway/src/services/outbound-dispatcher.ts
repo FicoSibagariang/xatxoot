@@ -65,8 +65,9 @@ export class OutboundMessageDispatcher {
       throw new Error(`No connected Baileys session for channel ${validated.channelId}`)
     }
 
+    const isGroup = validated.recipientNumber.endsWith('@g.us')
     const cleanNumber = validated.recipientNumber.replace(/@.*$/, '').replace(/\D/g, '')
-    const jid = `${cleanNumber}@s.whatsapp.net`
+    const jid = isGroup ? validated.recipientNumber : `${cleanNumber}@s.whatsapp.net`
     const content: Record<string, unknown> = {}
 
     if (validated.messageType === 'text') {
@@ -80,6 +81,15 @@ export class OutboundMessageDispatcher {
       }
       if (validated.fileName && validated.messageType === 'document') {
         content.fileName = validated.fileName
+      }
+    }
+
+    if (validated.isForwarded) {
+      const existingContext = (content.contextInfo as Record<string, unknown> | undefined) || {}
+      content.contextInfo = {
+        ...existingContext,
+        isForwarded: true,
+        forwardingScore: validated.forwardingScore || 1,
       }
     }
 

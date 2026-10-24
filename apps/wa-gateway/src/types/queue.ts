@@ -16,6 +16,8 @@ export const SendWaMessageJobPayloadSchema = z.object({
   fileName: z.string().optional(),
   replyToExternalId: z.string().optional(),
   quotedText: z.string().optional(),
+  isForwarded: z.boolean().optional(),
+  forwardingScore: z.number().optional(),
 })
 
 export type SendWaMessageJobPayload = z.infer<typeof SendWaMessageJobPayloadSchema>

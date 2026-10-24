@@ -246,6 +246,7 @@ function AppContent({ initialAuthenticated }: { initialAuthenticated?: boolean }
           replyingToMessage={chat.replyingToMessage}
           onCancelReply={chat.cancelReply}
           onReplyToMessage={chat.setReplyingToMessage}
+          onForwardMessage={chat.handleForwardMessage}
           onSendMessage={chat.handleSendMessage}
           onAssignTicket={chat.handleAssignTicket}
           onResolveTicket={chat.handleResolveTicket}
@@ -325,6 +326,12 @@ function AppContent({ initialAuthenticated }: { initialAuthenticated?: boolean }
           onSaveChannel={modals.handleSaveChannel}
           isBusinessHoursOpen={modals.isBusinessHoursOpen}
           onCloseBusinessHours={() => modals.setIsBusinessHoursOpen(false)}
+          isForwardModalOpen={Boolean(chat.forwardingMessage)}
+          forwardSourceMessage={chat.forwardingMessage}
+          conversations={chat.conversations}
+          isForwarding={chat.isForwarding}
+          onCloseForwardModal={() => chat.setForwardingMessage(null)}
+          onConfirmForward={chat.handleConfirmForward}
         />
       </>
     )

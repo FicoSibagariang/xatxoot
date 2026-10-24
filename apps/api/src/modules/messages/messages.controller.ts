@@ -88,3 +88,42 @@ export async function handleListConversationMessages(c: Context) {
     return c.json({ error: message }, 500)
   }
 }
+
+export async function handleForwardMessage(c: Context) {
+  try {
+    const body = await c.req.json().catch(() => ({}))
+    const { sourceMessageId, targetConversationId, targetJid, targetPhone } = body
+
+    if (!sourceMessageId || (!targetConversationId && !targetJid && !targetPhone)) {
+      return c.json(
+        {
+          error:
+            'sourceMessageId and target (targetConversationId or targetJid/targetPhone) are required',
+        },
+        400,
+      )
+    }
+
+    const user = c.get('user') as User | undefined
+
+    const result = await messageService.forwardMessage({
+      sourceMessageId,
+      targetConversationId,
+      targetJid,
+      targetPhone,
+      senderId: user?.id,
+      senderName: user?.displayName,
+    })
+
+    return c.json({ message: result.message }, 201)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Internal Server Error'
+    if (message.includes('not found')) {
+      return c.json({ error: message }, 404)
+    }
+    if (message.includes('required')) {
+      return c.json({ error: message }, 400)
+    }
+    return c.json({ error: message }, 500)
+  }
+}

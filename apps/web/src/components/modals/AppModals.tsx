@@ -1,7 +1,9 @@
 import type { BotFlowDefinition, WhatsAppTemplate } from '@xatxoot/shared'
 import { BusinessHoursSettings } from '../business-hours'
 import { ChannelWizard, type ChannelWizardPayload } from '../channels'
+import { ForwardMessageModal, type TimelineMessage } from '../chat'
 import { VisualFlowBuilder } from '../flow-builder'
+import type { ConversationItem } from '../layout/types'
 import { BaileysPairingDialog, type BaileysPairingState } from '../pairing'
 import { type AgentUser, TeamManagement, type TeamWithMembers } from '../teams'
 import { WhatsAppTemplateDialog } from '../templates'
@@ -58,6 +60,18 @@ export interface AppModalsProps {
   // User Management
   isUserManagementOpen?: boolean
   onCloseUserManagement?: () => void
+
+  // Forward Message Modal
+  isForwardModalOpen?: boolean
+  forwardSourceMessage?: TimelineMessage | null
+  conversations?: ConversationItem[]
+  isForwarding?: boolean
+  onCloseForwardModal?: () => void
+  onConfirmForward?: (target: {
+    targetConversationId?: string
+    targetJid?: string
+    targetPhone?: string
+  }) => void | Promise<void>
 }
 
 export function AppModals({
@@ -94,6 +108,12 @@ export function AppModals({
   onSaveBusinessHours,
   isUserManagementOpen = false,
   onCloseUserManagement,
+  isForwardModalOpen = false,
+  forwardSourceMessage,
+  conversations,
+  isForwarding = false,
+  onCloseForwardModal,
+  onConfirmForward,
 }: AppModalsProps) {
   return (
     <>
@@ -168,6 +188,17 @@ export function AppModals({
         <UserManagementModal
           isOpen={isUserManagementOpen}
           onClose={onCloseUserManagement || (() => {})}
+        />
+      )}
+
+      {isForwardModalOpen && forwardSourceMessage && (
+        <ForwardMessageModal
+          isOpen={isForwardModalOpen}
+          sourceMessage={forwardSourceMessage}
+          conversations={conversations}
+          isSubmitting={isForwarding}
+          onClose={onCloseForwardModal || (() => {})}
+          onConfirmForward={onConfirmForward || (() => {})}
         />
       )}
     </>

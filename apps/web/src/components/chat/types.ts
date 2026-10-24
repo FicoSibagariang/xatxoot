@@ -57,4 +57,5 @@ export interface TimelineMessage {
   isGroup?: boolean
   participant?: string
   participantName?: string
+  isForwarded?: boolean
 }

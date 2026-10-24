@@ -765,6 +765,43 @@ export function useConversationChat({ user, initialConversationId }: UseConversa
     [fetchMessages],
   )
 
+  const [forwardingMessage, setForwardingMessage] = useState<TimelineMessage | null>(null)
+  const [isForwarding, setIsForwarding] = useState(false)
+
+  const handleForwardMessage = useCallback((msg: TimelineMessage) => {
+    setForwardingMessage(msg)
+  }, [])
+
+  const handleConfirmForward = useCallback(
+    async (target: {
+      targetConversationId?: string
+      targetJid?: string
+      targetPhone?: string
+    }) => {
+      if (!forwardingMessage) return
+      setIsForwarding(true)
+      try {
+        await api.post('/api/v1/messages/forward', {
+          sourceMessageId: forwardingMessage.id,
+          targetConversationId: target.targetConversationId,
+          targetJid: target.targetJid,
+          targetPhone: target.targetPhone,
+        })
+        setForwardingMessage(null)
+        fetchConversations()
+        if (target.targetConversationId) {
+          fetchMessages(target.targetConversationId)
+        }
+      } catch (err) {
+        console.error('Failed to forward message:', err)
+        throw err
+      } finally {
+        setIsForwarding(false)
+      }
+    },
+    [forwardingMessage, fetchConversations, fetchMessages],
+  )
+
   return {
     conversations,
     setConversations,
@@ -796,6 +833,11 @@ export function useConversationChat({ user, initialConversationId }: UseConversa
     handleAssignTicket,
     handleSaveInternalNote,
     handleSelectConversation,
+    forwardingMessage,
+    setForwardingMessage,
+    isForwarding,
+    handleForwardMessage,
+    handleConfirmForward,
     realtime,
   }
 }

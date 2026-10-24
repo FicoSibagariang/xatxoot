@@ -11,10 +11,10 @@ import {
   resetMessageStore,
   saveMessageToStore,
 } from './message-store'
-import type { AttachmentInputDto, SendMessageInput } from './types'
+import type { AttachmentInputDto, ForwardMessageInput, SendMessageInput } from './types'
 
 export type { DispatchedCloudRequest, QueuedBaileysJob }
-export type { AttachmentInputDto, SendMessageInput }
+export type { AttachmentInputDto, ForwardMessageInput, SendMessageInput }
 export { resetMessageStore }
 
 export function parseContentAttributes(raw: unknown): Record<string, unknown> {
@@ -589,6 +589,8 @@ export class MessageService {
         fileName: attachments[0]?.fileName || undefined,
         replyToExternalId: replyTo?.externalId || undefined,
         quotedText: replyTo?.snippet || undefined,
+        isForwarded: input.isForwarded,
+        forwardingScore: input.forwardingScore,
       })
     }
 
@@ -613,6 +615,13 @@ export class MessageService {
       ...contentAttributes,
       ...(senderName ? { senderName } : {}),
       ...(replyTo ? { replyTo } : {}),
+      ...(input.isForwarded
+        ? {
+            isForwarded: true,
+            forwardingScore: input.forwardingScore || 1,
+            originalMessageId: input.originalMessageId,
+          }
+        : {}),
     }
 
     // 5. Construct Message record
@@ -666,6 +675,62 @@ export class MessageService {
     })
 
     return { message }
+  }
+
+  async forwardMessage(input: ForwardMessageInput): Promise<{ message: Message }> {
+    const sourceMessage = await this.getMessageById(input.sourceMessageId)
+    if (!sourceMessage) {
+      throw new Error(`Source message not found: ${input.sourceMessageId}`)
+    }
+
+    let targetConversationId = input.targetConversationId
+    if (!targetConversationId && (input.targetJid || input.targetPhone)) {
+      const targetPhoneOrJid = input.targetJid || input.targetPhone || ''
+      const sourceConv = await conversationService.getConversationById(sourceMessage.conversationId)
+      const inboxId = sourceConv?.conversation.inboxId || ''
+      const res = await conversationService.findOrCreateContact({
+        inboxId,
+        phone: targetPhoneOrJid,
+        sourceId: targetPhoneOrJid,
+        name: targetPhoneOrJid.endsWith('@g.us') ? 'Grup WhatsApp' : undefined,
+      })
+      const conv = await conversationService.findOrCreateConversation({
+        inboxId,
+        contactId: res.contact.id,
+        contactInboxId: res.contactInbox.id,
+      })
+      targetConversationId = conv.id
+    }
+
+    if (!targetConversationId) {
+      throw new Error('Target conversation is required')
+    }
+
+    const attrs = parseContentAttributes(sourceMessage.contentAttributes)
+    let attachments: AttachmentInputDto[] | undefined
+    if (attrs.mediaUrl) {
+      attachments = [
+        {
+          fileType: sourceMessage.contentType,
+          fileUrl: attrs.mediaUrl as string,
+          fileName: (attrs.fileName as string) || undefined,
+          fileSize: (attrs.fileSize as number) || undefined,
+        },
+      ]
+    }
+
+    return this.sendMessage({
+      conversationId: targetConversationId,
+      content: sourceMessage.content,
+      contentType: sourceMessage.contentType,
+      attachments,
+      senderType: 'user',
+      senderId: input.senderId || 'mock-user-id',
+      senderName: input.senderName,
+      isForwarded: true,
+      forwardingScore: 1,
+      originalMessageId: sourceMessage.id,
+    })
   }
 }
 
