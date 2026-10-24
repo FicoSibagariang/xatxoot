@@ -31,6 +31,8 @@ export interface QueuedBaileysJob {
     fileName?: string
     replyToExternalId?: string
     quotedText?: string
+    isForwarded?: boolean
+    forwardingScore?: number
   }
 }
 

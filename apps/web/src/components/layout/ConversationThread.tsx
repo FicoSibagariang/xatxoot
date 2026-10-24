@@ -45,6 +45,7 @@ export interface ConversationThreadProps {
   replyingToMessage?: TimelineMessage | null
   onCancelReply?: () => void
   onReplyToMessage?: (message: TimelineMessage) => void
+  onForwardMessage?: (message: TimelineMessage) => void
   cannedResponses?: CannedItem[]
   slashCommands?: CommandItem[]
   now?: Date
@@ -71,6 +72,7 @@ export function ConversationThread(props: ConversationThreadProps) {
     replyingToMessage,
     onCancelReply,
     onReplyToMessage,
+    onForwardMessage,
     cannedResponses,
     slashCommands,
     now,
@@ -382,6 +384,7 @@ export function ConversationThread(props: ConversationThreadProps) {
               messages={messages}
               onRetryMessage={onRetryMessage}
               onReplyToMessage={onReplyToMessage}
+              onForwardMessage={onForwardMessage}
               onSaveInternalNote={onSaveInternalNote}
             />
             <div ref={messagesEndRef} />

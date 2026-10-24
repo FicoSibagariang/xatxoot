@@ -11,6 +11,8 @@ export interface WAMessageContextInfo {
   participant?: string | null
   // biome-ignore lint/suspicious/noExplicitAny: quotedMessage structure varies
   quotedMessage?: any
+  isForwarded?: boolean | null
+  forwardingScore?: number | null
 }
 
 export interface WAMessageContent {
@@ -400,6 +402,8 @@ export function extractInboundMessage(
   const replyToExternalId = rawContextInfo?.stanzaId || undefined
   const quotedParticipant = rawContextInfo?.participant || undefined
   const quotedText = extractQuotedText(rawContextInfo?.quotedMessage)
+  const isForwarded = rawContextInfo?.isForwarded ? true : undefined
+  const forwardingScore = isForwarded ? rawContextInfo?.forwardingScore || 1 : undefined
 
   const timestamp = msg.messageTimestamp
     ? new Date(Number(msg.messageTimestamp) * 1000).toISOString()
@@ -423,5 +427,7 @@ export function extractInboundMessage(
     groupJid,
     participant,
     participantName: msg.pushName || undefined,
+    isForwarded,
+    forwardingScore,
   }
 }

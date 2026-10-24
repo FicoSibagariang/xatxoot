@@ -24,6 +24,7 @@ import {
 } from './modules/help-center/help-center.routes'
 import { inboxRoutes } from './modules/inboxes/inboxes.routes'
 import { mediaRoutes } from './modules/media/media.routes'
+import { messageRoutes } from './modules/messages/messages.routes'
 import { metaSocialRoutes } from './modules/meta-social/meta-social.routes'
 import { ragRoutes } from './modules/rag/rag.routes'
 import { realtimeRoutes } from './modules/realtime/realtime.routes'
@@ -54,6 +55,7 @@ app.route('/api/v1/auth', authRoutes)
 app.route('/api/v1/inboxes', inboxBusinessHoursRoutes)
 app.route('/api/v1/inboxes', inboxRoutes)
 app.route('/api/v1/conversations', conversationRoutes)
+app.route('/api/v1/messages', messageRoutes)
 app.route('/api/v1/contacts', contactRoutes)
 app.route('/api/v1/users', userRoutes)
 app.route('/api/v1/tickets', ticketRoutes)

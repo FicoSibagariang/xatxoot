@@ -1,6 +1,7 @@
 export * from './AiCopilotToolbar'
 export * from './ChatTimeline'
 export * from './DeadlineTimerBadge'
+export * from './ForwardMessageModal'
 export * from './SlashAutocomplete'
 export * from './TicketLifecyclePills'
 export * from './TicketNotePopover'

@@ -242,9 +242,10 @@ export interface ChatBubbleProps {
   message: TimelineMessage
   onRetry?: (message: TimelineMessage) => void
   onReply?: (message: TimelineMessage) => void
+  onForward?: (message: TimelineMessage) => void
 }
 
-export function ChatBubble({ message, onRetry, onReply }: ChatBubbleProps) {
+export function ChatBubble({ message, onRetry, onReply, onForward }: ChatBubbleProps) {
   const [showAudit, setShowAudit] = useState(false)
   const isRevoked = Boolean(message.isDeletedBySender || message.status === 'deleted_by_sender')
   // biome-ignore lint/suspicious/noExplicitAny: quoted message resolution
@@ -391,6 +392,18 @@ export function ChatBubble({ message, onRetry, onReply }: ChatBubbleProps) {
               {message.senderName}
             </div>
           )
+        )}
+
+        {/* Forwarded Indicator Badge */}
+        {(message.isForwarded ||
+          (message.contentAttributes as Record<string, unknown> | undefined)?.isForwarded) && (
+          <div
+            data-testid="forwarded-indicator"
+            className="flex items-center gap-1 text-[11px] italic text-slate-500 mb-1 leading-tight select-none"
+          >
+            <span>↪️</span>
+            <span>Diteruskan</span>
+          </div>
         )}
 
         {/* Sender Tag for outgoing messages (Agent vs WhatsApp Mobile HP vs Bot) */}
@@ -590,6 +603,17 @@ export function ChatBubble({ message, onRetry, onReply }: ChatBubbleProps) {
           ↩️ <span className="text-[10px] font-medium hidden sm:inline">Balas</span>
         </button>
       )}
+      {onForward && (
+        <button
+          type="button"
+          data-testid="btn-forward-message"
+          onClick={() => onForward(message)}
+          className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-slate-700 rounded-full hover:bg-slate-200/50 cursor-pointer transition-opacity shrink-0"
+          title="Teruskan pesan ini"
+        >
+          ↪️ <span className="text-[10px] font-medium hidden sm:inline">Teruskan</span>
+        </button>
+      )}
     </div>
   )
 }
@@ -601,6 +625,7 @@ export interface ChatTimelineProps {
   messages: TimelineMessage[]
   onRetryMessage?: (message: TimelineMessage) => void
   onReplyToMessage?: (message: TimelineMessage) => void
+  onForwardMessage?: (message: TimelineMessage) => void
   onSaveInternalNote?: (note: string) => void | Promise<void>
   className?: string
 }
@@ -609,6 +634,7 @@ export function ChatTimeline({
   messages,
   onRetryMessage,
   onReplyToMessage,
+  onForwardMessage,
   onSaveInternalNote,
   className = '',
 }: ChatTimelineProps) {
@@ -672,7 +698,12 @@ export function ChatTimeline({
                 onSaveInternalNote={onSaveInternalNote}
               />
             )}
-            <ChatBubble message={msg} onRetry={onRetryMessage} onReply={onReplyToMessage} />
+            <ChatBubble
+              message={msg}
+              onRetry={onRetryMessage}
+              onReply={onReplyToMessage}
+              onForward={onForwardMessage}
+            />
           </Fragment>
         )
       })}

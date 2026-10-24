@@ -129,6 +129,7 @@ export interface WhatsAppLayoutProps {
   replyingToMessage?: TimelineMessage | null
   onCancelReply?: () => void
   onReplyToMessage?: (message: TimelineMessage) => void
+  onForwardMessage?: (message: TimelineMessage) => void
   onAssignTicket?: () => void
   onResolveTicket?: () => void
   onSaveInternalNote?: (note: string) => void
@@ -177,6 +178,7 @@ export function WhatsAppLayout({
   replyingToMessage,
   onCancelReply,
   onReplyToMessage,
+  onForwardMessage,
   onAssignTicket = () => {},
   onResolveTicket = () => {},
   onSaveInternalNote = () => {},
@@ -254,6 +256,7 @@ export function WhatsAppLayout({
             replyingToMessage={replyingToMessage}
             onCancelReply={onCancelReply}
             onReplyToMessage={onReplyToMessage}
+            onForwardMessage={onForwardMessage}
             cannedResponses={cannedResponses}
             slashCommands={slashCommands}
             now={now}

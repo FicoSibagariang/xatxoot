@@ -16,4 +16,16 @@ export interface SendMessageInput {
   senderName?: string | null
   replyToMessageId?: string | null
   simulateError?: string | null
+  isForwarded?: boolean
+  forwardingScore?: number
+  originalMessageId?: string
+}
+
+export interface ForwardMessageInput {
+  sourceMessageId: string
+  targetConversationId?: string
+  targetJid?: string
+  targetPhone?: string
+  senderId?: string
+  senderName?: string
 }

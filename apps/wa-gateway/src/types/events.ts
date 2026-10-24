@@ -56,6 +56,8 @@ export const WaInboundMessageEventSchema = z.object({
   groupName: z.string().optional(),
   participant: z.string().optional(),
   participantName: z.string().optional(),
+  isForwarded: z.boolean().optional(),
+  forwardingScore: z.number().optional(),
 })
 
 export type WaInboundMessageEvent = z.infer<typeof WaInboundMessageEventSchema>
