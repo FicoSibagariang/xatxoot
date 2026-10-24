@@ -190,6 +190,17 @@ export const MessageSchema = z.object({
   senderEmail: z.string().nullable().optional(),
   isEcho: z.boolean().optional(),
   replyTo: QuotedMessageSchema.nullable().optional(),
+  mentions: z
+    .array(
+      z.object({
+        jid: z.string(),
+        phone: z.string().optional(),
+        name: z.string().optional(),
+        isMe: z.boolean().optional(),
+      }),
+    )
+    .optional(),
+  isMentioningMe: z.boolean().optional(),
   messageType: MessageTypeSchema,
   content: z.string().nullable().optional(),
   contentType: MessageContentTypeSchema,

@@ -217,6 +217,7 @@ export class BaileysSession {
           groupName: event.groupName,
           participant: event.participant,
           participantName: event.participantName,
+          mentions: event.mentions,
         }),
       })
       const text = await res.text()
