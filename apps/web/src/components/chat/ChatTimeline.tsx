@@ -5,12 +5,17 @@ import {
   TicketResolvedPill,
 } from './TicketLifecyclePills'
 import { TicketNotePopover } from './TicketNotePopover'
-import type { DeliveryStatus, TimelineMessage } from './types'
+import type { DeliveryStatus, MessageMention, TimelineMessage } from './types'
 
 // ==========================================
-// WhatsApp Text Formatter (*bold*, _italic_, ~strike~, ```code```)
+// WhatsApp Text Formatter (*bold*, _italic_, ~strike~, ```code```, @mentions)
 // ==========================================
-export function formatWhatsAppText(text: string): string {
+export interface FormatWhatsAppTextOptions {
+  mentions?: MessageMention[]
+  isMentioningMe?: boolean
+}
+
+export function formatWhatsAppText(text: string, options?: FormatWhatsAppTextOptions): string {
   if (!text) return ''
 
   // Step 1: Escape HTML to avoid XSS
@@ -21,22 +26,47 @@ export function formatWhatsAppText(text: string): string {
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;')
 
-  // Step 2: Format monospace ```code```
+  // Step 2: Format mentions (@NamaKontak or @Anda)
+  if (options?.mentions && options.mentions.length > 0) {
+    for (const m of options.mentions) {
+      const isMe = Boolean(
+        m.isMe ||
+          (options.isMentioningMe &&
+            (options.mentions.length === 1 || m.name === 'Anda' || m.name === 'CS Admin')),
+      )
+      const rawJidId = m.jid.split('@')[0].split(':')[0]
+      const rawPhone = m.phone ? m.phone.replace(/[^0-9]/g, '') : undefined
+      const tooltip = m.phone || m.jid
+
+      const badge = isMe
+        ? `<span data-testid="mention-me-badge" class="inline-flex items-center font-bold px-1.5 py-0.5 rounded text-wa-teal dark:text-wa-teal-light bg-emerald-500/15 border border-emerald-500/20 shadow-2xs cursor-pointer select-none" title="${tooltip}">@Anda</span>`
+        : `<span data-testid="mention-badge" class="inline-flex items-center font-bold text-sky-600 dark:text-sky-400 hover:underline cursor-pointer select-none" title="${tooltip}">@${m.name || m.phone || rawJidId}</span>`
+
+      if (rawJidId) {
+        escaped = escaped.replaceAll(`@${rawJidId}`, badge)
+      }
+      if (rawPhone && rawPhone !== rawJidId) {
+        escaped = escaped.replaceAll(`@${rawPhone}`, badge)
+      }
+    }
+  }
+
+  // Step 3: Format monospace ```code```
   escaped = escaped.replace(
     /```([^`]+)```/g,
     '<code class="bg-black/10 px-1 py-0.5 rounded font-mono text-xs">$1</code>',
   )
 
-  // Step 3: Format bold *text*
+  // Step 4: Format bold *text*
   escaped = escaped.replace(
     /(^|[^\w])\*([^\s*][^*]*?[^\s*]|[^\s*])\*(?=[^\w]|$)/g,
     '$1<strong>$2</strong>',
   )
 
-  // Step 4: Format italic _text_
+  // Step 5: Format italic _text_
   escaped = escaped.replace(/(^|[^\w])_([^\s_][^_]*?[^\s_]|[^\s_])_(?=[^\w]|$)/g, '$1<em>$2</em>')
 
-  // Step 5: Format strikethrough ~text~
+  // Step 6: Format strikethrough ~text~
   escaped = escaped.replace(/(^|[^\w])~([^\s~][^~]*?[^\s~]|[^\s~])~(?=[^\w]|$)/g, '$1<del>$2</del>')
 
   return escaped
@@ -317,6 +347,10 @@ export function ChatBubble({ message, onRetry, onReply, onForward }: ChatBubbleP
   )
   const isBot =
     !isEcho && (message.senderType === 'bot' || message.senderName?.toLowerCase().includes('bot'))
+  const isMentioningMe = Boolean(
+    message.isMentioningMe ||
+      (message.contentAttributes as Record<string, unknown> | undefined)?.isMentioningMe,
+  )
 
   const tooltipText = isEcho
     ? message.timestamp
@@ -345,8 +379,18 @@ export function ChatBubble({ message, onRetry, onReply, onForward }: ChatBubbleP
             : isEcho
               ? 'bg-wa-bubble-out text-wa-text-primary rounded-tr-xs border border-amber-300'
               : 'bg-wa-bubble-out text-wa-text-primary rounded-tr-xs border border-emerald-900/5'
-        }`}
+        } ${isMentioningMe ? 'ring-2 ring-emerald-500/40' : ''}`}
       >
+        {/* Mentioned Highlight Badge */}
+        {isMentioningMe && (
+          <div
+            data-testid="chat-bubble-mention-highlight"
+            className="absolute -top-2.5 -right-1 flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-400 text-amber-950 border border-amber-500/30 shadow-2xs select-none"
+            title="Anda di-mention dalam pesan ini"
+          >
+            <span>@Anda</span>
+          </div>
+        )}
         {/* WhatsApp-style Tail SVG */}
         {isIncoming ? (
           <svg
@@ -525,7 +569,13 @@ export function ChatBubble({ message, onRetry, onReply, onForward }: ChatBubbleP
                 className="text-sm leading-relaxed whitespace-pre-wrap break-words pr-2"
                 // biome-ignore lint/security/noDangerouslySetInnerHtml: Sanitized via formatWhatsAppText
                 dangerouslySetInnerHTML={{
-                  __html: formatWhatsAppText(message.content),
+                  __html: formatWhatsAppText(message.content, {
+                    mentions:
+                      message.mentions ||
+                      ((message.contentAttributes as Record<string, unknown> | undefined)
+                        ?.mentions as MessageMention[] | undefined),
+                    isMentioningMe,
+                  }),
                 }}
               />
             )}

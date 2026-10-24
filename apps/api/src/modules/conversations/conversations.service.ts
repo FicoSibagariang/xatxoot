@@ -56,6 +56,12 @@ export interface InboundMessagePayload {
   replyToExternalId?: string | null
   quotedText?: string | null
   quotedParticipant?: string | null
+  mentions?: Array<{
+    jid: string
+    phone?: string
+    name?: string
+    isMe?: boolean
+  }> | null
 }
 
 export interface InboundMessageResult {
@@ -79,6 +85,12 @@ export interface OutboundEchoPayload {
   replyToExternalId?: string | null
   quotedText?: string | null
   quotedParticipant?: string | null
+  mentions?: Array<{
+    jid: string
+    phone?: string
+    name?: string
+    isMe?: boolean
+  }> | null
 }
 
 export interface OutboundEchoResult {
@@ -665,6 +677,26 @@ export class ConversationService {
     const finalContentType =
       payload.contentType || (payload.messageType === 'image' ? 'image' : undefined) || 'text'
 
+    // Resolve mentions and evaluate isMentioningMe (Issue #301)
+    let isMentioningMe = false
+    let finalMentions = payload.mentions ? [...payload.mentions] : undefined
+
+    if (finalMentions && finalMentions.length > 0) {
+      finalMentions = finalMentions.map((m) => {
+        const cleanPhone = m.phone
+          ? m.phone.replace(/\D/g, '')
+          : m.jid.split('@')[0].replace(/\D/g, '')
+        const isMe = Boolean(m.isMe || (cleanPhone && this.isCompanyPhoneNumber(cleanPhone)))
+        if (isMe) {
+          isMentioningMe = true
+        }
+        return {
+          ...m,
+          isMe: isMe || undefined,
+        }
+      })
+    }
+
     const message: Message = {
       id: crypto.randomUUID(),
       conversationId: conversation.id,
@@ -680,6 +712,8 @@ export class ConversationService {
       status: isInternal ? 'sent' : 'delivered',
       externalSourceId: payload.externalId ?? null,
       replyTo: replyTo || undefined,
+      mentions: finalMentions,
+      isMentioningMe: isMentioningMe || undefined,
       contentAttributes: {
         isGroup: isGroup ? true : undefined,
         groupJid,
@@ -689,6 +723,8 @@ export class ConversationService {
         mediaUrl: payload.mediaUrl || undefined,
         isEcho: isInternal ? true : undefined,
         ...(replyTo ? { replyTo } : {}),
+        mentions: finalMentions,
+        isMentioningMe: isMentioningMe || undefined,
       },
       attachments: payload.mediaUrl
         ? [
@@ -1267,6 +1303,8 @@ export class ConversationService {
         participant: m.participant || (attrs.participant as string | undefined),
         participantName: m.participantName || (attrs.participantName as string | undefined),
         isEcho: Boolean(m.isEcho || attrs.echo || attrs.source === 'whatsapp_mobile'),
+        mentions: (attrs.mentions as Message['mentions']) || m.mentions,
+        isMentioningMe: Boolean(attrs.isMentioningMe ?? m.isMentioningMe),
       }
     })
 

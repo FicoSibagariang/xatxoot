@@ -24,6 +24,14 @@ export const WaInboundMessageTypeSchema = z.enum([
 ])
 export type WaInboundMessageType = z.infer<typeof WaInboundMessageTypeSchema>
 
+export const MentionItemSchema = z.object({
+  jid: z.string().min(1),
+  phone: z.string().optional(),
+  name: z.string().optional(),
+})
+
+export type MentionItem = z.infer<typeof MentionItemSchema>
+
 export const WaInboundMessageEventSchema = z.object({
   channelId: z.string().uuid('Channel ID harus berupa UUID valid'),
   inboxId: z.string().uuid('Inbox ID harus berupa UUID valid'),
@@ -58,6 +66,7 @@ export const WaInboundMessageEventSchema = z.object({
   participantName: z.string().optional(),
   isForwarded: z.boolean().optional(),
   forwardingScore: z.number().optional(),
+  mentions: z.array(MentionItemSchema).optional(),
 })
 
 export type WaInboundMessageEvent = z.infer<typeof WaInboundMessageEventSchema>

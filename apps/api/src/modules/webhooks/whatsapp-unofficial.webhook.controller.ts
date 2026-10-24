@@ -28,6 +28,11 @@ export interface WhatsAppUnofficialInboundBody {
   replyToExternalId?: string
   quotedText?: string
   quotedParticipant?: string
+  mentions?: Array<{
+    jid: string
+    phone?: string
+    name?: string
+  }>
 }
 
 export async function handleWhatsAppUnofficialInbound(c: Context) {
@@ -248,6 +253,7 @@ export async function handleWhatsAppUnofficialInbound(c: Context) {
       replyToExternalId: body.replyToExternalId,
       quotedText: body.quotedText,
       quotedParticipant: body.quotedParticipant,
+      mentions: body.mentions,
     })
 
     console.log(

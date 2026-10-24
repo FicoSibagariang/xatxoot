@@ -24,6 +24,13 @@ export interface QuotedMessagePayload {
   snippet?: string
 }
 
+export interface MessageMention {
+  jid: string
+  phone?: string
+  name?: string
+  isMe?: boolean
+}
+
 export interface TimelineMessage {
   id: string
   conversationId: string
@@ -58,4 +65,6 @@ export interface TimelineMessage {
   participant?: string
   participantName?: string
   isForwarded?: boolean
+  mentions?: MessageMention[]
+  isMentioningMe?: boolean
 }

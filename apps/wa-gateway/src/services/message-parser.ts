@@ -13,6 +13,7 @@ export interface WAMessageContextInfo {
   quotedMessage?: any
   isForwarded?: boolean | null
   forwardingScore?: number | null
+  mentionedJid?: string[] | null
 }
 
 export interface WAMessageContent {
@@ -129,6 +130,7 @@ export function extractInboundMessage(
     isEcho?: boolean
     channelPhone?: string
     companyPhoneNumbers?: string[]
+    participantMap?: Record<string, { phone?: string; name?: string }>
   },
 ): WaInboundMessageEvent | null {
   if (!wam || typeof wam !== 'object') {
@@ -405,6 +407,31 @@ export function extractInboundMessage(
   const isForwarded = rawContextInfo?.isForwarded ? true : undefined
   const forwardingScore = isForwarded ? rawContextInfo?.forwardingScore || 1 : undefined
 
+  let mentions: Array<{ jid: string; phone?: string; name?: string }> | undefined
+  if (
+    rawContextInfo?.mentionedJid &&
+    Array.isArray(rawContextInfo.mentionedJid) &&
+    rawContextInfo.mentionedJid.length > 0
+  ) {
+    mentions = rawContextInfo.mentionedJid.map((jid) => {
+      const mapped = context.participantMap?.[jid]
+      let phone = mapped?.phone
+      const name = mapped?.name
+
+      if (!phone) {
+        if (jid.endsWith('@s.whatsapp.net') || jid.endsWith('@c.us')) {
+          phone = jid.split('@')[0].split(':')[0]
+        }
+      }
+
+      return {
+        jid,
+        phone: phone || undefined,
+        name: name || undefined,
+      }
+    })
+  }
+
   const timestamp = msg.messageTimestamp
     ? new Date(Number(msg.messageTimestamp) * 1000).toISOString()
     : new Date().toISOString()
@@ -429,5 +456,6 @@ export function extractInboundMessage(
     participantName: msg.pushName || undefined,
     isForwarded,
     forwardingScore,
+    mentions,
   }
 }
