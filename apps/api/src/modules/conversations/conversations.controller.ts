@@ -15,7 +15,12 @@ export async function handleListConversations(c: Context) {
 export async function handleGetConversation(c: Context) {
   try {
     const id = c.req.param('id')
-    const detail = await conversationService.getConversationById(id)
+    const limitQuery = c.req.query('limit')
+    const beforeQuery = c.req.query('before')
+    const limit = limitQuery ? Number.parseInt(limitQuery, 10) : undefined
+    const before = beforeQuery || undefined
+
+    const detail = await conversationService.getConversationById(id, { limit, before })
     if (!detail) {
       return c.json({ error: 'Conversation not found' }, 404)
     }

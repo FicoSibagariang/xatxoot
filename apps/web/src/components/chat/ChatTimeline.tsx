@@ -549,6 +549,7 @@ export function ChatBubble({ message, onRetry, onReply, onForward }: ChatBubbleP
                   data-testid="bubble-media-image"
                   src={effectiveMediaUrl}
                   alt={message.content || 'Lampiran Gambar'}
+                  loading="lazy"
                   className="w-full h-auto object-cover cursor-pointer hover:opacity-95 transition-opacity"
                 />
               </div>
@@ -684,6 +685,8 @@ export interface ChatTimelineProps {
   onReplyToMessage?: (message: TimelineMessage) => void
   onForwardMessage?: (message: TimelineMessage) => void
   onSaveInternalNote?: (note: string) => void | Promise<void>
+  hasMore?: boolean
+  isLoadingMore?: boolean
   className?: string
 }
 
@@ -693,6 +696,8 @@ export function ChatTimeline({
   onReplyToMessage,
   onForwardMessage,
   onSaveInternalNote,
+  hasMore,
+  isLoadingMore,
   className = '',
 }: ChatTimelineProps) {
   let lastDateGroup = ''
@@ -716,6 +721,15 @@ export function ChatTimeline({
 
   return (
     <div data-testid="chat-timeline" className={`flex flex-col py-2 w-full ${className}`}>
+      {isLoadingMore && (
+        <div
+          data-testid="loading-older-messages"
+          className="flex items-center justify-center py-2 text-wa-teal-primary text-xs select-none"
+        >
+          <span className="animate-spin mr-2">⏳</span>
+          <span>Memuat riwayat pesan sebelumnya...</span>
+        </div>
+      )}
       {messages.map((msg) => {
         const showDateSeparator = msg.dateGroup && msg.dateGroup !== lastDateGroup
         if (msg.dateGroup) {
