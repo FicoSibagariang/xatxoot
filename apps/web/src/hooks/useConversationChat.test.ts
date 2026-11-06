@@ -105,6 +105,30 @@ describe('Conversation Chat Hook & Realtime Reconciliation (Task #272 - apps/web
     expect(res.messages[0].content).toBe('apakah ini masuk?')
   })
 
+  it('should support pagination query parameters limit and before for reverse cursor', async () => {
+    let requestedUrl = ''
+    globalThis.fetch = mock(async (input: RequestInfo | URL) => {
+      requestedUrl = String(input)
+      return new Response(
+        JSON.stringify({
+          conversation: { id: 'c-test-1' },
+          messages: [{ id: 'm-older', content: 'pesan lampau' }],
+          pagination: { hasMore: false, nextCursor: null, limit: 50 },
+        }),
+        {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        },
+      )
+    }) as unknown as typeof fetch
+
+    const res = await api.get<{
+      pagination: { hasMore: boolean; nextCursor: string | null }
+    }>('/api/v1/conversations/c-test-1?limit=50&before=m-50')
+    expect(requestedUrl).toBe('/api/v1/conversations/c-test-1?limit=50&before=m-50')
+    expect(res.pagination.hasMore).toBe(false)
+  })
+
   it('should strictly NOT contain or require account_id in chat services', () => {
     expect(api).toBeDefined()
     expect(typeof api.request).toBe('function')

@@ -108,11 +108,23 @@ export interface FindOrCreateContactDto {
   name?: string | null
 }
 
+export interface ConversationPagination {
+  hasMore: boolean
+  nextCursor?: string
+  limit: number
+}
+
 export interface ConversationDetail {
   conversation: Conversation
   contact: Contact | null
   activeTicket: Ticket | null
   messages: Message[]
+  pagination?: ConversationPagination
+}
+
+export interface GetConversationOptions {
+  limit?: number
+  before?: string
 }
 
 const memoryStore = {
@@ -1163,7 +1175,10 @@ export class ConversationService {
     return result
   }
 
-  async getConversationById(id: string): Promise<ConversationDetail | null> {
+  async getConversationById(
+    id: string,
+    options?: GetConversationOptions,
+  ): Promise<ConversationDetail | null> {
     let conversation: Conversation | null = null
 
     try {
@@ -1193,8 +1208,7 @@ export class ConversationService {
         }
         memoryStore.conversations.set(id, conversation)
       } else {
-        memoryStore.conversations.delete(id)
-        return null
+        conversation = memoryStore.conversations.get(id) || null
       }
     } catch {
       // Memory fallback if DB is offline
@@ -1244,26 +1258,66 @@ export class ConversationService {
       ? await ticketService.getTicketById(conversation.activeTicketId)
       : null
 
+    const limit = Math.max(1, Math.min(100, options?.limit ?? 50))
+    const beforeId = options?.before
+
     let messages: Message[] = []
+    let hasMore = false
+
     try {
-      const dbMsgs = await sql`
-        SELECT m.id, m.conversation_id as "conversationId", m.ticket_id as "ticketId",
-               t.display_id as "ticketDisplayId",
-               m.sender_id as "senderId", m.sender_type as "senderType",
-               COALESCE(u.display_name, m.content_attributes->>'senderName', CASE WHEN m.sender_type = 'bot' THEN 'Bot Otomasi' ELSE NULL END) as "senderName",
-               u.email as "senderEmail",
-               m.message_type as "messageType", m.content_type as "contentType",
-               m.content, m.status, m.external_source_id as "externalSourceId",
-               m.content_attributes as "contentAttributes",
-               m.created_at as "createdAt", m.updated_at as "updatedAt"
-        FROM messages m
-        LEFT JOIN tickets t ON m.ticket_id = t.id
-        LEFT JOIN users u ON m.sender_id = u.id
-        WHERE m.conversation_id = ${id}
-        ORDER BY m.created_at ASC
-      `
+      let dbMsgs: unknown[] = []
+      if (beforeId) {
+        const cursorRows = await sql`
+          SELECT created_at as "createdAt", id FROM messages WHERE id = ${beforeId} LIMIT 1
+        `
+        if (cursorRows && cursorRows.length > 0) {
+          const cursorCreatedAt = cursorRows[0].createdAt
+          dbMsgs = await sql`
+            SELECT m.id, m.conversation_id as "conversationId", m.ticket_id as "ticketId",
+                   t.display_id as "ticketDisplayId",
+                   m.sender_id as "senderId", m.sender_type as "senderType",
+                   COALESCE(u.display_name, m.content_attributes->>'senderName', CASE WHEN m.sender_type = 'bot' THEN 'Bot Otomasi' ELSE NULL END) as "senderName",
+                   u.email as "senderEmail",
+                   m.message_type as "messageType", m.content_type as "contentType",
+                   m.content, m.status, m.external_source_id as "externalSourceId",
+                   m.content_attributes as "contentAttributes",
+                   m.created_at as "createdAt", m.updated_at as "updatedAt"
+            FROM messages m
+            LEFT JOIN tickets t ON m.ticket_id = t.id
+            LEFT JOIN users u ON m.sender_id = u.id
+            WHERE m.conversation_id = ${id}
+              AND (m.created_at < ${cursorCreatedAt} OR (m.created_at = ${cursorCreatedAt} AND m.id < ${beforeId}))
+            ORDER BY m.created_at DESC, m.id DESC
+            LIMIT ${limit + 1}
+          `
+        }
+      } else {
+        dbMsgs = await sql`
+          SELECT m.id, m.conversation_id as "conversationId", m.ticket_id as "ticketId",
+                 t.display_id as "ticketDisplayId",
+                 m.sender_id as "senderId", m.sender_type as "senderType",
+                 COALESCE(u.display_name, m.content_attributes->>'senderName', CASE WHEN m.sender_type = 'bot' THEN 'Bot Otomasi' ELSE NULL END) as "senderName",
+                 u.email as "senderEmail",
+                 m.message_type as "messageType", m.content_type as "contentType",
+                 m.content, m.status, m.external_source_id as "externalSourceId",
+                 m.content_attributes as "contentAttributes",
+                 m.created_at as "createdAt", m.updated_at as "updatedAt"
+          FROM messages m
+          LEFT JOIN tickets t ON m.ticket_id = t.id
+          LEFT JOIN users u ON m.sender_id = u.id
+          WHERE m.conversation_id = ${id}
+          ORDER BY m.created_at DESC, m.id DESC
+          LIMIT ${limit + 1}
+        `
+      }
+
       if (dbMsgs && dbMsgs.length > 0) {
-        messages = dbMsgs as unknown as Message[]
+        const rawBatch = dbMsgs as unknown as Message[]
+        hasMore = rawBatch.length > limit
+        if (hasMore) {
+          rawBatch.pop()
+        }
+        messages = rawBatch.reverse()
       }
     } catch {
       // Memory fallback if DB is offline
@@ -1274,8 +1328,32 @@ export class ConversationService {
       const storeMessages = storeIds
         .map((id) => messageStore.messages.get(id))
         .filter((m): m is Message => m !== undefined)
-      messages =
+      const allMem =
         storeMessages.length > 0 ? storeMessages : memoryStore.messages.get(conversation.id) || []
+
+      const sortedDesc = [...allMem].sort((a, b) => {
+        const timeA = new Date(a.createdAt).getTime()
+        const timeB = new Date(b.createdAt).getTime()
+        if (timeB !== timeA) return timeB - timeA
+        return (b.id || '').localeCompare(a.id || '')
+      })
+
+      let candidateMsgs = sortedDesc
+      if (beforeId) {
+        const cursorIndex = sortedDesc.findIndex((m) => m.id === beforeId)
+        if (cursorIndex >= 0) {
+          candidateMsgs = sortedDesc.slice(cursorIndex + 1)
+        } else {
+          candidateMsgs = []
+        }
+      }
+
+      const batch = candidateMsgs.slice(0, limit + 1)
+      hasMore = batch.length > limit
+      if (hasMore) {
+        batch.pop()
+      }
+      messages = batch.reverse()
     }
 
     const convRecord = conversation as Record<string, unknown>
@@ -1348,11 +1426,18 @@ export class ConversationService {
       this.markConversationAsRead(id).catch(() => {})
     }
 
+    const nextCursor = hasMore && messages.length > 0 ? messages[0].id : undefined
+
     return {
       conversation,
       contact,
       activeTicket,
       messages,
+      pagination: {
+        hasMore,
+        nextCursor,
+        limit,
+      },
     }
   }
 

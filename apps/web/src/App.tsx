@@ -231,6 +231,9 @@ function AppContent({ initialAuthenticated }: { initialAuthenticated?: boolean }
           searchQuery={chat.searchQuery}
           internalNote={chat.internalNote}
           messages={chat.currentMessages}
+          hasMore={chat.hasMore}
+          isLoadingMore={chat.isLoadingMore}
+          onLoadMore={chat.loadMoreMessages}
           onTabChange={handleTabChange}
           onChannelFilterChange={chat.setActiveChannelFilter}
           onPresenceChange={(status: PresenceStatus) => setUser((u) => ({ ...u, status }))}

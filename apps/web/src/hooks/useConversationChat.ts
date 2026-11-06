@@ -66,6 +66,80 @@ export function areMessagesIdentical(
   )
 }
 
+export function mapRawConversationMessage(
+  // biome-ignore lint/suspicious/noExplicitAny: generic raw message
+  m: any,
+  // biome-ignore lint/suspicious/noExplicitAny: generic raw conversation detail
+  data: any,
+  user: { id?: string; name?: string },
+): TimelineMessage {
+  const isCustomer = m.senderType === 'contact' || m.senderType === 'customer'
+  const msgType: MessageType =
+    m.messageType === 'activity' || m.senderType === 'system'
+      ? 'activity'
+      : isCustomer
+        ? 'incoming'
+        : 'outgoing'
+
+  const attrs = parseContentAttributes(m.contentAttributes)
+  const isEcho = Boolean(m.isEcho || attrs.echo || attrs.source === 'whatsapp_mobile')
+  const isMsgGroup = Boolean(m.isGroup || attrs.isGroup || data?.conversation?.isGroup)
+  const participant = m.participant || attrs.participant
+  const participantName = m.participantName || attrs.participantName
+  const senderName = isCustomer
+    ? isMsgGroup && participantName
+      ? participantName
+      : data?.contact?.name || data?.contact?.phoneNumber || 'Pelanggan'
+    : m.senderName ||
+      attrs.senderName ||
+      (isEcho ? 'WhatsApp HP' : m.senderType === 'bot' ? 'Bot Otomasi' : user.name)
+
+  return {
+    id: m.id,
+    conversationId: m.conversationId,
+    ticketId: m.ticketId,
+    ticketDisplayId: m.ticketDisplayId,
+    senderId: m.senderId || (isCustomer ? 'customer' : user.id),
+    senderType: isCustomer ? 'contact' : m.senderType || 'user',
+    senderName,
+    isGroup: isMsgGroup,
+    participant: participant ? String(participant) : undefined,
+    participantName: participantName ? String(participantName) : undefined,
+    isEcho,
+    contentAttributes: m.contentAttributes,
+    messageType: msgType,
+    contentType:
+      (m.contentType && m.contentType !== 'text' ? m.contentType : undefined) ||
+      (m.messageType === 'image' ? 'image' : undefined) ||
+      (attrs.contentType as ContentType) ||
+      (m.contentType as ContentType) ||
+      'text',
+    mediaUrl:
+      m.mediaUrl ||
+      attrs.mediaUrl ||
+      (Array.isArray(m.attachments) && m.attachments[0]?.fileUrl) ||
+      undefined,
+    content: m.content || '',
+    timestamp: m.createdAt
+      ? new Date(m.createdAt).toLocaleTimeString('id-ID', {
+          hour: '2-digit',
+          minute: '2-digit',
+        })
+      : 'Baru saja',
+    dateGroup: formatDateGroup(m.createdAt),
+    status: m.status || (isCustomer ? 'delivered' : 'read'),
+    isEdited: Boolean(m.contentAttributes?.isEdited || m.isEdited),
+    editedAt: m.contentAttributes?.editedAt || m.editedAt,
+    editHistory: m.contentAttributes?.editHistory || m.editHistory || [],
+    isDeletedBySender: Boolean(
+      m.contentAttributes?.isDeletedBySender || m.status === 'deleted_by_sender',
+    ),
+    deletedAt: m.contentAttributes?.deletedAt,
+    revokedOriginalContent: m.contentAttributes?.revokedOriginalContent,
+    replyTo: m.replyTo || m.contentAttributes?.replyTo || null,
+  }
+}
+
 export interface FilterConversationOptions {
   activeChannelFilter?: LayoutChannelFilter | string
   searchQuery?: string
@@ -136,6 +210,10 @@ export function parseContentAttributes(raw: unknown): Record<string, unknown> {
 export function useConversationChat({ user, initialConversationId }: UseConversationChatOptions) {
   const [conversations, setConversations] = useState<ConversationItem[]>([])
   const [messagesMap, setMessagesMap] = useState<Record<string, TimelineMessage[]>>({})
+  const [paginationMap, setPaginationMap] = useState<
+    Record<string, { hasMore: boolean; nextCursor?: string }>
+  >({})
+  const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(
     initialConversationId || null,
   )
@@ -224,7 +302,7 @@ export function useConversationChat({ user, initialConversationId }: UseConversa
       if (!targetId) return
       try {
         // biome-ignore lint/suspicious/noExplicitAny: backend conversation detail
-        const data = await api.get<any>(`/api/v1/conversations/${targetId}`)
+        const data = await api.get<any>(`/api/v1/conversations/${targetId}?limit=50`)
 
         if (data?.contact || data?.activeTicket) {
           setConversations((prev) => {
@@ -275,75 +353,21 @@ export function useConversationChat({ user, initialConversationId }: UseConversa
           setInternalNote(data.activeTicket.internalNote)
         }
 
+        if (data?.pagination) {
+          setPaginationMap((prev) => ({
+            ...prev,
+            [targetId]: {
+              hasMore: Boolean(data.pagination.hasMore),
+              nextCursor: data.pagination.nextCursor,
+            },
+          }))
+        }
+
         if (data?.messages && Array.isArray(data.messages)) {
           // biome-ignore lint/suspicious/noExplicitAny: message mapping
-          const mappedMsgs: TimelineMessage[] = data.messages.map((m: any) => {
-            const isCustomer = m.senderType === 'contact' || m.senderType === 'customer'
-            const msgType: MessageType =
-              m.messageType === 'activity' || m.senderType === 'system'
-                ? 'activity'
-                : isCustomer
-                  ? 'incoming'
-                  : 'outgoing'
-
-            const attrs = parseContentAttributes(m.contentAttributes)
-            const isEcho = Boolean(m.isEcho || attrs.echo || attrs.source === 'whatsapp_mobile')
-            const isMsgGroup = Boolean(m.isGroup || attrs.isGroup || data.conversation?.isGroup)
-            const participant = m.participant || attrs.participant
-            const participantName = m.participantName || attrs.participantName
-            const senderName = isCustomer
-              ? isMsgGroup && participantName
-                ? participantName
-                : data.contact?.name || data.contact?.phoneNumber || 'Pelanggan'
-              : m.senderName ||
-                attrs.senderName ||
-                (isEcho ? 'WhatsApp HP' : m.senderType === 'bot' ? 'Bot Otomasi' : user.name)
-
-            return {
-              id: m.id,
-              conversationId: m.conversationId,
-              ticketId: m.ticketId,
-              ticketDisplayId: m.ticketDisplayId,
-              senderId: m.senderId || (isCustomer ? 'customer' : user.id),
-              senderType: isCustomer ? 'contact' : m.senderType || 'user',
-              senderName,
-              isGroup: isMsgGroup,
-              participant: participant ? String(participant) : undefined,
-              participantName: participantName ? String(participantName) : undefined,
-              isEcho,
-              contentAttributes: m.contentAttributes,
-              messageType: msgType,
-              contentType:
-                (m.contentType && m.contentType !== 'text' ? m.contentType : undefined) ||
-                (m.messageType === 'image' ? 'image' : undefined) ||
-                (attrs.contentType as ContentType) ||
-                (m.contentType as ContentType) ||
-                'text',
-              mediaUrl:
-                m.mediaUrl ||
-                attrs.mediaUrl ||
-                (Array.isArray(m.attachments) && m.attachments[0]?.fileUrl) ||
-                undefined,
-              content: m.content || '',
-              timestamp: m.createdAt
-                ? new Date(m.createdAt).toLocaleTimeString('id-ID', {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })
-                : 'Baru saja',
-              dateGroup: formatDateGroup(m.createdAt),
-              status: m.status || (isCustomer ? 'delivered' : 'read'),
-              isEdited: Boolean(m.contentAttributes?.isEdited || m.isEdited),
-              editedAt: m.contentAttributes?.editedAt || m.editedAt,
-              editHistory: m.contentAttributes?.editHistory || m.editHistory || [],
-              isDeletedBySender: Boolean(
-                m.contentAttributes?.isDeletedBySender || m.status === 'deleted_by_sender',
-              ),
-              deletedAt: m.contentAttributes?.deletedAt,
-              revokedOriginalContent: m.contentAttributes?.revokedOriginalContent,
-              replyTo: m.replyTo || m.contentAttributes?.replyTo || null,
-            }
-          })
+          const mappedMsgs: TimelineMessage[] = data.messages.map((m: any) =>
+            mapRawConversationMessage(m, data, user),
+          )
           setMessagesMap((prev) => {
             if (areMessagesIdentical(prev[targetId], mappedMsgs)) {
               return prev
@@ -358,8 +382,53 @@ export function useConversationChat({ user, initialConversationId }: UseConversa
         // preserve memory messages on error
       }
     },
-    [selectedConversationId, user.id, user.name],
+    [selectedConversationId, user],
   )
+
+  const loadMoreMessages = useCallback(async () => {
+    const targetId = selectedIdRef.current || selectedConversationId
+    if (!targetId || isLoadingMore) return
+    const pagination = paginationMap[targetId]
+    if (!pagination?.hasMore || !pagination.nextCursor) return
+
+    setIsLoadingMore(true)
+    try {
+      // biome-ignore lint/suspicious/noExplicitAny: backend conversation detail
+      const data = await api.get<any>(
+        `/api/v1/conversations/${targetId}?limit=50&before=${encodeURIComponent(pagination.nextCursor)}`,
+      )
+      if (data?.messages && Array.isArray(data.messages)) {
+        // biome-ignore lint/suspicious/noExplicitAny: message mapping
+        const olderMsgs: TimelineMessage[] = data.messages.map((m: any) =>
+          mapRawConversationMessage(m, data, user),
+        )
+
+        setMessagesMap((prev) => {
+          const current = prev[targetId] || []
+          const existingIds = new Set(current.map((m) => m.id))
+          const newUnique = olderMsgs.filter((m) => !existingIds.has(m.id))
+          return {
+            ...prev,
+            [targetId]: [...newUnique, ...current],
+          }
+        })
+      }
+
+      if (data?.pagination) {
+        setPaginationMap((prev) => ({
+          ...prev,
+          [targetId]: {
+            hasMore: Boolean(data.pagination.hasMore),
+            nextCursor: data.pagination.nextCursor,
+          },
+        }))
+      }
+    } catch (err) {
+      console.error('Failed to load more messages:', err)
+    } finally {
+      setIsLoadingMore(false)
+    }
+  }, [isLoadingMore, paginationMap, selectedConversationId, user])
 
   // Real-time SSE updates without page refresh
   const realtime = useRealtimeStream({
@@ -845,5 +914,11 @@ export function useConversationChat({ user, initialConversationId }: UseConversa
     handleForwardMessage,
     handleConfirmForward,
     realtime,
+    paginationMap,
+    hasMore: Boolean(
+      selectedConversationId ? paginationMap[selectedConversationId]?.hasMore : false,
+    ),
+    isLoadingMore,
+    loadMoreMessages,
   }
 }

@@ -9,10 +9,8 @@ import {
   type CommandItem,
   type CopilotResultType,
   type CopilotTone,
-  DeadlineTimerBadge,
   SlashAutocompletePopup,
   type SuggestedArticle,
-  TicketSlaBadge,
   type TimelineMessage,
   applyAutocompleteSelection,
   detectSlashQuery,
@@ -42,6 +40,9 @@ export interface ConversationThreadProps {
   currentUser?: LayoutUser
   isDrawerOpen: boolean
   messages?: TimelineMessage[]
+  hasMore?: boolean
+  isLoadingMore?: boolean
+  onLoadMore?: () => void
   replyingToMessage?: TimelineMessage | null
   onCancelReply?: () => void
   onReplyToMessage?: (message: TimelineMessage) => void
@@ -69,6 +70,9 @@ export function ConversationThread(props: ConversationThreadProps) {
     currentUser,
     isDrawerOpen,
     messages,
+    hasMore,
+    isLoadingMore,
+    onLoadMore,
     replyingToMessage,
     onCancelReply,
     onReplyToMessage,
@@ -107,15 +111,33 @@ export function ConversationThread(props: ConversationThreadProps) {
   const isAtBottomRef = useRef(true)
   const prevConvIdRef = useRef<string | null>(null)
   const prevMsgCountRef = useRef<number>(0)
+  const prevScrollHeightRef = useRef<number>(0)
+  const prevScrollTopRef = useRef<number>(0)
+  const isPrependingRef = useRef(false)
 
   const handleScroll = () => {
     const el = scrollContainerRef.current
     if (!el) return
     const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
     isAtBottomRef.current = distanceFromBottom <= 100
+
+    if (el.scrollTop <= 60 && hasMore && !isLoadingMore && onLoadMore) {
+      prevScrollHeightRef.current = el.scrollHeight
+      prevScrollTopRef.current = el.scrollTop
+      isPrependingRef.current = true
+      onLoadMore()
+    }
   }
 
   useEffect(() => {
+    const el = scrollContainerRef.current
+    if (isPrependingRef.current && el) {
+      const scrollDiff = el.scrollHeight - prevScrollHeightRef.current
+      el.scrollTop = prevScrollTopRef.current + scrollDiff
+      isPrependingRef.current = false
+      return
+    }
+
     const convChanged = conversation?.id !== prevConvIdRef.current
     prevConvIdRef.current = conversation?.id || null
 
@@ -164,20 +186,14 @@ export function ConversationThread(props: ConversationThreadProps) {
     onSendMessage(inputText, replyingToMessage?.id)
     setInputText('')
     setIsAutocompleteOpen(false)
-    if (onCancelReply) {
-      onCancelReply()
-    }
+    if (onCancelReply) onCancelReply()
   }
 
   const handleInputChange = (val: string) => {
     setInputText(val)
     const detected = detectSlashQuery(val)
-    if (detected.isActive) {
-      setIsAutocompleteOpen(true)
-      setSelectedAutocompleteIndex(0)
-    } else {
-      setIsAutocompleteOpen(false)
-    }
+    setIsAutocompleteOpen(detected.isActive)
+    if (detected.isActive) setSelectedAutocompleteIndex(0)
   }
 
   const handleSelectEntry = (entry: AutocompleteEntry) => {
@@ -213,54 +229,46 @@ export function ConversationThread(props: ConversationThreadProps) {
     if (e.key === 'Enter') handleSend()
   }
 
-  const handleAiSummarize = async () => {
+  const runAiAction = async (action: string, errorMsg: string, fn: () => Promise<void>) => {
     setIsAiLoading(true)
-    setAiLoadingAction('Sedang merangkum percakapan...')
+    setAiLoadingAction(action)
     setAiError(null)
     try {
+      await fn()
+    } catch {
+      setAiError(errorMsg)
+    } finally {
+      setIsAiLoading(false)
+    }
+  }
+
+  const handleAiSummarize = () =>
+    runAiAction('Sedang merangkum percakapan...', 'Gagal merangkum percakapan.', async () => {
       const res = onAiSummarize
         ? await onAiSummarize()
-        : `Ringkasan Percakapan: Pelanggan ${conversation.contactName} menanyakan kendala terkait ${conversation.lastMessage || 'layanan'}.`
+        : `Ringkasan: Pelanggan ${conversation.contactName} menanyakan ${conversation.lastMessage || 'layanan'}.`
       if (res) {
         setAiResultText(res)
         setAiResultType('summary')
       }
-    } catch {
-      setAiError('Gagal merangkum percakapan. Silakan coba lagi.')
-    } finally {
-      setIsAiLoading(false)
-    }
-  }
+    })
 
-  const handleAiImprove = async (text?: string) => {
+  const handleAiImprove = (text?: string) => {
     const targetText = text || inputText
-    if (!targetText.trim()) {
-      setAiError('Tulis draf pesan terlebih dahulu sebelum meminta perbaikan bahasa.')
-      return
-    }
-    setIsAiLoading(true)
-    setAiLoadingAction('Sedang memperbaiki bahasa draf...')
-    setAiError(null)
-    try {
+    if (!targetText.trim()) return setAiError('Tulis draf pesan terlebih dahulu.')
+    return runAiAction('Sedang memperbaiki bahasa...', 'Gagal memperbaiki bahasa.', async () => {
       const res = onAiImproveWriting
         ? await onAiImproveWriting(targetText)
-        : `Halo Kak, ${targetText.trim().charAt(0).toUpperCase() + targetText.trim().slice(1)}. Terima kasih telah menghubungi kami.`
+        : `Halo Kak, ${targetText.trim().charAt(0).toUpperCase() + targetText.trim().slice(1)}.`
       if (res) {
         setAiResultText(res)
         setAiResultType('improve')
       }
-    } catch {
-      setAiError('Gagal memperbaiki bahasa.')
-    } finally {
-      setIsAiLoading(false)
-    }
+    })
   }
 
-  const handleAiDraftReply = async () => {
-    setIsAiLoading(true)
-    setAiLoadingAction('Menyusun draf balasan dengan Help Center KB...')
-    setAiError(null)
-    try {
+  const handleAiDraftReply = () =>
+    runAiAction('Menyusun draf balasan...', 'Gagal membuat draf balasan.', async () => {
       if (onAiDraftReply) {
         const res = await onAiDraftReply()
         if (res) {
@@ -269,40 +277,27 @@ export function ConversationThread(props: ConversationThreadProps) {
           if (res.articles) setAiArticles(res.articles)
         }
       } else {
-        setAiResultText(
-          `Halo Kak ${conversation.contactName}, terima kasih telah menghubungi kami. Terkait kendala yang disampaikan, tim kami sedang memprosesnya. Mohon ditunggu ya!`,
-        )
+        setAiResultText(`Halo Kak ${conversation.contactName}, tim kami sedang memprosesnya.`)
         setAiResultType('draft')
         setAiArticles(DEFAULT_SUGGESTED_ARTICLES)
       }
-    } catch {
-      setAiError('Gagal membuat draf balasan.')
-    } finally {
-      setIsAiLoading(false)
-    }
-  }
+    })
 
-  const handleAiChangeTone = async (tone: CopilotTone) => {
-    if (!inputText.trim()) {
-      setAiError('Ketik draf pesan terlebih dahulu untuk mengubah nada bicara.')
-      return
-    }
-    setIsAiLoading(true)
-    setAiLoadingAction(`Menyesuaikan gaya bahasa (${tone})...`)
-    setAiError(null)
-    try {
-      const res = onAiChangeTone
-        ? await onAiChangeTone(inputText, tone)
-        : `${COPILOT_TONE_PREFIXES[tone] || ''}${inputText.trim()}`
-      if (res) {
-        setAiResultText(res)
-        setAiResultType('tone')
-      }
-    } catch {
-      setAiError('Gagal mengubah gaya bahasa.')
-    } finally {
-      setIsAiLoading(false)
-    }
+  const handleAiChangeTone = (tone: CopilotTone) => {
+    if (!inputText.trim()) return setAiError('Ketik draf pesan terlebih dahulu.')
+    return runAiAction(
+      `Menyesuaikan gaya (${tone})...`,
+      'Gagal mengubah gaya bahasa.',
+      async () => {
+        const res = onAiChangeTone
+          ? await onAiChangeTone(inputText, tone)
+          : `${COPILOT_TONE_PREFIXES[tone] || ''}${inputText.trim()}`
+        if (res) {
+          setAiResultText(res)
+          setAiResultType('tone')
+        }
+      },
+    )
   }
 
   return (
@@ -382,6 +377,8 @@ export function ConversationThread(props: ConversationThreadProps) {
           <>
             <ChatTimeline
               messages={messages}
+              hasMore={hasMore}
+              isLoadingMore={isLoadingMore}
               onRetryMessage={onRetryMessage}
               onReplyToMessage={onReplyToMessage}
               onForwardMessage={onForwardMessage}

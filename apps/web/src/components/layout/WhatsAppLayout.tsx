@@ -147,6 +147,9 @@ export interface WhatsAppLayoutProps {
   whatsappChannels?: WhatsAppChannelSummary[]
   onOpenUserManagement?: () => void
   onUpdateContact?: (updated: Partial<ContactDrawerData>) => Promise<void> | void
+  hasMore?: boolean
+  isLoadingMore?: boolean
+  onLoadMore?: () => void
   children?: ReactNode
 }
 
@@ -192,6 +195,9 @@ export function WhatsAppLayout({
   whatsappChannels,
   onOpenUserManagement,
   onUpdateContact,
+  hasMore,
+  isLoadingMore,
+  onLoadMore,
   children,
 }: WhatsAppLayoutProps) {
   const selectedConversation =
@@ -253,6 +259,9 @@ export function WhatsAppLayout({
             currentUser={currentUser}
             isDrawerOpen={isDrawerOpen}
             messages={messages}
+            hasMore={hasMore}
+            isLoadingMore={isLoadingMore}
+            onLoadMore={onLoadMore}
             replyingToMessage={replyingToMessage}
             onCancelReply={onCancelReply}
             onReplyToMessage={onReplyToMessage}
