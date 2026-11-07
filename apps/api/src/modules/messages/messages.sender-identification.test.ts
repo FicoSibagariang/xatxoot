@@ -22,12 +22,13 @@ describe('Outbound Message Sender Identification (Issue #284 - TDD RED)', () => 
       },
     })
 
+    const dynamicAgentName = `Agent_${crypto.randomUUID().slice(0, 8)}`
     const echoResult = await conversationService.handleOutboundEcho({
       inboxId: inbox.id,
-      sourceId: '6281234567890@s.whatsapp.net',
-      senderPhone: '+6281234567890',
-      senderName: 'Nia', // Unofficial default agent phone contact name
-      externalId: 'wamid_echo_outbound_001',
+      sourceId: `${Date.now()}_6281234567890@s.whatsapp.net`,
+      senderPhone: `+62812${Date.now().toString().slice(-7)}`,
+      senderName: dynamicAgentName, // Dynamic agent phone contact name
+      externalId: `wamid_echo_${crypto.randomUUID()}`,
       content: 'Halo kak, kami balas langsung dari HP toko ya!',
     })
 
@@ -61,10 +62,10 @@ describe('Outbound Message Sender Identification (Issue #284 - TDD RED)', () => 
 
     const inbound = await conversationService.handleInboundMessage({
       inboxId: inbox.id,
-      senderNumber: '+6289988776655',
+      senderNumber: `+62899${Date.now().toString().slice(-7)}`,
       senderName: 'Pelanggan Butuh Bantuan',
       content: 'Tolong bantu saya',
-      externalId: 'wamid_inbound_test_002',
+      externalId: `wamid_inbound_${crypto.randomUUID()}`,
     })
 
     const conversationId = inbound.conversation.id
@@ -74,7 +75,7 @@ describe('Outbound Message Sender Identification (Issue #284 - TDD RED)', () => 
       conversationId,
       content: 'Halo pelanggan, saya Budi CS akan membantu.',
       senderType: 'user',
-      senderId: 'mock-agent-user-id',
+      senderId: crypto.randomUUID(),
       senderName: 'Budi Santoso',
     })
 
@@ -116,10 +117,10 @@ describe('Outbound Message Sender Identification (Issue #284 - TDD RED)', () => 
 
     const inbound = await conversationService.handleInboundMessage({
       inboxId: inbox.id,
-      senderNumber: '+6289911223344',
+      senderNumber: `+62899${(Date.now() + 1).toString().slice(-7)}`,
       senderName: 'Pelanggan Chatbot',
       content: 'Menu utama',
-      externalId: 'wamid_inbound_test_003',
+      externalId: `wamid_inbound_${crypto.randomUUID()}`,
     })
 
     const conversationId = inbound.conversation.id
@@ -148,8 +149,9 @@ describe('Outbound Message Sender Identification (Issue #284 - TDD RED)', () => 
 
     const echoResult = await conversationService.handleOutboundEcho({
       inboxId: inbox.id,
-      sourceId: '62811638688@s.whatsapp.net',
-      senderPhone: '+62811638688',
+      sourceId: `${Date.now()}_62811638688@s.whatsapp.net`,
+      senderPhone: `+62811${Date.now().toString().slice(-6)}`,
+      externalId: `wamid_echo_str_${crypto.randomUUID()}`,
       content: 'Pesan dari WhatsApp HP',
     })
 

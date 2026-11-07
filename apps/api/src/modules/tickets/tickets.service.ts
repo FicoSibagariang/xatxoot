@@ -525,9 +525,8 @@ export class TicketService {
     }
 
     const now = new Date().toISOString()
-    let authorId = '3b87d597-cde4-4b3e-8cce-e3bd24ac1c4f'
+    const authorId = toValidUuid(updatedBy)
     if (updatedBy) {
-      authorId = toValidUuid(updatedBy)
       rawAuthorMap.set(authorId, updatedBy)
     }
     await ensureUserExists(authorId)
