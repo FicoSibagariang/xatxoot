@@ -122,7 +122,7 @@ export class InboxService {
     }
 
     const inboxId = crypto.randomUUID()
-    const channelId = dto.channelId || crypto.randomUUID()
+    let channelId = dto.channelId || crypto.randomUUID()
     const now = new Date().toISOString()
 
     let channelRecord: ChannelData
@@ -150,15 +150,33 @@ export class InboxService {
         updatedAt: now,
       }
 
-      await sql`
-        INSERT INTO channels_whatsapp_cloud (
-          id, phone_number, phone_number_id, waba_id, access_token, webhook_verify_token, created_at, updated_at
-        ) VALUES (
-          ${channelId}, ${channelRecord.phoneNumber}, ${channelRecord.phoneNumberId},
-          ${channelRecord.wabaId}, ${channelRecord.accessToken}, ${channelRecord.webhookVerifyToken},
-          ${now}, ${now}
-        )
+      const existingChannel = await sql`
+        SELECT id FROM channels_whatsapp_cloud WHERE phone_number_id = ${channelRecord.phoneNumberId} LIMIT 1
       `
+      if (existingChannel && existingChannel.length > 0) {
+        channelId = existingChannel[0].id
+        channelRecord.id = channelId
+        await sql`
+          UPDATE channels_whatsapp_cloud
+          SET
+            phone_number = ${channelRecord.phoneNumber},
+            waba_id = ${channelRecord.wabaId},
+            access_token = ${channelRecord.accessToken},
+            webhook_verify_token = ${channelRecord.webhookVerifyToken},
+            updated_at = ${now}
+          WHERE id = ${channelId}
+        `
+      } else {
+        await sql`
+          INSERT INTO channels_whatsapp_cloud (
+            id, phone_number, phone_number_id, waba_id, access_token, webhook_verify_token, created_at, updated_at
+          ) VALUES (
+            ${channelId}, ${channelRecord.phoneNumber}, ${channelRecord.phoneNumberId},
+            ${channelRecord.wabaId}, ${channelRecord.accessToken}, ${channelRecord.webhookVerifyToken},
+            ${now}, ${now}
+          )
+        `
+      }
     } else if (channelType === 'whatsapp_unofficial') {
       const channelInput = dto.channel
       const sessionId = channelInput?.sessionId || `wa_${crypto.randomUUID()}`
@@ -173,14 +191,29 @@ export class InboxService {
         updatedAt: now,
       }
 
-      await sql`
-        INSERT INTO channels_whatsapp_unofficial (
-          id, session_id, phone_number, connection_status, qr_code, created_at, updated_at
-        ) VALUES (
-          ${channelId}, ${channelRecord.sessionId}, ${channelRecord.phoneNumber},
-          'disconnected', NULL, ${now}, ${now}
-        )
+      const existingChannel = await sql`
+        SELECT id FROM channels_whatsapp_unofficial WHERE session_id = ${channelRecord.sessionId} LIMIT 1
       `
+      if (existingChannel && existingChannel.length > 0) {
+        channelId = existingChannel[0].id
+        channelRecord.id = channelId
+        await sql`
+          UPDATE channels_whatsapp_unofficial
+          SET
+            phone_number = ${channelRecord.phoneNumber},
+            updated_at = ${now}
+          WHERE id = ${channelId}
+        `
+      } else {
+        await sql`
+          INSERT INTO channels_whatsapp_unofficial (
+            id, session_id, phone_number, connection_status, qr_code, created_at, updated_at
+          ) VALUES (
+            ${channelId}, ${channelRecord.sessionId}, ${channelRecord.phoneNumber},
+            'disconnected', NULL, ${now}, ${now}
+          )
+        `
+      }
     } else if (channelType === 'web_widget') {
       const channelInput = dto.channel
       const websiteToken = channelInput?.websiteToken || `token_${crypto.randomUUID()}`
@@ -197,15 +230,34 @@ export class InboxService {
         updatedAt: now,
       }
 
-      await sql`
-        INSERT INTO channels_web_widget (
-          id, website_token, website_url, allowed_domains, widget_color, reply_time, pre_chat_form_enabled, created_at, updated_at
-        ) VALUES (
-          ${channelId}, ${channelRecord.websiteToken}, ${channelRecord.websiteUrl},
-          ${sql.array(channelRecord.allowedDomains || [])}, ${channelRecord.widgetColor}, ${channelRecord.replyTime},
-          ${channelRecord.preChatFormEnabled}, ${now}, ${now}
-        )
+      const existingChannel = await sql`
+        SELECT id FROM channels_web_widget WHERE website_token = ${channelRecord.websiteToken} LIMIT 1
       `
+      if (existingChannel && existingChannel.length > 0) {
+        channelId = existingChannel[0].id
+        channelRecord.id = channelId
+        await sql`
+          UPDATE channels_web_widget
+          SET
+            website_url = ${channelRecord.websiteUrl},
+            allowed_domains = ${sql.array(channelRecord.allowedDomains || [])},
+            widget_color = ${channelRecord.widgetColor},
+            reply_time = ${channelRecord.replyTime},
+            pre_chat_form_enabled = ${channelRecord.preChatFormEnabled},
+            updated_at = ${now}
+          WHERE id = ${channelId}
+        `
+      } else {
+        await sql`
+          INSERT INTO channels_web_widget (
+            id, website_token, website_url, allowed_domains, widget_color, reply_time, pre_chat_form_enabled, created_at, updated_at
+          ) VALUES (
+            ${channelId}, ${channelRecord.websiteToken}, ${channelRecord.websiteUrl},
+            ${sql.array(channelRecord.allowedDomains || [])}, ${channelRecord.widgetColor}, ${channelRecord.replyTime},
+            ${channelRecord.preChatFormEnabled}, ${now}, ${now}
+          )
+        `
+      }
     } else {
       const channelInput = dto.channel
       channelRecord = {

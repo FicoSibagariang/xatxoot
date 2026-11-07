@@ -180,14 +180,20 @@ function mapContactInboxRow(row: Record<string, unknown>): ContactInbox {
 
 function mapMessageRow(row: Record<string, unknown>): Message {
   const attrs = parseContentAttributes(row.contentAttributes)
+  const isEcho = Boolean(attrs.echo || attrs.isEcho || attrs.source === 'whatsapp_mobile')
+  const senderName =
+    (row.senderName as string) ||
+    (attrs.senderName as string | undefined) ||
+    (isEcho ? 'WhatsApp HP' : undefined)
   return {
     id: String(row.id),
     conversationId: String(row.conversationId),
     ticketId: row.ticketId ? String(row.ticketId) : null,
     senderType: row.senderType as Message['senderType'],
     senderId: row.senderId ? String(row.senderId) : null,
-    senderName: (row.senderName as string) || (attrs.senderName as string | undefined) || undefined,
+    senderName,
     senderEmail: (row.senderEmail as string) || undefined,
+    isEcho,
     messageType: row.messageType as Message['messageType'],
     content: (row.content as string | null) ?? null,
     contentType: row.contentType as Message['contentType'],
@@ -830,6 +836,14 @@ export class ConversationService {
       `
       if (rows.length > 0) {
         const existingMsg = mapMessageRow(rows[0])
+        existingMsg.isEcho = true
+        existingMsg.senderName = 'WhatsApp HP'
+        if (typeof existingMsg.contentAttributes === 'object' && existingMsg.contentAttributes) {
+          existingMsg.contentAttributes.echo = true
+          existingMsg.contentAttributes.isEcho = true
+          existingMsg.contentAttributes.source = 'whatsapp_mobile'
+          existingMsg.contentAttributes.senderName = 'WhatsApp HP'
+        }
         saveMessageToStore(existingMsg)
         const conv = await this.getConversationById(existingMsg.conversationId)
         if (conv?.contact) {
@@ -940,22 +954,26 @@ export class ConversationService {
         ]
       : []
 
+    const senderName = 'WhatsApp HP'
     const message: Message = {
       id: crypto.randomUUID(),
       conversationId: conversation.id,
       ticketId: activeTicket?.id || null,
       senderType: 'user',
       senderId: null,
-      senderName: payload.senderName || 'Petugas CS',
+      senderName,
+      isEcho: true,
       messageType: 'outgoing',
       content: payload.content ?? null,
       contentType: finalContentType as unknown as Message['contentType'],
       status: 'sent',
       externalSourceId: payload.externalId ?? null,
       contentAttributes: {
+        echo: true,
         isEcho: true,
+        source: 'whatsapp_mobile',
+        senderName,
         mediaUrl: payload.mediaUrl || undefined,
-        senderName: payload.senderName || 'Petugas CS',
       },
       attachments,
       createdAt: now,

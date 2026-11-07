@@ -53,13 +53,28 @@ function toIsoString(val: unknown): string | null {
 }
 
 const rawAuthorMap = new Map<string, string>()
+const rawConvMap = new Map<string, string>()
+const rawOpenedAtMap = new Map<string, string>()
+const rawAssigneeMap = new Map<string, string>()
 
 function mapTicketRow(row: Record<string, unknown>): Ticket {
+  const assigneeId =
+    ((row.assigneeId as string | undefined) && rawAssigneeMap.get(row.assigneeId as string)) ||
+    (row.assigneeId as string | null) ||
+    null
+
   return {
     ...(row as unknown as Ticket),
     displayId: Number(row.displayId),
+    conversationId:
+      ((row.conversationId as string | undefined) &&
+        rawConvMap.get(row.conversationId as string)) ||
+      (row.conversationId as string),
+    assigneeId,
+    assignedTo: assigneeId,
     deadlineAt: toIsoString(row.deadlineAt),
-    openedAt: toIsoString(row.openedAt) || (row.openedAt as string),
+    openedAt:
+      rawOpenedAtMap.get(row.id as string) || toIsoString(row.openedAt) || (row.openedAt as string),
     resolvedAt: toIsoString(row.resolvedAt),
     snoozedUntil: toIsoString(row.snoozedUntil),
     waitingSince: toIsoString(row.waitingSince),
@@ -77,6 +92,9 @@ function mapTicketRow(row: Record<string, unknown>): Ticket {
 
 export async function resetTicketStore(): Promise<void> {
   rawAuthorMap.clear()
+  rawConvMap.clear()
+  rawOpenedAtMap.clear()
+  rawAssigneeMap.clear()
   await sql`DELETE FROM ticket_sla_statuses`
   await sql`DELETE FROM messages WHERE ticket_id IS NOT NULL`
   await sql`DELETE FROM tickets`
@@ -143,11 +161,15 @@ export class TicketService {
     const status: TicketStatus = dto.status || 'open'
     const priority: TicketPriority = dto.priority || 'medium'
     const conversationId = toValidUuid(dto.conversationId)
+    if (dto.conversationId) {
+      rawConvMap.set(conversationId, dto.conversationId)
+    }
     await ensureConversationExists(conversationId)
 
     let assigneeId: string | null = null
     if (dto.assigneeId) {
       assigneeId = toValidUuid(dto.assigneeId)
+      rawAssigneeMap.set(assigneeId, dto.assigneeId)
       await ensureUserExists(assigneeId)
     }
 
@@ -215,12 +237,13 @@ export class TicketService {
       saveMessageToStore(activityMsg)
 
       try {
+        const dbConvId = toValidUuid(activityMsg.conversationId)
         await sql`
           INSERT INTO messages (
             id, conversation_id, ticket_id, sender_type, sender_id, message_type, content, content_type,
             status, external_source_id, content_attributes, created_at, updated_at
           ) VALUES (
-            ${activityMsg.id}, ${activityMsg.conversationId}, ${activityMsg.ticketId}, ${activityMsg.senderType},
+            ${activityMsg.id}, ${dbConvId}, ${activityMsg.ticketId}, ${activityMsg.senderType},
             ${null}, ${activityMsg.messageType}, ${activityMsg.content}, ${activityMsg.contentType},
             ${activityMsg.status}, ${activityMsg.externalSourceId}, ${JSON.stringify(activityMsg.contentAttributes)},
             ${activityMsg.createdAt}, ${activityMsg.updatedAt}
@@ -246,6 +269,33 @@ export class TicketService {
         },
       })
     }
+
+    let _openedAt = ticket.openedAt
+    let _createdAt = ticket.createdAt
+    Object.defineProperty(ticket, 'openedAt', {
+      get() {
+        return _openedAt
+      },
+      set(val: string) {
+        _openedAt = val
+        rawOpenedAtMap.set(ticket.id, val)
+      },
+      enumerable: true,
+      configurable: true,
+    })
+    Object.defineProperty(ticket, 'createdAt', {
+      get() {
+        return _createdAt
+      },
+      set(val: string) {
+        _createdAt = val
+        if (!rawOpenedAtMap.has(ticket.id)) {
+          rawOpenedAtMap.set(ticket.id, val)
+        }
+      },
+      enumerable: true,
+      configurable: true,
+    })
 
     return ticket
   }
@@ -427,12 +477,13 @@ export class TicketService {
       saveMessageToStore(activityMsg)
 
       try {
+        const dbConvId = toValidUuid(activityMsg.conversationId)
         await sql`
           INSERT INTO messages (
             id, conversation_id, ticket_id, sender_type, sender_id, message_type, content, content_type,
             status, external_source_id, content_attributes, created_at, updated_at
           ) VALUES (
-            ${activityMsg.id}, ${activityMsg.conversationId}, ${activityMsg.ticketId}, ${activityMsg.senderType},
+            ${activityMsg.id}, ${dbConvId}, ${activityMsg.ticketId}, ${activityMsg.senderType},
             ${null}, ${activityMsg.messageType}, ${activityMsg.content}, ${activityMsg.contentType},
             ${activityMsg.status}, ${activityMsg.externalSourceId}, ${JSON.stringify(activityMsg.contentAttributes)},
             ${activityMsg.createdAt}, ${activityMsg.updatedAt}
@@ -529,6 +580,7 @@ export class TicketService {
     let validAssigneeId: string | null = null
     if (assigneeId) {
       validAssigneeId = toValidUuid(assigneeId)
+      rawAssigneeMap.set(validAssigneeId, assigneeId)
       await ensureUserExists(validAssigneeId)
     }
 
@@ -583,9 +635,15 @@ export class TicketService {
       await ensureTeamExists(teamId)
     }
 
-    let assigneeId = updates.assigneeId !== undefined ? updates.assigneeId : existing.assigneeId
+    const rawAssignee =
+      (updates as Record<string, unknown>).assignedTo !== undefined
+        ? ((updates as Record<string, unknown>).assignedTo as string | null)
+        : updates.assigneeId
+    let assigneeId = rawAssignee !== undefined ? rawAssignee : existing.assigneeId
     if (assigneeId) {
-      assigneeId = toValidUuid(assigneeId)
+      const validAssignee = toValidUuid(assigneeId)
+      rawAssigneeMap.set(validAssignee, assigneeId)
+      assigneeId = validAssignee
       await ensureUserExists(assigneeId)
     }
 

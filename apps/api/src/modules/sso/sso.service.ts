@@ -26,6 +26,7 @@ export interface AuditLogItem {
 }
 
 export async function resetSsoStore(): Promise<void> {
+  await sql`DELETE FROM sso_provider_extras`
   await sql`DELETE FROM sso_providers`
 }
 
@@ -42,40 +43,48 @@ export class SsoService {
     const oidcConfig = input.oidcConfig ? JSON.stringify(input.oidcConfig) : null
     const active = input.active ?? true
 
-    const rows = await sql`
+    await sql`
       INSERT INTO sso_providers (
-        id, name, provider_type, issuer_url, client_id, client_secret_encrypted,
-        cert_data, sso_url, saml_config, oidc_config, active, created_at, updated_at
+        id, provider_type, issuer_url, client_id, client_secret_encrypted,
+        cert_data, active, created_at, updated_at
       ) VALUES (
-        ${id}, ${input.name}, ${input.providerType}, ${input.issuerUrl},
+        ${id}, ${input.providerType}, ${input.issuerUrl},
         ${clientId}, ${clientSecretEncrypted},
-        ${certData}, ${ssoUrl}, ${samlConfig}, ${oidcConfig}, ${active}, ${now}, ${now}
+        ${certData}, ${active}, ${now}, ${now}
       )
-      RETURNING
-        id, name, provider_type as "providerType", issuer_url as "issuerUrl",
-        client_id as "clientId", client_secret_encrypted as "clientSecretEncrypted",
-        client_secret_enc as "clientSecretEnc", cert_data as "certData",
-        sso_url as "ssoUrl", saml_config as "samlConfig", oidc_config as "oidcConfig",
-        active, created_at as "createdAt", updated_at as "updatedAt"
     `
-    const row = rows[0]
-    return {
-      ...row,
-      samlConfig: typeof row.samlConfig === 'string' ? JSON.parse(row.samlConfig) : row.samlConfig,
-      oidcConfig: typeof row.oidcConfig === 'string' ? JSON.parse(row.oidcConfig) : row.oidcConfig,
-    } as SsoProvider
+
+    await sql`
+      INSERT INTO sso_provider_extras (
+        id, name, sso_url, saml_config, oidc_config
+      ) VALUES (
+        ${id}, ${input.name}, ${ssoUrl}, ${samlConfig}, ${oidcConfig}
+      )
+      ON CONFLICT (id) DO UPDATE SET
+        name = EXCLUDED.name,
+        sso_url = EXCLUDED.sso_url,
+        saml_config = EXCLUDED.saml_config,
+        oidc_config = EXCLUDED.oidc_config
+    `
+
+    const provider = await this.getProviderById(id)
+    if (!provider) {
+      throw new Error(`Failed to retrieve SSO provider: ${id}`)
+    }
+    return provider
   }
 
   async getProviderById(id: string): Promise<SsoProvider | null> {
     const rows = await sql`
       SELECT
-        id, name, provider_type as "providerType", issuer_url as "issuerUrl",
-        client_id as "clientId", client_secret_encrypted as "clientSecretEncrypted",
-        client_secret_enc as "clientSecretEnc", cert_data as "certData",
-        sso_url as "ssoUrl", saml_config as "samlConfig", oidc_config as "oidcConfig",
-        active, created_at as "createdAt", updated_at as "updatedAt"
-      FROM sso_providers
-      WHERE id = ${id}
+        p.id, COALESCE(e.name, p.provider_type) as name, p.provider_type as "providerType", p.issuer_url as "issuerUrl",
+        p.client_id as "clientId", p.client_secret_encrypted as "clientSecretEncrypted",
+        p.client_secret_enc as "clientSecretEnc", p.cert_data as "certData",
+        e.sso_url as "ssoUrl", e.saml_config as "samlConfig", e.oidc_config as "oidcConfig",
+        p.active, p.created_at as "createdAt", p.updated_at as "updatedAt"
+      FROM sso_providers p
+      LEFT JOIN sso_provider_extras e ON p.id = e.id
+      WHERE p.id = ${id}
       LIMIT 1
     `
     if (!rows || rows.length === 0) return null
@@ -90,13 +99,14 @@ export class SsoService {
   async listProviders(): Promise<SsoProvider[]> {
     const rows = await sql`
       SELECT
-        id, name, provider_type as "providerType", issuer_url as "issuerUrl",
-        client_id as "clientId", client_secret_encrypted as "clientSecretEncrypted",
-        client_secret_enc as "clientSecretEnc", cert_data as "certData",
-        sso_url as "ssoUrl", saml_config as "samlConfig", oidc_config as "oidcConfig",
-        active, created_at as "createdAt", updated_at as "updatedAt"
-      FROM sso_providers
-      ORDER BY created_at DESC
+        p.id, COALESCE(e.name, p.provider_type) as name, p.provider_type as "providerType", p.issuer_url as "issuerUrl",
+        p.client_id as "clientId", p.client_secret_encrypted as "clientSecretEncrypted",
+        p.client_secret_enc as "clientSecretEnc", p.cert_data as "certData",
+        e.sso_url as "ssoUrl", e.saml_config as "samlConfig", e.oidc_config as "oidcConfig",
+        p.active, p.created_at as "createdAt", p.updated_at as "updatedAt"
+      FROM sso_providers p
+      LEFT JOIN sso_provider_extras e ON p.id = e.id
+      ORDER BY p.created_at DESC
     `
     return (rows as unknown as Record<string, unknown>[]).map((r) => ({
       ...r,
@@ -128,33 +138,36 @@ export class SsoService {
     const oidcConfig = oidcConfigObj ? JSON.stringify(oidcConfigObj) : null
     const active = input.active ?? existing.active
 
-    const rows = await sql`
+    await sql`
       UPDATE sso_providers
       SET
-        name = ${name},
         issuer_url = ${issuerUrl},
         client_id = ${clientId},
         client_secret_encrypted = ${clientSecretEncrypted},
         cert_data = ${certData},
-        sso_url = ${ssoUrl},
-        saml_config = ${samlConfig},
-        oidc_config = ${oidcConfig},
         active = ${active},
         updated_at = ${now}
       WHERE id = ${id}
-      RETURNING
-        id, name, provider_type as "providerType", issuer_url as "issuerUrl",
-        client_id as "clientId", client_secret_encrypted as "clientSecretEncrypted",
-        client_secret_enc as "clientSecretEnc", cert_data as "certData",
-        sso_url as "ssoUrl", saml_config as "samlConfig", oidc_config as "oidcConfig",
-        active, created_at as "createdAt", updated_at as "updatedAt"
     `
-    const row = rows[0]
-    return {
-      ...row,
-      samlConfig: typeof row.samlConfig === 'string' ? JSON.parse(row.samlConfig) : row.samlConfig,
-      oidcConfig: typeof row.oidcConfig === 'string' ? JSON.parse(row.oidcConfig) : row.oidcConfig,
-    } as SsoProvider
+
+    await sql`
+      INSERT INTO sso_provider_extras (
+        id, name, sso_url, saml_config, oidc_config
+      ) VALUES (
+        ${id}, ${name}, ${ssoUrl}, ${samlConfig}, ${oidcConfig}
+      )
+      ON CONFLICT (id) DO UPDATE SET
+        name = EXCLUDED.name,
+        sso_url = EXCLUDED.sso_url,
+        saml_config = EXCLUDED.saml_config,
+        oidc_config = EXCLUDED.oidc_config
+    `
+
+    const provider = await this.getProviderById(id)
+    if (!provider) {
+      throw new Error(`Failed to retrieve SSO provider: ${id}`)
+    }
+    return provider
   }
 
   async deleteProvider(id: string): Promise<boolean> {

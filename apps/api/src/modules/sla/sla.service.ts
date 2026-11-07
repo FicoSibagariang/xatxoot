@@ -105,7 +105,9 @@ function mapTicketSlaStatusRow(row: Record<string, unknown>): TicketSlaStatus {
 export async function resetSlaStore(): Promise<void> {
   await sql`DELETE FROM outgoing_webhook_deliveries`
   await sql`DELETE FROM outgoing_webhooks`
+  await sql`DELETE FROM ticket_sla_status_extras`
   await sql`DELETE FROM ticket_sla_statuses`
+  await sql`DELETE FROM sla_policy_extras`
   await sql`DELETE FROM sla_policies`
 }
 
@@ -122,38 +124,48 @@ export class SlaService {
     const onlyDuringBusinessHours = input.onlyDuringBusinessHours ?? false
     const active = input.active ?? true
 
-    const rows = await sql`
+    await sql`
       INSERT INTO sla_policies (
-        id, name, description, inbox_id, first_response_time_seconds, resolution_time_seconds,
-        priority_rules, only_during_business_hours, active, created_at, updated_at
+        id, name, inbox_id, first_response_time_seconds, resolution_time_seconds,
+        active, created_at, updated_at
       ) VALUES (
-        ${id}, ${input.name}, ${description}, ${inboxId}, ${input.firstResponseTimeSeconds},
-        ${input.resolutionTimeSeconds}, ${priorityRules}, ${onlyDuringBusinessHours},
+        ${id}, ${input.name}, ${inboxId}, ${input.firstResponseTimeSeconds},
+        ${input.resolutionTimeSeconds},
         ${active}, ${now}, ${now}
       )
-      RETURNING
-        id, name, description, inbox_id as "inboxId",
-        first_response_time_seconds as "firstResponseTimeSeconds",
-        resolution_time_seconds as "resolutionTimeSeconds",
-        priority_rules as "priorityRules",
-        only_during_business_hours as "onlyDuringBusinessHours",
-        active, created_at as "createdAt", updated_at as "updatedAt"
     `
 
-    return mapPolicyRow(rows[0])
+    await sql`
+      INSERT INTO sla_policy_extras (
+        id, description, priority_rules, only_during_business_hours
+      ) VALUES (
+        ${id}, ${description}, ${priorityRules}, ${onlyDuringBusinessHours}
+      )
+      ON CONFLICT (id) DO UPDATE SET
+        description = EXCLUDED.description,
+        priority_rules = EXCLUDED.priority_rules,
+        only_during_business_hours = EXCLUDED.only_during_business_hours
+    `
+
+    const policy = await this.getPolicyById(id)
+    if (!policy) {
+      throw new Error(`Failed to retrieve created SLA policy: ${id}`)
+    }
+    return policy
   }
 
   async getPolicyById(id: string): Promise<SlaPolicy | null> {
     const rows = await sql`
       SELECT
-        id, name, description, inbox_id as "inboxId",
-        first_response_time_seconds as "firstResponseTimeSeconds",
-        resolution_time_seconds as "resolutionTimeSeconds",
-        priority_rules as "priorityRules",
-        only_during_business_hours as "onlyDuringBusinessHours",
-        active, created_at as "createdAt", updated_at as "updatedAt"
-      FROM sla_policies
-      WHERE id = ${id}
+        p.id, p.name, e.description, p.inbox_id as "inboxId",
+        p.first_response_time_seconds as "firstResponseTimeSeconds",
+        p.resolution_time_seconds as "resolutionTimeSeconds",
+        e.priority_rules as "priorityRules",
+        COALESCE(e.only_during_business_hours, false) as "onlyDuringBusinessHours",
+        p.active, p.created_at as "createdAt", p.updated_at as "updatedAt"
+      FROM sla_policies p
+      LEFT JOIN sla_policy_extras e ON p.id = e.id
+      WHERE p.id = ${id}
       LIMIT 1
     `
     if (rows.length > 0) {
@@ -180,14 +192,15 @@ export class SlaService {
   async listPolicies(): Promise<SlaPolicy[]> {
     const rows = await sql`
       SELECT
-        id, name, description, inbox_id as "inboxId",
-        first_response_time_seconds as "firstResponseTimeSeconds",
-        resolution_time_seconds as "resolutionTimeSeconds",
-        priority_rules as "priorityRules",
-        only_during_business_hours as "onlyDuringBusinessHours",
-        active, created_at as "createdAt", updated_at as "updatedAt"
-      FROM sla_policies
-      ORDER BY created_at DESC
+        p.id, p.name, e.description, p.inbox_id as "inboxId",
+        p.first_response_time_seconds as "firstResponseTimeSeconds",
+        p.resolution_time_seconds as "resolutionTimeSeconds",
+        e.priority_rules as "priorityRules",
+        COALESCE(e.only_during_business_hours, false) as "onlyDuringBusinessHours",
+        p.active, p.created_at as "createdAt", p.updated_at as "updatedAt"
+      FROM sla_policies p
+      LEFT JOIN sla_policy_extras e ON p.id = e.id
+      ORDER BY p.created_at DESC
     `
     return rows.map(mapPolicyRow)
   }
@@ -215,29 +228,35 @@ export class SlaService {
         : existing.onlyDuringBusinessHours
     const active = input.active !== undefined ? input.active : existing.active
 
-    const rows = await sql`
+    await sql`
       UPDATE sla_policies
       SET
         name = ${name},
-        description = ${description},
         inbox_id = ${inboxId},
         first_response_time_seconds = ${firstResponseTimeSeconds},
         resolution_time_seconds = ${resolutionTimeSeconds},
-        priority_rules = ${priorityRules},
-        only_during_business_hours = ${onlyDuringBusinessHours},
         active = ${active},
         updated_at = ${now}
       WHERE id = ${id}
-      RETURNING
-        id, name, description, inbox_id as "inboxId",
-        first_response_time_seconds as "firstResponseTimeSeconds",
-        resolution_time_seconds as "resolutionTimeSeconds",
-        priority_rules as "priorityRules",
-        only_during_business_hours as "onlyDuringBusinessHours",
-        active, created_at as "createdAt", updated_at as "updatedAt"
     `
 
-    return mapPolicyRow(rows[0])
+    await sql`
+      INSERT INTO sla_policy_extras (
+        id, description, priority_rules, only_during_business_hours
+      ) VALUES (
+        ${id}, ${description}, ${priorityRules}, ${onlyDuringBusinessHours}
+      )
+      ON CONFLICT (id) DO UPDATE SET
+        description = EXCLUDED.description,
+        priority_rules = EXCLUDED.priority_rules,
+        only_during_business_hours = EXCLUDED.only_during_business_hours
+    `
+
+    const policy = await this.getPolicyById(id)
+    if (!policy) {
+      throw new Error(`Failed to retrieve created SLA policy: ${id}`)
+    }
+    return policy
   }
 
   async deletePolicy(id: string): Promise<boolean> {
@@ -296,23 +315,19 @@ export class SlaService {
     const id = crypto.randomUUID()
     const now = new Date().toISOString()
 
-    const rows = await sql`
+    await sql`
       INSERT INTO ticket_sla_statuses (
-        id, ticket_id, policy_id, first_response_deadline, resolution_deadline, is_breached, breached_at, created_at, updated_at
+        id, ticket_id, policy_id, first_response_deadline, resolution_deadline, is_breached, created_at, updated_at
       ) VALUES (
         ${id}, ${input.ticketId}, ${policy.id}, ${deadlines.firstResponseDeadline},
-        ${deadlines.resolutionDeadline}, false, NULL, ${now}, ${now}
+        ${deadlines.resolutionDeadline}, false, ${now}, ${now}
       )
-      RETURNING
-        id, ticket_id as "ticketId", policy_id as "policyId",
-        first_response_deadline as "firstResponseDeadline",
-        resolution_deadline as "resolutionDeadline",
-        is_breached as "isBreached",
-        breached_at as "breachedAt",
-        created_at as "createdAt", updated_at as "updatedAt"
     `
 
-    const status = mapTicketSlaStatusRow(rows[0])
+    const status = await this.getTicketSlaStatus(input.ticketId)
+    if (!status) {
+      throw new Error(`Failed to retrieve ticket SLA status: ${input.ticketId}`)
+    }
 
     // Synchronize tickets.deadline_at with the earliest pending deadline
     const ticket = await ticketService.getTicketById(input.ticketId)
@@ -328,15 +343,16 @@ export class SlaService {
   async getTicketSlaStatus(ticketId: string): Promise<TicketSlaStatus | null> {
     const rows = await sql`
       SELECT
-        id, ticket_id as "ticketId", policy_id as "policyId",
-        first_response_deadline as "firstResponseDeadline",
-        resolution_deadline as "resolutionDeadline",
-        is_breached as "isBreached",
-        breached_at as "breachedAt",
-        created_at as "createdAt", updated_at as "updatedAt"
-      FROM ticket_sla_statuses
-      WHERE ticket_id = ${ticketId}
-      ORDER BY created_at DESC
+        tss.id, tss.ticket_id as "ticketId", tss.policy_id as "policyId",
+        tss.first_response_deadline as "firstResponseDeadline",
+        tss.resolution_deadline as "resolutionDeadline",
+        tss.is_breached as "isBreached",
+        tsse.breached_at as "breachedAt",
+        tss.created_at as "createdAt", tss.updated_at as "updatedAt"
+      FROM ticket_sla_statuses tss
+      LEFT JOIN ticket_sla_status_extras tsse ON tss.id = tsse.id
+      WHERE tss.ticket_id = ${ticketId}
+      ORDER BY tss.created_at DESC
       LIMIT 1
     `
     if (rows.length > 0) {
@@ -393,8 +409,13 @@ export class SlaService {
 
           await sql`
             UPDATE ticket_sla_statuses
-            SET is_breached = true, breached_at = ${nowDate}, updated_at = ${nowDate}
+            SET is_breached = true, updated_at = ${nowDate}
             WHERE ticket_id = ${ticket.id}
+          `
+          await sql`
+            INSERT INTO ticket_sla_status_extras (id, breached_at)
+            SELECT id, ${nowDate}::timestamptz FROM ticket_sla_statuses WHERE ticket_id = ${ticket.id}
+            ON CONFLICT (id) DO UPDATE SET breached_at = EXCLUDED.breached_at
           `
 
           realtimeService.broadcast({

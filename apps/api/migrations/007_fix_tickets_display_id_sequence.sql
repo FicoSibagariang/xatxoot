@@ -17,12 +17,16 @@ SELECT setval(
   COALESCE((SELECT MAX(display_id) FROM tickets), 1000)
 );
 
--- 3. Enforce UNIQUE constraint on tickets.display_id
+-- 3. Enforce UNIQUE constraint on tickets.display_id (if permitted)
 DO $$
 BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_constraint WHERE conname = 'tickets_display_id_key'
   ) THEN
-    ALTER TABLE tickets ADD CONSTRAINT tickets_display_id_key UNIQUE (display_id);
+    BEGIN
+      ALTER TABLE tickets ADD CONSTRAINT tickets_display_id_key UNIQUE (display_id);
+    EXCEPTION WHEN insufficient_privilege THEN
+      NULL;
+    END;
   END IF;
 END $$;

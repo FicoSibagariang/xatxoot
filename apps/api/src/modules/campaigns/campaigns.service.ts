@@ -78,6 +78,7 @@ async function ensureContactExists(contactId: string): Promise<void> {
 
 export async function resetCampaignsStore(): Promise<void> {
   await sql`DELETE FROM campaign_deliveries`
+  await sql`DELETE FROM campaign_extras`
   await sql`DELETE FROM campaigns`
   broadcastEngine.reset()
 }
@@ -159,22 +160,30 @@ export class CampaignsService {
     const scheduledAt = input.scheduledAt ? new Date(input.scheduledAt).toISOString() : null
     const audience = input.audience || { type: 'all_contacts' }
 
-    const rows = await sql`
+    await sql`
       INSERT INTO campaigns (
         id, inbox_id, title, message_content, scheduled_at, status,
-        anti_ban_delay_min, anti_ban_delay_max, audience, created_at, updated_at
+        anti_ban_delay_min, anti_ban_delay_max, created_at, updated_at
       ) VALUES (
         ${id}, ${inboxId}, ${input.title}, ${input.messageContent},
         ${scheduledAt}, 'draft', ${antiBanDelayMin},
-        ${antiBanDelayMax}, ${JSON.stringify(audience)}, ${now}, ${now}
+        ${antiBanDelayMax}, ${now}, ${now}
       )
-      RETURNING
-        id, inbox_id as "inboxId", title, message_content as "messageContent",
-        scheduled_at as "scheduledAt", status, anti_ban_delay_min as "antiBanDelayMin",
-        anti_ban_delay_max as "antiBanDelayMax", audience, created_at as "createdAt", updated_at as "updatedAt"
     `
 
-    const campaign = mapCampaignRow(rows[0])
+    await sql`
+      INSERT INTO campaign_extras (
+        id, audience
+      ) VALUES (
+        ${id}, ${JSON.stringify(audience)}
+      )
+      ON CONFLICT (id) DO UPDATE SET audience = EXCLUDED.audience
+    `
+
+    const campaign = await this.getCampaignById(id)
+    if (!campaign) {
+      throw new Error(`Failed to retrieve created campaign: ${id}`)
+    }
 
     // Resolve audience recipients and create pending deliveries
     await this.resolveAudienceDeliveries(campaign)
@@ -223,20 +232,22 @@ export class CampaignsService {
   async listCampaigns(filter?: { inboxId?: string; status?: string }): Promise<Campaign[]> {
     let query = sql`
       SELECT
-        id, inbox_id as "inboxId", title, message_content as "messageContent",
-        scheduled_at as "scheduledAt", status, anti_ban_delay_min as "antiBanDelayMin",
-        anti_ban_delay_max as "antiBanDelayMax", audience, created_at as "createdAt", updated_at as "updatedAt"
-      FROM campaigns
+        c.id, c.inbox_id as "inboxId", c.title, c.message_content as "messageContent",
+        c.scheduled_at as "scheduledAt", c.status, c.anti_ban_delay_min as "antiBanDelayMin",
+        c.anti_ban_delay_max as "antiBanDelayMax", COALESCE(e.audience, '{"type": "all_contacts"}'::jsonb) as audience,
+        c.created_at as "createdAt", c.updated_at as "updatedAt"
+      FROM campaigns c
+      LEFT JOIN campaign_extras e ON c.id = e.id
       WHERE 1 = 1
     `
     if (filter?.inboxId) {
       const vInboxId = toValidUuid(filter.inboxId)
-      query = sql`${query} AND inbox_id = ${vInboxId}`
+      query = sql`${query} AND c.inbox_id = ${vInboxId}`
     }
     if (filter?.status) {
-      query = sql`${query} AND status = ${filter.status}`
+      query = sql`${query} AND c.status = ${filter.status}`
     }
-    query = sql`${query} ORDER BY created_at DESC`
+    query = sql`${query} ORDER BY c.created_at DESC`
     const rows = await query
     return (rows || []).map(mapCampaignRow)
   }
@@ -244,11 +255,13 @@ export class CampaignsService {
   async getCampaignById(id: string): Promise<Campaign | null> {
     const rows = await sql`
       SELECT
-        id, inbox_id as "inboxId", title, message_content as "messageContent",
-        scheduled_at as "scheduledAt", status, anti_ban_delay_min as "antiBanDelayMin",
-        anti_ban_delay_max as "antiBanDelayMax", audience, created_at as "createdAt", updated_at as "updatedAt"
-      FROM campaigns
-      WHERE id = ${id}
+        c.id, c.inbox_id as "inboxId", c.title, c.message_content as "messageContent",
+        c.scheduled_at as "scheduledAt", c.status, c.anti_ban_delay_min as "antiBanDelayMin",
+        c.anti_ban_delay_max as "antiBanDelayMax", COALESCE(e.audience, '{"type": "all_contacts"}'::jsonb) as audience,
+        c.created_at as "createdAt", c.updated_at as "updatedAt"
+      FROM campaigns c
+      LEFT JOIN campaign_extras e ON c.id = e.id
+      WHERE c.id = ${id}
       LIMIT 1
     `
     if (rows && rows.length > 0) {
@@ -290,20 +303,15 @@ export class CampaignsService {
 
   async updateCampaignStatus(id: string, status: CampaignStatus): Promise<Campaign> {
     const now = new Date().toISOString()
-    const rows = await sql`
+    await sql`
       UPDATE campaigns
       SET status = ${status}, updated_at = ${now}
       WHERE id = ${id}
-      RETURNING
-        id, inbox_id as "inboxId", title, message_content as "messageContent",
-        scheduled_at as "scheduledAt", status, anti_ban_delay_min as "antiBanDelayMin",
-        anti_ban_delay_max as "antiBanDelayMax", audience, created_at as "createdAt", updated_at as "updatedAt"
     `
-    if (!rows || rows.length === 0) {
+    const updated = await this.getCampaignById(id)
+    if (!updated) {
       throw new Error(`Campaign not found: ${id}`)
     }
-
-    const updated = mapCampaignRow(rows[0])
 
     realtimeService.broadcast({
       event: 'campaign.updated',

@@ -29,7 +29,10 @@ export async function handleSendConversationMessage(c: Context) {
       const isPrivileged =
         user?.role === 'owner' || user?.role === 'administrator' || user?.role === 'admin'
 
-      if (!activeTicket.assignedTo) {
+      const assignedTo =
+        ((activeTicket as Record<string, unknown>).assignedTo as string | undefined) ||
+        activeTicket.assigneeId
+      if (!assignedTo) {
         if (!isPrivileged) {
           return c.json(
             {
@@ -39,7 +42,7 @@ export async function handleSendConversationMessage(c: Context) {
             403,
           )
         }
-      } else if (activeTicket.assignedTo !== user?.id && !isPrivileged) {
+      } else if (assignedTo !== user?.id && !isPrivileged) {
         return c.json({ error: 'Tiket ini sedang ditangani oleh agen lain' }, 403)
       }
     }

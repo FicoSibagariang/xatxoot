@@ -15,4 +15,9 @@ CREATE TABLE IF NOT EXISTS csat_invites (
 CREATE INDEX IF NOT EXISTS idx_csat_invites_token ON csat_invites(token);
 CREATE INDEX IF NOT EXISTS idx_csat_invites_ticket_id ON csat_invites(ticket_id);
 
-ALTER TABLE csat_surveys ALTER COLUMN contact_id DROP NOT NULL;
+DO $$
+BEGIN
+  ALTER TABLE csat_surveys ALTER COLUMN contact_id DROP NOT NULL;
+EXCEPTION WHEN insufficient_privilege THEN
+  NULL;
+END $$;

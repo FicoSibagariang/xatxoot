@@ -130,15 +130,20 @@ export class MessageService {
     `
     return ((rows || []) as unknown as Message[]).map((m) => {
       const attrs = parseContentAttributes(m.contentAttributes)
+      const isEcho = Boolean(
+        m.isEcho || attrs.echo || attrs.isEcho || attrs.source === 'whatsapp_mobile',
+      )
       let senderName = m.senderName || (attrs.senderName as string | undefined)
       if (!senderName && m.senderType === 'bot') {
         senderName = 'Bot Otomasi'
+      } else if (!senderName && isEcho) {
+        senderName = 'WhatsApp HP'
       }
       return {
         ...m,
         senderName,
         replyTo: (attrs.replyTo as Message['replyTo']) || m.replyTo,
-        isEcho: Boolean(m.isEcho || attrs.echo || attrs.source === 'whatsapp_mobile'),
+        isEcho,
       }
     })
   }

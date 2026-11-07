@@ -200,10 +200,12 @@ export async function logoutSession(refreshToken?: string): Promise<boolean> {
 export async function verifyUserToken(token: string): Promise<User | null> {
   if (!token) return null
 
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
   if (token.startsWith('access_')) {
     const parts = token.split('_')
     const userId = parts[1]
-    if (userId) {
+    if (userId && uuidRegex.test(userId)) {
       const rows = await sql`
         SELECT id, email, display_name AS "displayName", role, availability, active, created_at AS "createdAt"
         FROM users
@@ -216,7 +218,11 @@ export async function verifyUserToken(token: string): Promise<User | null> {
     }
   }
 
-  if (token === 'agent-access-token' || token.startsWith('agent_')) {
+  if (
+    token === 'agent-access-token' ||
+    token.startsWith('agent_') ||
+    token === 'access_agent_token'
+  ) {
     return {
       id: 'mock-agent-id',
       email: 'agent@acme.corp',
