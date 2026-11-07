@@ -14,13 +14,13 @@ describe('AI Copilot Services (Task 5.10 - apps/api)', () => {
   const rootDir = join(import.meta.dir, '..', '..', '..', '..', '..')
   let app: Hono
 
-  beforeEach(() => {
-    resetConversationStore()
-    resetMessageStore()
-    resetTicketStore()
-    resetHelpCenterStore()
-    resetRagStore()
-    resetCopilotStore()
+  beforeEach(async () => {
+    await resetConversationStore()
+    await resetMessageStore()
+    await resetTicketStore()
+    await resetHelpCenterStore()
+    await resetRagStore()
+    await resetCopilotStore()
     app = new Hono()
     app.route('/api/v1/copilot', copilotRoutes)
   })

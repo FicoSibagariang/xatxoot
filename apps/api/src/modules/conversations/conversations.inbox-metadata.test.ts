@@ -11,8 +11,8 @@ describe('Conversation Inbox Metadata (Issue #282 - TDD RED)', () => {
   let testInboxId: string
 
   beforeEach(async () => {
-    resetConversationStore()
-    resetInboxStore()
+    await resetConversationStore()
+    await resetInboxStore()
 
     const { inbox } = await inboxService.createInbox({
       name: 'WhatsApp Layanan Pelanggan',

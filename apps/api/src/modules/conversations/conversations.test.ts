@@ -1,12 +1,20 @@
 import { beforeEach, describe, expect, it } from 'bun:test'
 import app from '../../index'
-import { type InboundMessagePayload, conversationService } from './conversations.service'
+import {
+  type InboundMessagePayload,
+  conversationService,
+  resetConversationStore,
+} from './conversations.service'
 
 const AUTH_HEADER = {
   Authorization: 'Bearer valid-access-token',
 }
 
 const MOCK_INBOX_ID = '00000000-1111-2222-3333-444444444444'
+
+beforeEach(async () => {
+  await resetConversationStore()
+})
 
 describe('Conversations Module - Auth Guard', () => {
   it('GET /api/v1/conversations should reject requests without Authorization header with 401', async () => {

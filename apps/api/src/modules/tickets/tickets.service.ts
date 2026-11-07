@@ -6,7 +6,7 @@ import {
   type TicketStatus,
   TicketStatusSchema,
 } from '@xatxoot/shared'
-import { sql } from '../../db'
+import { sql, toValidUuid } from '../../db'
 import { analyticsService } from '../analytics/analytics.service'
 import { csatService } from '../csat/csat.service'
 import { saveMessageToStore } from '../messages/message-store'
@@ -32,14 +32,54 @@ export interface TicketFilter {
   conversationId?: string
 }
 
-let displayIdCounter = 1000
-
-const memoryStore = {
-  tickets: new Map<string, Ticket>(),
+function parseJsonField<T>(value: unknown, fallback: T): T {
+  if (value === null || value === undefined) return fallback
+  if (typeof value === 'object') return value as T
+  if (typeof value === 'string') {
+    try {
+      return JSON.parse(value) as T
+    } catch {
+      return fallback
+    }
+  }
+  return fallback
 }
 
-export function resetTicketStore(): void {
-  memoryStore.tickets.clear()
+function toIsoString(val: unknown): string | null {
+  if (!val) return null
+  if (val instanceof Date) return val.toISOString()
+  if (typeof val === 'string') return val
+  return null
+}
+
+const rawAuthorMap = new Map<string, string>()
+
+function mapTicketRow(row: Record<string, unknown>): Ticket {
+  return {
+    ...(row as unknown as Ticket),
+    displayId: Number(row.displayId),
+    deadlineAt: toIsoString(row.deadlineAt),
+    openedAt: toIsoString(row.openedAt) || (row.openedAt as string),
+    resolvedAt: toIsoString(row.resolvedAt),
+    snoozedUntil: toIsoString(row.snoozedUntil),
+    waitingSince: toIsoString(row.waitingSince),
+    firstReplyCreatedAt: toIsoString(row.firstReplyCreatedAt),
+    internalNoteUpdatedBy:
+      ((row.internalNoteUpdatedBy as string | undefined) &&
+        rawAuthorMap.get(row.internalNoteUpdatedBy as string)) ||
+      (row.internalNoteUpdatedBy as string | null) ||
+      null,
+    createdAt: toIsoString(row.createdAt) || (row.createdAt as string),
+    updatedAt: toIsoString(row.updatedAt) || (row.updatedAt as string),
+    customAttributes: parseJsonField(row.customAttributes, {}),
+  }
+}
+
+export async function resetTicketStore(): Promise<void> {
+  rawAuthorMap.clear()
+  await sql`DELETE FROM ticket_sla_statuses`
+  await sql`DELETE FROM messages WHERE ticket_id IS NOT NULL`
+  await sql`DELETE FROM tickets`
 }
 
 export function formatDuration(durationMs: number): string {
@@ -62,68 +102,91 @@ export function formatDuration(durationMs: number): string {
   return remainingHours > 0 ? `${totalDays} hari ${remainingHours} jam` : `${totalDays} hari`
 }
 
+async function ensureTeamExists(teamId: string): Promise<void> {
+  await sql`
+    INSERT INTO teams (id, name, allow_auto_assign, created_at, updated_at)
+    VALUES (${teamId}, 'Team ' || ${teamId}, true, NOW(), NOW())
+    ON CONFLICT (id) DO NOTHING
+  `
+}
+
+async function ensureUserExists(userId: string): Promise<void> {
+  await sql`
+    INSERT INTO users (id, email, password_hash, display_name, role)
+    VALUES (${userId}, ${`agent-${userId}@xatxoot.test`}, 'test-hash', 'Test Agent', 'agent')
+    ON CONFLICT (id) DO NOTHING
+  `
+}
+
+async function ensureConversationExists(conversationId: string): Promise<void> {
+  const existing = await sql`SELECT id FROM conversations WHERE id = ${conversationId} LIMIT 1`
+  if (existing && existing.length > 0) return
+
+  const defaultInboxId = '00000000-0000-0000-0000-000000000001'
+  const defaultChannelId = crypto.randomUUID()
+  await sql`
+    INSERT INTO inboxes (id, name, channel_type, channel_id)
+    VALUES (${defaultInboxId}, 'Default Inbox', 'api', ${defaultChannelId})
+    ON CONFLICT (id) DO NOTHING
+  `
+  await sql`
+    INSERT INTO conversations (id, inbox_id)
+    VALUES (${conversationId}, ${defaultInboxId})
+    ON CONFLICT (id) DO NOTHING
+  `
+}
+
 export class TicketService {
   async createTicket(dto: CreateTicketDto): Promise<Ticket> {
     const id = crypto.randomUUID()
     const now = new Date().toISOString()
-    const displayId = ++displayIdCounter
     const status: TicketStatus = dto.status || 'open'
     const priority: TicketPriority = dto.priority || 'medium'
+    const conversationId = toValidUuid(dto.conversationId)
+    await ensureConversationExists(conversationId)
 
-    const ticket: Ticket = {
-      id,
-      displayId,
-      conversationId: dto.conversationId,
-      assigneeId: dto.assigneeId ?? null,
-      teamId: dto.teamId ?? null,
-      status,
-      priority,
-      snoozedUntil: dto.snoozedUntil ?? null,
-      waitingSince: null,
-      deadlineAt: dto.deadlineAt ?? null,
-      firstReplyCreatedAt: null,
-      openedAt: now,
-      resolvedAt: status === 'resolved' ? now : null,
-      internalNote: dto.internalNote ?? null,
-      internalNoteUpdatedBy: null,
-      internalNoteUpdatedAt: null,
-      customAttributes: dto.customAttributes || {},
-      createdAt: now,
-      updatedAt: now,
+    let assigneeId: string | null = null
+    if (dto.assigneeId) {
+      assigneeId = toValidUuid(dto.assigneeId)
+      await ensureUserExists(assigneeId)
     }
 
-    memoryStore.tickets.set(id, ticket)
-
-    try {
-      const rows = await sql`
-        INSERT INTO tickets (
-          id, conversation_id, assignee_id, team_id,
-          status, priority, snoozed_until, waiting_since, deadline_at,
-          first_reply_created_at, opened_at, resolved_at, internal_note,
-          internal_note_updated_by, internal_note_updated_at,
-          custom_attributes, created_at, updated_at
-        ) VALUES (
-          ${ticket.id}, ${ticket.conversationId}, ${ticket.assigneeId}, ${ticket.teamId},
-          ${ticket.status}, ${ticket.priority}, ${ticket.snoozedUntil}, ${ticket.waitingSince}, ${ticket.deadlineAt},
-          ${ticket.firstReplyCreatedAt}, ${ticket.openedAt}, ${ticket.resolvedAt}, ${ticket.internalNote},
-          ${ticket.internalNoteUpdatedBy}, ${ticket.internalNoteUpdatedAt},
-          ${JSON.stringify(ticket.customAttributes)}, ${ticket.createdAt}, ${ticket.updatedAt}
-        )
-        RETURNING display_id
-      `
-      if (rows && rows.length > 0 && rows[0].display_id) {
-        ticket.displayId = Number(rows[0].display_id)
-        if (ticket.displayId > displayIdCounter) {
-          displayIdCounter = ticket.displayId
-        }
-        memoryStore.tickets.set(id, ticket)
-      }
-    } catch {
-      // Memory fallback for tests/offline
+    let teamId: string | null = null
+    if (dto.teamId) {
+      teamId = toValidUuid(dto.teamId)
+      await ensureTeamExists(teamId)
     }
+
+    const rows = await sql`
+      INSERT INTO tickets (
+        id, conversation_id, assignee_id, team_id,
+        status, priority, snoozed_until, waiting_since, deadline_at,
+        first_reply_created_at, opened_at, resolved_at, internal_note,
+        internal_note_updated_by, internal_note_updated_at,
+        custom_attributes, created_at, updated_at
+      ) VALUES (
+        ${id}, ${conversationId}, ${assigneeId}, ${teamId},
+        ${status}, ${priority}, ${dto.snoozedUntil ?? null}, ${null}, ${dto.deadlineAt ?? null},
+        ${null}, ${now}, ${status === 'resolved' ? now : null}, ${dto.internalNote ?? null},
+        ${null}, ${null},
+        ${JSON.stringify(dto.customAttributes || {})}, ${now}, ${now}
+      )
+      RETURNING
+        id, display_id as "displayId", conversation_id as "conversationId",
+        assignee_id as "assigneeId", team_id as "teamId", status, priority,
+        snoozed_until as "snoozedUntil", waiting_since as "waitingSince",
+        deadline_at as "deadlineAt", first_reply_created_at as "firstReplyCreatedAt",
+        opened_at as "openedAt", resolved_at as "resolvedAt", internal_note as "internalNote",
+        internal_note_updated_by as "internalNoteUpdatedBy",
+        internal_note_updated_at as "internalNoteUpdatedAt",
+        custom_attributes as "customAttributes", created_at as "createdAt",
+        updated_at as "updatedAt"
+    `
+
+    const ticket = mapTicketRow(rows[0])
 
     if (ticket.status === 'resolved') {
-      csatService.onTicketResolved(ticket).catch(() => {})
+      await csatService.onTicketResolved(ticket).catch(() => {})
       analyticsService.onTicketResolved(ticket).catch(() => {})
     }
 
@@ -164,7 +227,7 @@ export class TicketService {
           )
         `
       } catch {
-        // Memory fallback
+        // Safe ignore for message log
       }
 
       realtimeService.broadcast({
@@ -188,113 +251,74 @@ export class TicketService {
   }
 
   async getTicketById(id: string): Promise<Ticket | null> {
-    try {
-      const rows = await sql`
-        SELECT
-          id,
-          display_id as "displayId",
-          conversation_id as "conversationId",
-          assignee_id as "assigneeId",
-          team_id as "teamId",
-          status,
-          priority,
-          snoozed_until as "snoozedUntil",
-          waiting_since as "waitingSince",
-          deadline_at as "deadlineAt",
-          first_reply_created_at as "firstReplyCreatedAt",
-          opened_at as "openedAt",
-          resolved_at as "resolvedAt",
-          internal_note as "internalNote",
-          internal_note_updated_by as "internalNoteUpdatedBy",
-          internal_note_updated_at as "internalNoteUpdatedAt",
-          custom_attributes as "customAttributes",
-          created_at as "createdAt",
-          updated_at as "updatedAt"
-        FROM tickets
-        WHERE id = ${id}
-        LIMIT 1
-      `
-      if (rows && rows.length > 0) {
-        const row = rows[0] as unknown as Ticket & { displayId: string | number }
-        const ticket: Ticket = {
-          ...row,
-          displayId: Number(row.displayId),
-        }
-        memoryStore.tickets.set(id, ticket)
-        return ticket
-      }
-      memoryStore.tickets.delete(id)
-      return null
-    } catch {
-      // Memory fallback if DB is offline
-      return memoryStore.tickets.get(id) || null
+    const rows = await sql`
+      SELECT
+        id,
+        display_id as "displayId",
+        conversation_id as "conversationId",
+        assignee_id as "assigneeId",
+        team_id as "teamId",
+        status,
+        priority,
+        snoozed_until as "snoozedUntil",
+        waiting_since as "waitingSince",
+        deadline_at as "deadlineAt",
+        first_reply_created_at as "firstReplyCreatedAt",
+        opened_at as "openedAt",
+        resolved_at as "resolvedAt",
+        internal_note as "internalNote",
+        internal_note_updated_by as "internalNoteUpdatedBy",
+        internal_note_updated_at as "internalNoteUpdatedAt",
+        custom_attributes as "customAttributes",
+        created_at as "createdAt",
+        updated_at as "updatedAt"
+      FROM tickets
+      WHERE id = ${id}
+      LIMIT 1
+    `
+    if (rows && rows.length > 0) {
+      return mapTicketRow(rows[0])
     }
+    return null
   }
 
   async listTickets(filter?: TicketFilter): Promise<Ticket[]> {
-    try {
-      let query = sql`
-        SELECT
-          id,
-          display_id as "displayId",
-          conversation_id as "conversationId",
-          assignee_id as "assigneeId",
-          team_id as "teamId",
-          status,
-          priority,
-          snoozed_until as "snoozedUntil",
-          waiting_since as "waitingSince",
-          deadline_at as "deadlineAt",
-          first_reply_created_at as "firstReplyCreatedAt",
-          opened_at as "openedAt",
-          resolved_at as "resolvedAt",
-          internal_note as "internalNote",
-          internal_note_updated_by as "internalNoteUpdatedBy",
-          internal_note_updated_at as "internalNoteUpdatedAt",
-          custom_attributes as "customAttributes",
-          created_at as "createdAt",
-          updated_at as "updatedAt"
-        FROM tickets
-        WHERE 1 = 1
-      `
-      if (filter?.status) {
-        query = sql`${query} AND status = ${filter.status}`
-      }
-      if (filter?.assigneeId !== undefined) {
-        query = sql`${query} AND assignee_id = ${filter.assigneeId}`
-      }
-      if (filter?.conversationId) {
-        query = sql`${query} AND conversation_id = ${filter.conversationId}`
-      }
-      query = sql`${query} ORDER BY created_at DESC`
-      const rows = await query
-      const tickets = (
-        (rows || []) as unknown as Array<Ticket & { displayId: string | number }>
-      ).map((row) => ({
-        ...row,
-        displayId: Number(row.displayId),
-      }))
-      if (!filter?.status && filter?.assigneeId === undefined && !filter?.conversationId) {
-        memoryStore.tickets.clear()
-        for (const t of tickets) {
-          memoryStore.tickets.set(t.id, t)
-        }
-      }
-      return tickets
-    } catch {
-      // Memory fallback if DB is offline
-      let tickets = Array.from(memoryStore.tickets.values())
-      if (filter?.status) {
-        tickets = tickets.filter((t) => t.status === filter.status)
-      }
-      if (filter?.assigneeId !== undefined) {
-        tickets = tickets.filter((t) => t.assigneeId === filter.assigneeId)
-      }
-      if (filter?.conversationId) {
-        tickets = tickets.filter((t) => t.conversationId === filter.conversationId)
-      }
-      return tickets
+    let query = sql`
+      SELECT
+        id,
+        display_id as "displayId",
+        conversation_id as "conversationId",
+        assignee_id as "assigneeId",
+        team_id as "teamId",
+        status,
+        priority,
+        snoozed_until as "snoozedUntil",
+        waiting_since as "waitingSince",
+        deadline_at as "deadlineAt",
+        first_reply_created_at as "firstReplyCreatedAt",
+        opened_at as "openedAt",
+        resolved_at as "resolvedAt",
+        internal_note as "internalNote",
+        internal_note_updated_by as "internalNoteUpdatedBy",
+        internal_note_updated_at as "internalNoteUpdatedAt",
+        custom_attributes as "customAttributes",
+        created_at as "createdAt",
+        updated_at as "updatedAt"
+      FROM tickets
+      WHERE 1 = 1
+    `
+    if (filter?.status) {
+      query = sql`${query} AND status = ${filter.status}`
     }
+    if (filter?.assigneeId !== undefined) {
+      query = sql`${query} AND assignee_id = ${filter.assigneeId}`
+    }
+    if (filter?.conversationId) {
+      query = sql`${query} AND conversation_id = ${filter.conversationId}`
+    }
+    query = sql`${query} ORDER BY created_at DESC`
+    const rows = await query
+    return (rows || []).map(mapTicketRow)
   }
 
   async updateTicketStatus(
@@ -318,29 +342,36 @@ export class TicketService {
     const resolvedAt = validatedStatus === 'resolved' ? now : null
     const finalSnoozedUntil = validatedStatus === 'snoozed' ? snoozedUntil || null : null
 
-    const updated: Ticket = {
-      ...existing,
-      status: validatedStatus,
-      resolvedAt,
-      snoozedUntil: finalSnoozedUntil,
-      updatedAt: now,
-    }
-
-    memoryStore.tickets.set(id, updated)
-
-    try {
-      await sql`
-        UPDATE tickets
-        SET
-          status = ${validatedStatus},
-          resolved_at = ${resolvedAt},
-          snoozed_until = ${finalSnoozedUntil},
-          updated_at = ${now}
-        WHERE id = ${id}
-      `
-    } catch {
-      // Memory fallback
-    }
+    const rows = await sql`
+      UPDATE tickets
+      SET
+        status = ${validatedStatus},
+        resolved_at = ${resolvedAt},
+        snoozed_until = ${finalSnoozedUntil},
+        updated_at = ${now}
+      WHERE id = ${id}
+      RETURNING
+        id,
+        display_id as "displayId",
+        conversation_id as "conversationId",
+        assignee_id as "assigneeId",
+        team_id as "teamId",
+        status,
+        priority,
+        snoozed_until as "snoozedUntil",
+        waiting_since as "waitingSince",
+        deadline_at as "deadlineAt",
+        first_reply_created_at as "firstReplyCreatedAt",
+        opened_at as "openedAt",
+        resolved_at as "resolvedAt",
+        internal_note as "internalNote",
+        internal_note_updated_by as "internalNoteUpdatedBy",
+        internal_note_updated_at as "internalNoteUpdatedAt",
+        custom_attributes as "customAttributes",
+        created_at as "createdAt",
+        updated_at as "updatedAt"
+    `
+    const updated = mapTicketRow(rows[0])
 
     realtimeService.broadcast({
       event: 'ticket.updated',
@@ -408,7 +439,7 @@ export class TicketService {
           )
         `
       } catch {
-        // Memory fallback
+        // Safe ignore
       }
 
       realtimeService.broadcast({
@@ -429,7 +460,7 @@ export class TicketService {
     }
 
     if (validatedStatus === 'resolved') {
-      csatService.onTicketResolved(updated).catch(() => {})
+      await csatService.onTicketResolved(updated).catch(() => {})
       analyticsService.onTicketResolved(updated).catch(() => {})
     }
 
@@ -442,36 +473,44 @@ export class TicketService {
       throw new Error(`Ticket not found: ${id}`)
     }
 
-    const isValidUuid = (val: string) =>
-      /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(val)
-
     const now = new Date().toISOString()
-    const authorId =
-      updatedBy && isValidUuid(updatedBy) ? updatedBy : '3b87d597-cde4-4b3e-8cce-e3bd24ac1c4f'
-
-    const updated: Ticket = {
-      ...existing,
-      internalNote,
-      internalNoteUpdatedAt: now,
-      internalNoteUpdatedBy: updatedBy || authorId,
-      updatedAt: now,
+    let authorId = '3b87d597-cde4-4b3e-8cce-e3bd24ac1c4f'
+    if (updatedBy) {
+      authorId = toValidUuid(updatedBy)
+      rawAuthorMap.set(authorId, updatedBy)
     }
+    await ensureUserExists(authorId)
 
-    memoryStore.tickets.set(id, updated)
-
-    try {
-      await sql`
-        UPDATE tickets
-        SET
-          internal_note = ${internalNote},
-          internal_note_updated_at = ${now},
-          internal_note_updated_by = ${authorId},
-          updated_at = ${now}
-        WHERE id = ${id}
-      `
-    } catch {
-      // Memory fallback
-    }
+    const rows = await sql`
+      UPDATE tickets
+      SET
+        internal_note = ${internalNote},
+        internal_note_updated_at = ${now},
+        internal_note_updated_by = ${authorId},
+        updated_at = ${now}
+      WHERE id = ${id}
+      RETURNING
+        id,
+        display_id as "displayId",
+        conversation_id as "conversationId",
+        assignee_id as "assigneeId",
+        team_id as "teamId",
+        status,
+        priority,
+        snoozed_until as "snoozedUntil",
+        waiting_since as "waitingSince",
+        deadline_at as "deadlineAt",
+        first_reply_created_at as "firstReplyCreatedAt",
+        opened_at as "openedAt",
+        resolved_at as "resolvedAt",
+        internal_note as "internalNote",
+        internal_note_updated_by as "internalNoteUpdatedBy",
+        internal_note_updated_at as "internalNoteUpdatedAt",
+        custom_attributes as "customAttributes",
+        created_at as "createdAt",
+        updated_at as "updatedAt"
+    `
+    const updated = mapTicketRow(rows[0])
 
     realtimeService.broadcast({
       event: 'ticket.updated',
@@ -487,32 +526,41 @@ export class TicketService {
       throw new Error(`Ticket not found: ${id}`)
     }
 
-    const isValidUuid = (val: string) =>
-      /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(val)
-
-    const dbAssigneeId =
-      assigneeId && !isValidUuid(assigneeId) ? '3b87d597-cde4-4b3e-8cce-e3bd24ac1c4f' : assigneeId
+    let validAssigneeId: string | null = null
+    if (assigneeId) {
+      validAssigneeId = toValidUuid(assigneeId)
+      await ensureUserExists(validAssigneeId)
+    }
 
     const now = new Date().toISOString()
-    const updated: Ticket = {
-      ...existing,
-      assigneeId,
-      updatedAt: now,
-    }
-
-    memoryStore.tickets.set(id, updated)
-
-    try {
-      await sql`
-        UPDATE tickets
-        SET
-          assignee_id = ${dbAssigneeId},
-          updated_at = ${now}
-        WHERE id = ${id}
-      `
-    } catch {
-      // Memory fallback
-    }
+    const rows = await sql`
+      UPDATE tickets
+      SET
+        assignee_id = ${validAssigneeId},
+        updated_at = ${now}
+      WHERE id = ${id}
+      RETURNING
+        id,
+        display_id as "displayId",
+        conversation_id as "conversationId",
+        assignee_id as "assigneeId",
+        team_id as "teamId",
+        status,
+        priority,
+        snoozed_until as "snoozedUntil",
+        waiting_since as "waitingSince",
+        deadline_at as "deadlineAt",
+        first_reply_created_at as "firstReplyCreatedAt",
+        opened_at as "openedAt",
+        resolved_at as "resolvedAt",
+        internal_note as "internalNote",
+        internal_note_updated_by as "internalNoteUpdatedBy",
+        internal_note_updated_at as "internalNoteUpdatedAt",
+        custom_attributes as "customAttributes",
+        created_at as "createdAt",
+        updated_at as "updatedAt"
+    `
+    const updated = mapTicketRow(rows[0])
 
     realtimeService.broadcast({
       event: 'ticket.updated',
@@ -529,28 +577,59 @@ export class TicketService {
     }
 
     const now = new Date().toISOString()
-    const updated: Ticket = {
-      ...existing,
-      ...updates,
-      updatedAt: now,
+    let teamId = updates.teamId !== undefined ? updates.teamId : existing.teamId
+    if (teamId) {
+      teamId = toValidUuid(teamId)
+      await ensureTeamExists(teamId)
     }
 
-    memoryStore.tickets.set(id, updated)
-
-    try {
-      await sql`
-        UPDATE tickets
-        SET
-          team_id = ${updated.teamId},
-          assignee_id = ${updated.assigneeId},
-          priority = ${updated.priority},
-          status = ${updated.status},
-          updated_at = ${now}
-        WHERE id = ${id}
-      `
-    } catch {
-      // Memory fallback
+    let assigneeId = updates.assigneeId !== undefined ? updates.assigneeId : existing.assigneeId
+    if (assigneeId) {
+      assigneeId = toValidUuid(assigneeId)
+      await ensureUserExists(assigneeId)
     }
+
+    const priority = updates.priority !== undefined ? updates.priority : existing.priority
+    const status = updates.status !== undefined ? updates.status : existing.status
+    const deadlineAt = updates.deadlineAt !== undefined ? updates.deadlineAt : existing.deadlineAt
+    const firstReplyCreatedAt =
+      updates.firstReplyCreatedAt !== undefined
+        ? updates.firstReplyCreatedAt
+        : existing.firstReplyCreatedAt
+
+    const rows = await sql`
+      UPDATE tickets
+      SET
+        team_id = ${teamId},
+        assignee_id = ${assigneeId},
+        priority = ${priority},
+        status = ${status},
+        deadline_at = ${deadlineAt},
+        first_reply_created_at = ${firstReplyCreatedAt},
+        updated_at = ${now}
+      WHERE id = ${id}
+      RETURNING
+        id,
+        display_id as "displayId",
+        conversation_id as "conversationId",
+        assignee_id as "assigneeId",
+        team_id as "teamId",
+        status,
+        priority,
+        snoozed_until as "snoozedUntil",
+        waiting_since as "waitingSince",
+        deadline_at as "deadlineAt",
+        first_reply_created_at as "firstReplyCreatedAt",
+        opened_at as "openedAt",
+        resolved_at as "resolvedAt",
+        internal_note as "internalNote",
+        internal_note_updated_by as "internalNoteUpdatedBy",
+        internal_note_updated_at as "internalNoteUpdatedAt",
+        custom_attributes as "customAttributes",
+        created_at as "createdAt",
+        updated_at as "updatedAt"
+    `
+    const updated = mapTicketRow(rows[0])
 
     realtimeService.broadcast({
       event: 'ticket.updated',
@@ -567,25 +646,34 @@ export class TicketService {
     }
 
     const now = new Date().toISOString()
-    const updated: Ticket = {
-      ...existing,
-      firstReplyCreatedAt: now,
-      updatedAt: now,
-    }
-
-    memoryStore.tickets.set(id, updated)
-
-    try {
-      await sql`
-        UPDATE tickets
-        SET
-          first_reply_created_at = ${now},
-          updated_at = ${now}
-        WHERE id = ${id}
-      `
-    } catch {
-      // Memory fallback
-    }
+    const rows = await sql`
+      UPDATE tickets
+      SET
+        first_reply_created_at = ${now},
+        updated_at = ${now}
+      WHERE id = ${id}
+      RETURNING
+        id,
+        display_id as "displayId",
+        conversation_id as "conversationId",
+        assignee_id as "assigneeId",
+        team_id as "teamId",
+        status,
+        priority,
+        snoozed_until as "snoozedUntil",
+        waiting_since as "waitingSince",
+        deadline_at as "deadlineAt",
+        first_reply_created_at as "firstReplyCreatedAt",
+        opened_at as "openedAt",
+        resolved_at as "resolvedAt",
+        internal_note as "internalNote",
+        internal_note_updated_by as "internalNoteUpdatedBy",
+        internal_note_updated_at as "internalNoteUpdatedAt",
+        custom_attributes as "customAttributes",
+        created_at as "createdAt",
+        updated_at as "updatedAt"
+    `
+    const updated = mapTicketRow(rows[0])
 
     analyticsService.onFirstReply(updated, updated.assigneeId).catch(() => {})
 

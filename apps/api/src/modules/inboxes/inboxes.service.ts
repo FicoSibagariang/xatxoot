@@ -6,7 +6,7 @@ import {
   type Inbox,
   SenderNameTypeSchema,
 } from '@xatxoot/shared'
-import { sql } from '../../db'
+import { sql, toValidUuid } from '../../db'
 
 export type {
   CreateInboxInput,
@@ -100,17 +100,13 @@ export interface CreateInboxDto {
   senderNameType?: 'friendly' | 'professional'
 }
 
-// In-memory fallback store for offline/testing mode
-const memoryStore = {
-  inboxes: new Map<string, Inbox>(),
-  channels: new Map<string, { type: string; data: ChannelData }>(),
-  members: new Map<string, InboxMemberRecord[]>(), // inboxId -> members
-}
-
-export function resetInboxStore(): void {
-  memoryStore.inboxes.clear()
-  memoryStore.channels.clear()
-  memoryStore.members.clear()
+export async function resetInboxStore(): Promise<void> {
+  await sql`DELETE FROM inbox_members`
+  await sql`DELETE FROM inboxes`
+  await sql`DELETE FROM channels_whatsapp_cloud`
+  await sql`DELETE FROM channels_whatsapp_unofficial`
+  await sql`DELETE FROM channels_web_widget`
+  await sql`DELETE FROM channels_api`
 }
 
 export class InboxService {
@@ -154,19 +150,15 @@ export class InboxService {
         updatedAt: now,
       }
 
-      try {
-        await sql`
-          INSERT INTO channels_whatsapp_cloud (
-            id, phone_number, phone_number_id, waba_id, access_token, webhook_verify_token, created_at, updated_at
-          ) VALUES (
-            ${channelId}, ${channelRecord.phoneNumber}, ${channelRecord.phoneNumberId},
-            ${channelRecord.wabaId}, ${channelRecord.accessToken}, ${channelRecord.webhookVerifyToken},
-            ${now}, ${now}
-          )
-        `
-      } catch {
-        // Fallback to memoryStore
-      }
+      await sql`
+        INSERT INTO channels_whatsapp_cloud (
+          id, phone_number, phone_number_id, waba_id, access_token, webhook_verify_token, created_at, updated_at
+        ) VALUES (
+          ${channelId}, ${channelRecord.phoneNumber}, ${channelRecord.phoneNumberId},
+          ${channelRecord.wabaId}, ${channelRecord.accessToken}, ${channelRecord.webhookVerifyToken},
+          ${now}, ${now}
+        )
+      `
     } else if (channelType === 'whatsapp_unofficial') {
       const channelInput = dto.channel
       const sessionId = channelInput?.sessionId || `wa_${crypto.randomUUID()}`
@@ -181,18 +173,14 @@ export class InboxService {
         updatedAt: now,
       }
 
-      try {
-        await sql`
-          INSERT INTO channels_whatsapp_unofficial (
-            id, session_id, phone_number, connection_status, qr_code, created_at, updated_at
-          ) VALUES (
-            ${channelId}, ${channelRecord.sessionId}, ${channelRecord.phoneNumber},
-            'disconnected', NULL, ${now}, ${now}
-          )
-        `
-      } catch {
-        // Fallback to memoryStore
-      }
+      await sql`
+        INSERT INTO channels_whatsapp_unofficial (
+          id, session_id, phone_number, connection_status, qr_code, created_at, updated_at
+        ) VALUES (
+          ${channelId}, ${channelRecord.sessionId}, ${channelRecord.phoneNumber},
+          'disconnected', NULL, ${now}, ${now}
+        )
+      `
     } else if (channelType === 'web_widget') {
       const channelInput = dto.channel
       const websiteToken = channelInput?.websiteToken || `token_${crypto.randomUUID()}`
@@ -209,21 +197,16 @@ export class InboxService {
         updatedAt: now,
       }
 
-      try {
-        await sql`
-          INSERT INTO channels_web_widget (
-            id, website_token, website_url, allowed_domains, widget_color, reply_time, pre_chat_form_enabled, created_at, updated_at
-          ) VALUES (
-            ${channelId}, ${channelRecord.websiteToken}, ${channelRecord.websiteUrl},
-            ${channelRecord.allowedDomains}, ${channelRecord.widgetColor}, ${channelRecord.replyTime},
-            ${channelRecord.preChatFormEnabled}, ${now}, ${now}
-          )
-        `
-      } catch {
-        // Fallback to memoryStore
-      }
+      await sql`
+        INSERT INTO channels_web_widget (
+          id, website_token, website_url, allowed_domains, widget_color, reply_time, pre_chat_form_enabled, created_at, updated_at
+        ) VALUES (
+          ${channelId}, ${channelRecord.websiteToken}, ${channelRecord.websiteUrl},
+          ${sql.array(channelRecord.allowedDomains || [])}, ${channelRecord.widgetColor}, ${channelRecord.replyTime},
+          ${channelRecord.preChatFormEnabled}, ${now}, ${now}
+        )
+      `
     } else {
-      // api channel
       const channelInput = dto.channel
       channelRecord = {
         id: channelId,
@@ -234,17 +217,13 @@ export class InboxService {
         updatedAt: now,
       }
 
-      try {
-        await sql`
-          INSERT INTO channels_api (
-            id, name, webhook_url, api_key_hash, created_at, updated_at
-          ) VALUES (
-            ${channelId}, ${channelRecord.name}, ${channelRecord.webhookUrl}, ${channelRecord.apiKeyHash}, ${now}, ${now}
-          )
-        `
-      } catch {
-        // Fallback to memoryStore
-      }
+      await sql`
+        INSERT INTO channels_api (
+          id, name, webhook_url, api_key_hash, created_at, updated_at
+        ) VALUES (
+          ${channelId}, ${channelRecord.name}, ${channelRecord.webhookUrl}, ${channelRecord.apiKeyHash}, ${now}, ${now}
+        )
+      `
     }
 
     const inboxRecord: Inbox = {
@@ -264,196 +243,137 @@ export class InboxService {
       updatedAt: now,
     }
 
-    try {
-      await sql`
-        INSERT INTO inboxes (
-          id, name, channel_type, channel_id, enable_auto_assign, greeting_enabled,
-          greeting_message, working_hours_enabled, working_hours, out_of_office_message,
-          lock_to_single_conv, sender_name_type, created_at, updated_at
-        ) VALUES (
-          ${inboxId}, ${inboxRecord.name}, ${inboxRecord.channelType}, ${channelId},
-          ${inboxRecord.enableAutoAssign}, ${inboxRecord.greetingEnabled}, ${inboxRecord.greetingMessage},
-          ${inboxRecord.workingHoursEnabled}, ${JSON.stringify(inboxRecord.workingHours)},
-          ${inboxRecord.outOfOfficeMessage}, ${inboxRecord.lockToSingleConv},
-          ${inboxRecord.senderNameType}, ${now}, ${now}
-        )
-      `
-    } catch {
-      // Fallback to memoryStore
-    }
-
-    memoryStore.inboxes.set(inboxId, inboxRecord)
-    memoryStore.channels.set(channelId, { type: channelType, data: channelRecord })
-    memoryStore.members.set(inboxId, [])
+    await sql`
+      INSERT INTO inboxes (
+        id, name, channel_type, channel_id, enable_auto_assign, greeting_enabled,
+        greeting_message, working_hours_enabled, working_hours, out_of_office_message,
+        lock_to_single_conv, sender_name_type, created_at, updated_at
+      ) VALUES (
+        ${inboxId}, ${inboxRecord.name}, ${inboxRecord.channelType}, ${channelId},
+        ${inboxRecord.enableAutoAssign}, ${inboxRecord.greetingEnabled}, ${inboxRecord.greetingMessage},
+        ${inboxRecord.workingHoursEnabled}, ${JSON.stringify(inboxRecord.workingHours)},
+        ${inboxRecord.outOfOfficeMessage}, ${inboxRecord.lockToSingleConv},
+        ${inboxRecord.senderNameType}, ${now}, ${now}
+      )
+    `
 
     return { inbox: inboxRecord, channel: channelRecord }
   }
 
   async getInboxById(id: string): Promise<{ inbox: Inbox; channel: ChannelData } | null> {
+    let targetId = id
     if (id === 'active' || id === 'default') {
-      try {
-        const rows = await sql`
-          SELECT id FROM inboxes WHERE channel_type = 'whatsapp_unofficial' ORDER BY created_at DESC LIMIT 1
-        `
-        if (rows.length > 0) {
-          return this.getInboxById(rows[0].id)
-        }
-      } catch {
-        // Fallback
-      }
-      for (const [inboxId, inboxRec] of memoryStore.inboxes.entries()) {
-        if (inboxRec.channelType === 'whatsapp_unofficial') {
-          return this.getInboxById(inboxId)
-        }
-      }
-    }
-
-    try {
       const rows = await sql`
-        SELECT id, name, channel_type as "channelType", channel_id as "channelId",
-               enable_auto_assign as "enableAutoAssign", greeting_enabled as "greetingEnabled",
-               greeting_message as "greetingMessage", working_hours_enabled as "workingHoursEnabled",
-               working_hours as "workingHours", out_of_office_message as "outOfOfficeMessage",
-               lock_to_single_conv as "lockToSingleConv", sender_name_type as "senderNameType",
-               created_at as "createdAt", updated_at as "updatedAt"
-        FROM inboxes
-        WHERE id = ${id}
-        LIMIT 1
+        SELECT id FROM inboxes WHERE channel_type = 'whatsapp_unofficial' ORDER BY created_at DESC LIMIT 1
       `
       if (rows.length > 0) {
-        const inbox = rows[0] as Inbox
-        const channel =
-          (await this.getChannelById(inbox.channelType, inbox.channelId)) ||
-          memoryStore.channels.get(inbox.channelId)?.data ||
-          ({} as ChannelData)
-        return { inbox, channel }
+        targetId = rows[0].id
+      } else {
+        return null
       }
-    } catch {
-      // DB offline, fallback to memoryStore
     }
 
-    const inbox = memoryStore.inboxes.get(id)
-    if (!inbox) return null
-    const channelEntry = memoryStore.channels.get(inbox.channelId)
-    return { inbox, channel: channelEntry ? channelEntry.data : ({} as ChannelData) }
+    const rows = await sql`
+      SELECT id, name, channel_type as "channelType", channel_id as "channelId",
+             enable_auto_assign as "enableAutoAssign", greeting_enabled as "greetingEnabled",
+             greeting_message as "greetingMessage", working_hours_enabled as "workingHoursEnabled",
+             working_hours as "workingHours", out_of_office_message as "outOfOfficeMessage",
+             lock_to_single_conv as "lockToSingleConv", sender_name_type as "senderNameType",
+             created_at as "createdAt", updated_at as "updatedAt"
+      FROM inboxes
+      WHERE id = ${targetId}
+      LIMIT 1
+    `
+    if (rows.length === 0) return null
+
+    const inbox = rows[0] as Inbox
+    const channel =
+      (await this.getChannelById(inbox.channelType, inbox.channelId)) || ({} as ChannelData)
+    return { inbox, channel }
   }
 
   async getInboxBySessionId(
     sessionId: string,
   ): Promise<{ inbox: Inbox; channel: ChannelData } | null> {
-    try {
+    const rows = await sql`
+      SELECT i.id, i.name, i.channel_type as "channelType", i.channel_id as "channelId",
+             i.enable_auto_assign as "enableAutoAssign", i.greeting_enabled as "greetingEnabled",
+             i.greeting_message as "greetingMessage", i.working_hours_enabled as "workingHoursEnabled",
+             i.working_hours as "workingHours", i.out_of_office_message as "outOfOfficeMessage",
+             i.lock_to_single_conv as "lockToSingleConv", i.sender_name_type as "senderNameType",
+             i.created_at as "createdAt", i.updated_at as "updatedAt"
+      FROM inboxes i
+      JOIN channels_whatsapp_unofficial c ON i.channel_id = c.id
+      WHERE c.session_id = ${sessionId}
+      LIMIT 1
+    `
+    if (rows.length === 0) return null
+
+    const inbox = rows[0] as Inbox
+    const channel =
+      (await this.getChannelById(inbox.channelType, inbox.channelId)) || ({} as ChannelData)
+    return { inbox, channel }
+  }
+
+  async getChannelById(channelType: string, channelId: string): Promise<ChannelData | null> {
+    if (channelType === 'whatsapp_cloud') {
       const rows = await sql`
-        SELECT i.id, i.name, i.channel_type as "channelType", i.channel_id as "channelId",
-               i.enable_auto_assign as "enableAutoAssign", i.greeting_enabled as "greetingEnabled",
-               i.greeting_message as "greetingMessage", i.working_hours_enabled as "workingHoursEnabled",
-               i.working_hours as "workingHours", i.out_of_office_message as "outOfOfficeMessage",
-               i.lock_to_single_conv as "lockToSingleConv", i.sender_name_type as "senderNameType",
-               i.created_at as "createdAt", i.updated_at as "updatedAt"
-        FROM inboxes i
-        JOIN channels_whatsapp_unofficial c ON i.channel_id = c.id
-        WHERE c.session_id = ${sessionId}
+        SELECT id, phone_number as "phoneNumber", phone_number_id as "phoneNumberId",
+               waba_id as "wabaId", access_token as "accessToken",
+               webhook_verify_token as "webhookVerifyToken", created_at as "createdAt",
+               updated_at as "updatedAt"
+        FROM channels_whatsapp_cloud
+        WHERE id = ${channelId}
         LIMIT 1
       `
-      if (rows.length > 0) {
-        const inbox = rows[0] as Inbox
-        const channel =
-          (await this.getChannelById(inbox.channelType, inbox.channelId)) ||
-          memoryStore.channels.get(inbox.channelId)?.data ||
-          ({} as ChannelData)
-        return { inbox, channel }
-      }
-    } catch {
-      // Fallback to memoryStore
-    }
-
-    for (const [_inboxId, inboxRec] of memoryStore.inboxes.entries()) {
-      if (inboxRec.channelType === 'whatsapp_unofficial') {
-        const channelEntry = memoryStore.channels.get(inboxRec.channelId)
-        if (
-          channelEntry?.data &&
-          'sessionId' in channelEntry.data &&
-          channelEntry.data.sessionId === sessionId
-        ) {
-          return { inbox: inboxRec, channel: channelEntry.data }
-        }
-      }
+      if (rows.length > 0) return rows[0] as WhatsAppCloudChannelData
+    } else if (channelType === 'whatsapp_unofficial') {
+      const rows = await sql`
+        SELECT id, session_id as "sessionId", phone_number as "phoneNumber",
+               connection_status as "connectionStatus", qr_code as "qrCode",
+               created_at as "createdAt", updated_at as "updatedAt"
+        FROM channels_whatsapp_unofficial
+        WHERE id = ${channelId}
+        LIMIT 1
+      `
+      if (rows.length > 0) return rows[0] as WhatsAppUnofficialChannelData
+    } else if (channelType === 'web_widget') {
+      const rows = await sql`
+        SELECT id, website_token as "websiteToken", website_url as "websiteUrl",
+               allowed_domains as "allowedDomains", widget_color as "widgetColor",
+               reply_time as "replyTime", pre_chat_form_enabled as "preChatFormEnabled",
+               created_at as "createdAt", updated_at as "updatedAt"
+        FROM channels_web_widget
+        WHERE id = ${channelId}
+        LIMIT 1
+      `
+      if (rows.length > 0) return rows[0] as WebWidgetChannelData
+    } else if (channelType === 'api') {
+      const rows = await sql`
+        SELECT id, name, webhook_url as "webhookUrl", api_key_hash as "apiKeyHash",
+               created_at as "createdAt", updated_at as "updatedAt"
+        FROM channels_api
+        WHERE id = ${channelId}
+        LIMIT 1
+      `
+      if (rows.length > 0) return rows[0] as ApiChannelData
     }
 
     return null
   }
 
-  async getChannelById(channelType: string, channelId: string): Promise<ChannelData | null> {
-    try {
-      if (channelType === 'whatsapp_cloud') {
-        const rows = await sql`
-          SELECT id, phone_number as "phoneNumber", phone_number_id as "phoneNumberId",
-                 waba_id as "wabaId", access_token as "accessToken",
-                 webhook_verify_token as "webhookVerifyToken", created_at as "createdAt",
-                 updated_at as "updatedAt"
-          FROM channels_whatsapp_cloud
-          WHERE id = ${channelId}
-          LIMIT 1
-        `
-        if (rows.length > 0) return rows[0] as WhatsAppCloudChannelData
-      } else if (channelType === 'whatsapp_unofficial') {
-        const rows = await sql`
-          SELECT id, session_id as "sessionId", phone_number as "phoneNumber",
-                 connection_status as "connectionStatus", qr_code as "qrCode",
-                 created_at as "createdAt", updated_at as "updatedAt"
-          FROM channels_whatsapp_unofficial
-          WHERE id = ${channelId}
-          LIMIT 1
-        `
-        if (rows.length > 0) return rows[0] as WhatsAppUnofficialChannelData
-      } else if (channelType === 'web_widget') {
-        const rows = await sql`
-          SELECT id, website_token as "websiteToken", website_url as "websiteUrl",
-                 allowed_domains as "allowedDomains", widget_color as "widgetColor",
-                 reply_time as "replyTime", pre_chat_form_enabled as "preChatFormEnabled",
-                 created_at as "createdAt", updated_at as "updatedAt"
-          FROM channels_web_widget
-          WHERE id = ${channelId}
-          LIMIT 1
-        `
-        if (rows.length > 0) return rows[0] as WebWidgetChannelData
-      } else if (channelType === 'api') {
-        const rows = await sql`
-          SELECT id, name, webhook_url as "webhookUrl", api_key_hash as "apiKeyHash",
-                 created_at as "createdAt", updated_at as "updatedAt"
-          FROM channels_api
-          WHERE id = ${channelId}
-          LIMIT 1
-        `
-        if (rows.length > 0) return rows[0] as ApiChannelData
-      }
-    } catch {
-      // Fallback
-    }
-
-    const memoryEntry = memoryStore.channels.get(channelId)
-    return memoryEntry ? memoryEntry.data : null
-  }
-
   async listInboxes(): Promise<Inbox[]> {
-    try {
-      const rows = await sql`
-        SELECT id, name, channel_type as "channelType", channel_id as "channelId",
-               enable_auto_assign as "enableAutoAssign", greeting_enabled as "greetingEnabled",
-               greeting_message as "greetingMessage", working_hours_enabled as "workingHoursEnabled",
-               working_hours as "workingHours", out_of_office_message as "outOfOfficeMessage",
-               lock_to_single_conv as "lockToSingleConv", sender_name_type as "senderNameType",
-               created_at as "createdAt", updated_at as "updatedAt"
-        FROM inboxes
-        ORDER BY created_at DESC
-      `
-      if (rows.length > 0) {
-        return rows as Inbox[]
-      }
-    } catch {
-      // Fallback to memoryStore
-    }
-
-    return Array.from(memoryStore.inboxes.values())
+    const rows = await sql`
+      SELECT id, name, channel_type as "channelType", channel_id as "channelId",
+             enable_auto_assign as "enableAutoAssign", greeting_enabled as "greetingEnabled",
+             greeting_message as "greetingMessage", working_hours_enabled as "workingHoursEnabled",
+             working_hours as "workingHours", out_of_office_message as "outOfOfficeMessage",
+             lock_to_single_conv as "lockToSingleConv", sender_name_type as "senderNameType",
+             created_at as "createdAt", updated_at as "updatedAt"
+      FROM inboxes
+      ORDER BY created_at DESC
+    `
+    return rows as Inbox[]
   }
 
   async updateInbox(id: string, updates: Partial<CreateInboxDto>): Promise<Inbox | null> {
@@ -504,24 +424,20 @@ export class InboxService {
       updatedAt: now,
     }
 
-    try {
-      await sql`
-        UPDATE inboxes
-        SET name = ${updated.name},
-            enable_auto_assign = ${updated.enableAutoAssign},
-            greeting_enabled = ${updated.greetingEnabled},
-            greeting_message = ${updated.greetingMessage},
-            working_hours_enabled = ${updated.workingHoursEnabled},
-            working_hours = ${JSON.stringify(updated.workingHours)},
-            out_of_office_message = ${updated.outOfOfficeMessage},
-            lock_to_single_conv = ${updated.lockToSingleConv},
-            sender_name_type = ${updated.senderNameType},
-            updated_at = ${now}
-        WHERE id = ${id}
-      `
-    } catch {
-      // Fallback
-    }
+    await sql`
+      UPDATE inboxes
+      SET name = ${updated.name},
+          enable_auto_assign = ${updated.enableAutoAssign},
+          greeting_enabled = ${updated.greetingEnabled},
+          greeting_message = ${updated.greetingMessage},
+          working_hours_enabled = ${updated.workingHoursEnabled},
+          working_hours = ${JSON.stringify(updated.workingHours)},
+          out_of_office_message = ${updated.outOfOfficeMessage},
+          lock_to_single_conv = ${updated.lockToSingleConv},
+          sender_name_type = ${updated.senderNameType},
+          updated_at = ${now}
+      WHERE id = ${id}
+    `
 
     if (updates.channel && existing.inbox.channelType === 'web_widget') {
       const channelData = existing.channel as WebWidgetChannelData
@@ -541,28 +457,18 @@ export class InboxService {
         updatedAt: now,
       }
 
-      try {
-        await sql`
-          UPDATE channels_web_widget
-          SET widget_color = ${updatedChannel.widgetColor},
-              website_url = ${updatedChannel.websiteUrl},
-              allowed_domains = ${updatedChannel.allowedDomains},
-              reply_time = ${updatedChannel.replyTime},
-              pre_chat_form_enabled = ${updatedChannel.preChatFormEnabled},
-              updated_at = ${now}
-          WHERE id = ${existing.inbox.channelId}
-        `
-      } catch {
-        // Fallback
-      }
-
-      memoryStore.channels.set(existing.inbox.channelId, {
-        type: 'web_widget',
-        data: updatedChannel,
-      })
+      await sql`
+        UPDATE channels_web_widget
+        SET widget_color = ${updatedChannel.widgetColor},
+            website_url = ${updatedChannel.websiteUrl},
+            allowed_domains = ${sql.array(updatedChannel.allowedDomains || [])},
+            reply_time = ${updatedChannel.replyTime},
+            pre_chat_form_enabled = ${updatedChannel.preChatFormEnabled},
+            updated_at = ${now}
+        WHERE id = ${existing.inbox.channelId}
+      `
     }
 
-    memoryStore.inboxes.set(id, updated)
     return updated
   }
 
@@ -570,24 +476,17 @@ export class InboxService {
     const existing = await this.getInboxById(id)
     if (!existing) return false
 
-    try {
-      await sql`DELETE FROM inboxes WHERE id = ${id}`
-      if (existing.inbox.channelType === 'whatsapp_cloud') {
-        await sql`DELETE FROM channels_whatsapp_cloud WHERE id = ${existing.inbox.channelId}`
-      } else if (existing.inbox.channelType === 'whatsapp_unofficial') {
-        await sql`DELETE FROM channels_whatsapp_unofficial WHERE id = ${existing.inbox.channelId}`
-      } else if (existing.inbox.channelType === 'web_widget') {
-        await sql`DELETE FROM channels_web_widget WHERE id = ${existing.inbox.channelId}`
-      } else if (existing.inbox.channelType === 'api') {
-        await sql`DELETE FROM channels_api WHERE id = ${existing.inbox.channelId}`
-      }
-    } catch {
-      // Fallback
+    await sql`DELETE FROM inboxes WHERE id = ${id}`
+    if (existing.inbox.channelType === 'whatsapp_cloud') {
+      await sql`DELETE FROM channels_whatsapp_cloud WHERE id = ${existing.inbox.channelId}`
+    } else if (existing.inbox.channelType === 'whatsapp_unofficial') {
+      await sql`DELETE FROM channels_whatsapp_unofficial WHERE id = ${existing.inbox.channelId}`
+    } else if (existing.inbox.channelType === 'web_widget') {
+      await sql`DELETE FROM channels_web_widget WHERE id = ${existing.inbox.channelId}`
+    } else if (existing.inbox.channelType === 'api') {
+      await sql`DELETE FROM channels_api WHERE id = ${existing.inbox.channelId}`
     }
 
-    memoryStore.inboxes.delete(id)
-    memoryStore.channels.delete(existing.inbox.channelId)
-    memoryStore.members.delete(id)
     return true
   }
 
@@ -639,7 +538,6 @@ export class InboxService {
     const gatewayUrl = `http://127.0.0.1:${gatewayPort}`
 
     try {
-      // 1. Query gateway session status
       const statusRes = await fetch(`${gatewayUrl}/api/sessions/${sessionId}/status`, {
         signal: AbortSignal.timeout(1500),
       })
@@ -682,7 +580,6 @@ export class InboxService {
         }
       }
 
-      // 2. If session disconnected in gateway, trigger start
       if (channelDetails.connectionStatus !== 'connected') {
         const startRes = await fetch(`${gatewayUrl}/api/sessions/start`, {
           method: 'POST',
@@ -714,7 +611,7 @@ export class InboxService {
         }
       }
     } catch {
-      // Gateway unreachable or timed out; fallback to local DB state
+      // Gateway unreachable
     }
 
     return {
@@ -735,7 +632,6 @@ export class InboxService {
     channel.connectionStatus = 'disconnected'
     channel.qrCode = null
 
-    // Notify wa-gateway to terminate socket session
     const gatewayPort = Number(process.env.PORT_GATEWAY || 8801)
     const gatewayUrl = `http://127.0.0.1:${gatewayPort}`
     try {
@@ -747,15 +643,11 @@ export class InboxService {
       // ignore network errors
     }
 
-    try {
-      await sql`
-        UPDATE channels_whatsapp_unofficial
-        SET connection_status = 'disconnected', qr_code = NULL, updated_at = NOW()
-        WHERE id = ${channel.id}
-      `
-    } catch {
-      // Fallback
-    }
+    await sql`
+      UPDATE channels_whatsapp_unofficial
+      SET connection_status = 'disconnected', qr_code = NULL, updated_at = NOW()
+      WHERE id = ${channel.id}
+    `
 
     return {
       success: true,
@@ -764,21 +656,28 @@ export class InboxService {
   }
 
   async listInboxMembers(inboxId: string): Promise<InboxMemberRecord[]> {
-    try {
-      const rows = await sql`
-        SELECT id, inbox_id as "inboxId", user_id as "userId", created_at as "createdAt"
-        FROM inbox_members
-        WHERE inbox_id = ${inboxId}
-      `
-      if (rows.length > 0) return rows as InboxMemberRecord[]
-    } catch {
-      // Fallback
-    }
-
-    return memoryStore.members.get(inboxId) || []
+    const vInboxId = toValidUuid(inboxId)
+    const rows = await sql`
+      SELECT id, inbox_id as "inboxId", user_id as "userId", created_at as "createdAt"
+      FROM inbox_members
+      WHERE inbox_id = ${vInboxId}
+    `
+    return rows as unknown as InboxMemberRecord[]
   }
 
   async addInboxMember(inboxId: string, userId: string): Promise<InboxMemberRecord> {
+    const vInboxId = toValidUuid(inboxId)
+    const vUserId = toValidUuid(userId)
+    await sql`
+      INSERT INTO inboxes (id, name, channel_type, channel_id, created_at, updated_at)
+      VALUES (${vInboxId}, 'Inbox ' || ${vInboxId}, 'api', ${crypto.randomUUID()}, NOW(), NOW())
+      ON CONFLICT (id) DO NOTHING
+    `
+    await sql`
+      INSERT INTO users (id, email, password_hash, display_name, role, availability, active, created_at, updated_at)
+      VALUES (${vUserId}, ${vUserId} || '@acme.corp', 'mock_hash', 'User ' || ${vUserId}, 'agent', 'online', true, NOW(), NOW())
+      ON CONFLICT (id) DO NOTHING
+    `
     const memberId = crypto.randomUUID()
     const now = new Date().toISOString()
     const memberRecord: InboxMemberRecord = {
@@ -788,40 +687,22 @@ export class InboxService {
       createdAt: now,
     }
 
-    try {
-      await sql`
-        INSERT INTO inbox_members (id, inbox_id, user_id, created_at)
-        VALUES (${memberId}, ${inboxId}, ${userId}, ${now})
-        ON CONFLICT (inbox_id, user_id) DO NOTHING
-      `
-    } catch {
-      // Fallback
-    }
-
-    const currentMembers = memoryStore.members.get(inboxId) || []
-    if (!currentMembers.some((m) => m.userId === userId)) {
-      currentMembers.push(memberRecord)
-      memoryStore.members.set(inboxId, currentMembers)
-    }
+    await sql`
+      INSERT INTO inbox_members (id, inbox_id, user_id, created_at)
+      VALUES (${memberId}, ${vInboxId}, ${vUserId}, ${now})
+      ON CONFLICT (inbox_id, user_id) DO NOTHING
+    `
 
     return memberRecord
   }
 
   async removeInboxMember(inboxId: string, userId: string): Promise<boolean> {
-    try {
-      await sql`
-        DELETE FROM inbox_members
-        WHERE inbox_id = ${inboxId} AND user_id = ${userId}
-      `
-    } catch {
-      // Fallback
-    }
-
-    const currentMembers = memoryStore.members.get(inboxId) || []
-    memoryStore.members.set(
-      inboxId,
-      currentMembers.filter((m) => m.userId !== userId),
-    )
+    const vInboxId = toValidUuid(inboxId)
+    const vUserId = toValidUuid(userId)
+    await sql`
+      DELETE FROM inbox_members
+      WHERE inbox_id = ${vInboxId} AND user_id = ${vUserId}
+    `
     return true
   }
 
@@ -830,76 +711,54 @@ export class InboxService {
   ): Promise<{ inbox: Inbox; channel: WebWidgetChannelData } | null> {
     if (!websiteToken) return null
 
-    // 1. Check PostgreSQL DB
-    try {
-      const rows = await sql`
-        SELECT
-          i.id, i.name, i.channel_type as "channelType", i.channel_id as "channelId",
-          i.enable_auto_assign as "enableAutoAssign", i.greeting_enabled as "greetingEnabled",
-          i.greeting_message as "greetingMessage", i.working_hours_enabled as "workingHoursEnabled",
-          i.working_hours as "workingHours", i.out_of_office_message as "outOfOfficeMessage",
-          i.lock_to_single_conv as "lockToSingleConv", i.sender_name_type as "senderNameType",
-          i.created_at as "createdAt", i.updated_at as "updatedAt",
-          c.id as "c_id", c.website_token as "c_websiteToken", c.website_url as "c_websiteUrl",
-          c.allowed_domains as "c_allowedDomains", c.widget_color as "c_widgetColor",
-          c.reply_time as "c_replyTime", c.pre_chat_form_enabled as "c_preChatFormEnabled",
-          c.created_at as "c_createdAt", c.updated_at as "c_updatedAt"
-        FROM inboxes i
-        JOIN channels_web_widget c ON i.channel_id = c.id
-        WHERE c.website_token = ${websiteToken}
-        LIMIT 1
-      `
-      if (rows.length > 0) {
-        const row = rows[0] as Record<string, unknown>
-        const inbox: Inbox = {
-          id: row.id as string,
-          name: row.name as string,
-          channelType: row.channelType as Inbox['channelType'],
-          channelId: row.channelId as string,
-          enableAutoAssign: row.enableAutoAssign as boolean,
-          greetingEnabled: row.greetingEnabled as boolean,
-          greetingMessage: (row.greetingMessage as string) || null,
-          workingHoursEnabled: row.workingHoursEnabled as boolean,
-          workingHours: (row.workingHours as Record<string, unknown>) || {},
-          outOfOfficeMessage: (row.outOfOfficeMessage as string) || null,
-          lockToSingleConv: row.lockToSingleConv as boolean,
-          senderNameType: row.senderNameType as Inbox['senderNameType'],
-          createdAt: row.createdAt as string,
-          updatedAt: row.updatedAt as string,
-        }
-        const channel: WebWidgetChannelData = {
-          id: row.c_id as string,
-          websiteToken: row.c_websiteToken as string,
-          websiteUrl: (row.c_websiteUrl as string) || null,
-          allowedDomains: (row.c_allowedDomains as string[]) || [],
-          widgetColor: (row.c_widgetColor as string) || '#00a884',
-          replyTime: (row.c_replyTime as string) || 'in_a_few_minutes',
-          preChatFormEnabled: row.c_preChatFormEnabled as boolean,
-          createdAt: row.c_createdAt as string,
-          updatedAt: row.c_updatedAt as string,
-        }
-        return { inbox, channel }
-      }
-    } catch {
-      // Fallback
-    }
+    const rows = await sql`
+      SELECT
+        i.id, i.name, i.channel_type as "channelType", i.channel_id as "channelId",
+        i.enable_auto_assign as "enableAutoAssign", i.greeting_enabled as "greetingEnabled",
+        i.greeting_message as "greetingMessage", i.working_hours_enabled as "workingHoursEnabled",
+        i.working_hours as "workingHours", i.out_of_office_message as "outOfOfficeMessage",
+        i.lock_to_single_conv as "lockToSingleConv", i.sender_name_type as "senderNameType",
+        i.created_at as "createdAt", i.updated_at as "updatedAt",
+        c.id as "c_id", c.website_token as "c_websiteToken", c.website_url as "c_websiteUrl",
+        c.allowed_domains as "c_allowedDomains", c.widget_color as "c_widgetColor",
+        c.reply_time as "c_replyTime", c.pre_chat_form_enabled as "c_preChatFormEnabled",
+        c.created_at as "c_createdAt", c.updated_at as "c_updatedAt"
+      FROM inboxes i
+      JOIN channels_web_widget c ON i.channel_id = c.id
+      WHERE c.website_token = ${websiteToken}
+      LIMIT 1
+    `
+    if (rows.length === 0) return null
 
-    // 2. Check memoryStore
-    for (const [, entry] of memoryStore.channels.entries()) {
-      if (entry.type === 'web_widget') {
-        const widgetChannel = entry.data as WebWidgetChannelData
-        if (widgetChannel.websiteToken === websiteToken) {
-          const inbox = Array.from(memoryStore.inboxes.values()).find(
-            (i) => i.channelId === widgetChannel.id,
-          )
-          if (inbox) {
-            return { inbox, channel: widgetChannel }
-          }
-        }
-      }
+    const row = rows[0] as Record<string, unknown>
+    const inbox: Inbox = {
+      id: row.id as string,
+      name: row.name as string,
+      channelType: row.channelType as Inbox['channelType'],
+      channelId: row.channelId as string,
+      enableAutoAssign: row.enableAutoAssign as boolean,
+      greetingEnabled: row.greetingEnabled as boolean,
+      greetingMessage: (row.greetingMessage as string) || null,
+      workingHoursEnabled: row.workingHoursEnabled as boolean,
+      workingHours: (row.workingHours as Record<string, unknown>) || {},
+      outOfOfficeMessage: (row.outOfOfficeMessage as string) || null,
+      lockToSingleConv: row.lockToSingleConv as boolean,
+      senderNameType: row.senderNameType as Inbox['senderNameType'],
+      createdAt: row.createdAt as string,
+      updatedAt: row.updatedAt as string,
     }
-
-    return null
+    const channel: WebWidgetChannelData = {
+      id: row.c_id as string,
+      websiteToken: row.c_websiteToken as string,
+      websiteUrl: (row.c_websiteUrl as string) || null,
+      allowedDomains: (row.c_allowedDomains as string[]) || [],
+      widgetColor: (row.c_widgetColor as string) || '#00a884',
+      replyTime: (row.c_replyTime as string) || 'in_a_few_minutes',
+      preChatFormEnabled: row.c_preChatFormEnabled as boolean,
+      createdAt: row.c_createdAt as string,
+      updatedAt: row.c_updatedAt as string,
+    }
+    return { inbox, channel }
   }
 }
 

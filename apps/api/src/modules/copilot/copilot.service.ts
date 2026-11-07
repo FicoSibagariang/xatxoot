@@ -7,7 +7,7 @@ import type {
   AiToneType,
   CreateAiSettingInput,
 } from '@xatxoot/shared'
-import { sql } from '../../db'
+import { sql, toIsoString } from '../../db'
 import { messageService } from '../messages/messages.service'
 import { ragService } from '../rag/rag.service'
 import { ticketService } from '../tickets/tickets.service'
@@ -76,12 +76,21 @@ export interface DraftReplyResult {
   suggestedArticles: Array<{ id?: string; title: string; url?: string }>
 }
 
-const memoryStore = {
-  settings: new Map<string, AiSetting>(),
+function mapAiSettingRow(row: Record<string, unknown>): AiSetting {
+  return {
+    id: String(row.id),
+    provider: row.provider as AiSetting['provider'],
+    modelName: String(row.modelName),
+    temperature: Number(row.temperature),
+    active: Boolean(row.active),
+    apiKeyEnc: (row.apiKeyEnc as string | null) ?? null,
+    createdAt: toIsoString(row.createdAt) || (row.createdAt as string),
+    updatedAt: toIsoString(row.updatedAt) || (row.updatedAt as string),
+  }
 }
 
-export function resetCopilotStore(): void {
-  memoryStore.settings.clear()
+export async function resetCopilotStore(): Promise<void> {
+  await sql`DELETE FROM ai_settings`
 }
 
 export class CopilotService {
@@ -351,63 +360,57 @@ export class CopilotService {
   // ==========================================
 
   async getAiSetting(): Promise<AiSetting | null> {
-    try {
-      const rows = await sql`
-        SELECT
-          id,
-          provider,
-          model_name as "modelName",
-          temperature,
-          active,
-          api_key_enc as "apiKeyEnc",
-          created_at as "createdAt",
-          updated_at as "updatedAt"
-        FROM ai_settings
-        WHERE active = true
-        ORDER BY updated_at DESC
-        LIMIT 1
-      `
-      if (rows && rows.length > 0) {
-        return rows[0] as unknown as AiSetting
-      }
-    } catch {
-      // Fallback
+    const rows = await sql`
+      SELECT
+        id,
+        provider,
+        model_name as "modelName",
+        temperature,
+        active,
+        api_key_enc as "apiKeyEnc",
+        created_at as "createdAt",
+        updated_at as "updatedAt"
+      FROM ai_settings
+      WHERE active = true
+      ORDER BY updated_at DESC
+      LIMIT 1
+    `
+    if (rows && rows.length > 0) {
+      return mapAiSettingRow(rows[0])
     }
-
-    const activeInMem = Array.from(memoryStore.settings.values()).find((s) => s.active)
-    return activeInMem || null
+    return null
   }
 
   async updateAiSetting(input: CreateAiSettingInput): Promise<AiSetting> {
     const id = randomUUID()
     const now = new Date().toISOString()
-    const record: AiSetting = {
-      id,
-      provider: input.provider,
-      modelName: input.modelName,
-      temperature: input.temperature ?? 0.7,
-      active: input.active ?? true,
-      apiKeyEnc: input.apiKey ? `enc:${input.apiKey.slice(-4)}` : null,
-      createdAt: now,
-      updatedAt: now,
+    const apiKeyEnc = input.apiKey ? `enc:${input.apiKey.slice(-4)}` : null
+    const temperature = input.temperature ?? 0.7
+    const active = input.active ?? true
+
+    if (active) {
+      await sql`UPDATE ai_settings SET active = false`
     }
 
-    memoryStore.settings.set(id, record)
+    const rows = await sql`
+      INSERT INTO ai_settings (
+        id, provider, model_name, temperature, active, api_key_enc, created_at, updated_at
+      ) VALUES (
+        ${id}, ${input.provider}, ${input.modelName}, ${temperature},
+        ${active}, ${apiKeyEnc}, ${now}, ${now}
+      )
+      RETURNING
+        id,
+        provider,
+        model_name as "modelName",
+        temperature,
+        active,
+        api_key_enc as "apiKeyEnc",
+        created_at as "createdAt",
+        updated_at as "updatedAt"
+    `
 
-    try {
-      await sql`
-        INSERT INTO ai_settings (
-          id, provider, model_name, temperature, active, api_key_enc, created_at, updated_at
-        ) VALUES (
-          ${id}, ${record.provider}, ${record.modelName}, ${record.temperature},
-          ${record.active}, ${record.apiKeyEnc}, ${now}, ${now}
-        )
-      `
-    } catch {
-      // Fallback
-    }
-
-    return record
+    return mapAiSettingRow(rows[0])
   }
 
   async testConnection(params: TestConnectionParams): Promise<TestConnectionResult> {

@@ -6,7 +6,7 @@ import type {
   Ticket,
   TicketStatus,
 } from '@xatxoot/shared'
-import { sql } from '../../db'
+import { sql, toIsoString, toValidUuid } from '../../db'
 import { assignmentService } from '../assignment/assignment.service'
 import { messageStore, resetMessageStore, saveMessageToStore } from '../messages/message-store'
 import { realtimeService } from '../realtime/realtime.service'
@@ -47,6 +47,7 @@ export interface InboundMessagePayload {
   externalId?: string | null
   contentType?: string
   mediaUrl?: string | null
+  createdAt?: string
   isGroup?: boolean
   groupJid?: string | null
   groupName?: string | null
@@ -127,20 +128,108 @@ export interface GetConversationOptions {
   before?: string
 }
 
-const memoryStore = {
-  contacts: new Map<string, Contact>(),
-  contactInboxes: new Map<string, ContactInbox>(),
-  conversations: new Map<string, Conversation>(),
-  messages: new Map<string, Message[]>(),
+function mapContactRow(row: Record<string, unknown>): Contact {
+  return {
+    id: String(row.id),
+    companyId: (row.companyId as string | null) ?? null,
+    name: String(row.name),
+    phoneNumber: (row.phoneNumber as string | null) ?? null,
+    email: (row.email as string | null) ?? null,
+    avatarUrl: (row.avatarUrl as string | null) ?? null,
+    identifier: (row.identifier as string | null) ?? null,
+    contactType: (row.contactType as Contact['contactType']) ?? 'lead',
+    customAttributes:
+      typeof row.customAttributes === 'string'
+        ? JSON.parse(row.customAttributes)
+        : (row.customAttributes as Record<string, unknown>) || {},
+    additionalAttributes:
+      typeof row.additionalAttributes === 'string'
+        ? JSON.parse(row.additionalAttributes)
+        : (row.additionalAttributes as Record<string, unknown>) || {},
+    blocked: Boolean(row.blocked),
+    createdAt: toIsoString(row.createdAt) || (row.createdAt as string),
+    updatedAt: toIsoString(row.updatedAt) || (row.updatedAt as string),
+  }
 }
 
-export function resetConversationStore(): void {
-  memoryStore.contacts.clear()
-  memoryStore.contactInboxes.clear()
-  memoryStore.conversations.clear()
-  memoryStore.messages.clear()
-  resetMessageStore()
-  resetTicketStore()
+function mapConversationRow(row: Record<string, unknown>): Conversation {
+  return {
+    id: String(row.id),
+    inboxId: row.inboxId ? String(row.inboxId) : '',
+    contactId: row.contactId ? String(row.contactId) : '',
+    contactInboxId: row.contactInboxId ? String(row.contactInboxId) : null,
+    activeTicketId: row.activeTicketId ? String(row.activeTicketId) : null,
+    unreadCount: Number(row.unreadCount ?? 0),
+    lastMessageAt: toIsoString(row.lastMessageAt) || (row.lastMessageAt as string),
+    createdAt: toIsoString(row.createdAt) || (row.createdAt as string),
+    updatedAt: toIsoString(row.updatedAt) || (row.updatedAt as string),
+  }
+}
+
+function mapContactInboxRow(row: Record<string, unknown>): ContactInbox {
+  return {
+    id: String(row.id),
+    contactId: row.contactId ? String(row.contactId) : '',
+    inboxId: row.inboxId ? String(row.inboxId) : '',
+    sourceId: row.sourceId ? String(row.sourceId) : '',
+    hmacVerified: Boolean(row.hmacVerified),
+    createdAt: toIsoString(row.createdAt) || (row.createdAt as string),
+    updatedAt: toIsoString(row.updatedAt) || (row.updatedAt as string),
+  }
+}
+
+function mapMessageRow(row: Record<string, unknown>): Message {
+  const attrs = parseContentAttributes(row.contentAttributes)
+  return {
+    id: String(row.id),
+    conversationId: String(row.conversationId),
+    ticketId: row.ticketId ? String(row.ticketId) : null,
+    senderType: row.senderType as Message['senderType'],
+    senderId: row.senderId ? String(row.senderId) : null,
+    senderName: (row.senderName as string) || (attrs.senderName as string | undefined) || undefined,
+    senderEmail: (row.senderEmail as string) || undefined,
+    messageType: row.messageType as Message['messageType'],
+    content: (row.content as string | null) ?? null,
+    contentType: row.contentType as Message['contentType'],
+    mediaUrl: (attrs.mediaUrl as string | undefined) || undefined,
+    status: row.status as Message['status'],
+    externalSourceId: row.externalSourceId ? String(row.externalSourceId) : null,
+    replyTo: attrs.replyTo as Message['replyTo'],
+    mentions: attrs.mentions as Message['mentions'],
+    isMentioningMe: attrs.isMentioningMe as boolean | undefined,
+    contentAttributes: attrs,
+    attachments: ((row.attachments as Record<string, unknown>[]) || []).map((a) => ({
+      id: String(a.id),
+      messageId: String(a.messageId || row.id),
+      fileType: a.fileType as Message['attachments'][number]['fileType'],
+      fileUrl: String(a.fileUrl),
+      fileName: (a.fileName as string | null) ?? null,
+      fileSize: (a.fileSize as number | null) ?? null,
+      createdAt: toIsoString(a.createdAt) || (a.createdAt as string),
+    })),
+    createdAt: toIsoString(row.createdAt) || (row.createdAt as string),
+    updatedAt: toIsoString(row.updatedAt) || (row.updatedAt as string),
+  }
+}
+
+async function ensureInboxExists(inboxId: string): Promise<void> {
+  const validId = toValidUuid(inboxId)
+  await sql`
+    INSERT INTO inboxes (id, name, channel_type, channel_id, created_at, updated_at)
+    VALUES (${validId}, 'Inbox ' || ${validId}, 'whatsapp', ${crypto.randomUUID()}, NOW(), NOW())
+    ON CONFLICT (id) DO NOTHING
+  `
+}
+
+export async function resetConversationStore(): Promise<void> {
+  await sql`DELETE FROM attachments`
+  await sql`DELETE FROM messages`
+  await sql`DELETE FROM tickets`
+  await sql`DELETE FROM conversations`
+  await sql`DELETE FROM contact_inboxes`
+  await sql`DELETE FROM contacts`
+  await resetMessageStore()
+  await resetTicketStore()
 }
 
 export class ConversationService {
@@ -155,52 +244,39 @@ export class ConversationService {
     const clean = phone.replace(/\D/g, '')
     return this.companyPhoneNumbers.has(clean)
   }
+
   async findOrCreateContact(
     dto: FindOrCreateContactDto,
   ): Promise<{ contact: Contact; contactInbox: ContactInbox }> {
+    const validInboxId = toValidUuid(dto.inboxId)
+    await ensureInboxExists(validInboxId)
+
     const phone = dto.phone || dto.sourceId
     const now = new Date().toISOString()
 
-    // 1. Check existing Contact in memory
-    let contact = Array.from(memoryStore.contacts.values()).find(
-      (c) =>
-        (c.phoneNumber && c.phoneNumber === phone) ||
-        (c.identifier && c.identifier === dto.sourceId) ||
-        c.id === dto.sourceId,
-    )
+    const rows = await sql`
+      SELECT
+        id,
+        company_id as "companyId",
+        name,
+        phone_number as "phoneNumber",
+        email,
+        avatar_url as "avatarUrl",
+        identifier,
+        contact_type as "contactType",
+        custom_attributes as "customAttributes",
+        additional_attributes as "additionalAttributes",
+        blocked,
+        created_at as "createdAt",
+        updated_at as "updatedAt"
+      FROM contacts
+      WHERE phone_number = ${phone} OR identifier = ${dto.sourceId} OR id::text = ${dto.sourceId}
+      LIMIT 1
+    `
 
-    // Check PostgreSQL DB if not found in memory
-    if (!contact) {
-      try {
-        const rows = await sql`
-          SELECT
-            id,
-            company_id as "companyId",
-            name,
-            phone_number as "phoneNumber",
-            email,
-            avatar_url as "avatarUrl",
-            identifier,
-            contact_type as "contactType",
-            custom_attributes as "customAttributes",
-            additional_attributes as "additionalAttributes",
-            blocked,
-            created_at as "createdAt",
-            updated_at as "updatedAt"
-          FROM contacts
-          WHERE phone_number = ${phone} OR identifier = ${dto.sourceId}
-          LIMIT 1
-        `
-        if (rows.length > 0) {
-          contact = rows[0] as unknown as Contact
-          memoryStore.contacts.set(contact.id, contact)
-        }
-      } catch {
-        // Memory fallback
-      }
-    }
-
-    if (contact) {
+    let contact: Contact
+    if (rows && rows.length > 0) {
+      contact = mapContactRow(rows[0])
       const isPlaceholderName =
         !contact.name ||
         contact.name === 'Unknown' ||
@@ -221,21 +297,16 @@ export class ConversationService {
           name: dto.name,
           updatedAt: now,
         }
-        memoryStore.contacts.set(contact.id, contact)
-
-        try {
-          await sql`
-            UPDATE contacts
-            SET name = ${dto.name}, updated_at = ${now}
-            WHERE id = ${contact.id}
-          `
-        } catch {
-          // Memory fallback
-        }
+        await sql`
+          UPDATE contacts
+          SET name = ${dto.name}, updated_at = ${now}
+          WHERE id = ${contact.id}
+        `
       }
     } else {
+      const id = crypto.randomUUID()
       contact = {
-        id: crypto.randomUUID(),
+        id,
         companyId: null,
         name: dto.name || 'Unknown',
         phoneNumber: phone,
@@ -249,76 +320,54 @@ export class ConversationService {
         createdAt: now,
         updatedAt: now,
       }
-      memoryStore.contacts.set(contact.id, contact)
-
-      try {
-        await sql`
-          INSERT INTO contacts (
-            id, name, phone_number, identifier, contact_type, custom_attributes, additional_attributes, blocked, created_at, updated_at
-          ) VALUES (
-            ${contact.id}, ${contact.name}, ${contact.phoneNumber}, ${contact.identifier}, ${contact.contactType},
-            ${JSON.stringify(contact.customAttributes)}, ${JSON.stringify(contact.additionalAttributes)},
-            ${contact.blocked}, ${contact.createdAt}, ${contact.updatedAt}
-          )
-        `
-      } catch {
-        // Memory fallback
-      }
+      await sql`
+        INSERT INTO contacts (
+          id, name, phone_number, identifier, contact_type, custom_attributes, additional_attributes, blocked, created_at, updated_at
+        ) VALUES (
+          ${contact.id}, ${contact.name}, ${contact.phoneNumber}, ${contact.identifier}, ${contact.contactType},
+          ${JSON.stringify(contact.customAttributes)}, ${JSON.stringify(contact.additionalAttributes)},
+          ${contact.blocked}, ${contact.createdAt}, ${contact.updatedAt}
+        )
+      `
     }
 
     // 2. Ensure ContactInbox mapping exists
-    const contactInboxKey = `${contact.id}_${dto.inboxId}`
-    let contactInbox = memoryStore.contactInboxes.get(contactInboxKey)
+    const ciRows = await sql`
+      SELECT
+        id,
+        contact_id as "contactId",
+        inbox_id as "inboxId",
+        source_id as "sourceId",
+        hmac_verified as "hmacVerified",
+        created_at as "createdAt",
+        updated_at as "updatedAt"
+      FROM contact_inboxes
+      WHERE contact_id = ${contact.id} AND inbox_id = ${validInboxId}
+      LIMIT 1
+    `
 
-    if (!contactInbox) {
-      try {
-        const rows = await sql`
-          SELECT
-            id,
-            contact_id as "contactId",
-            inbox_id as "inboxId",
-            source_id as "sourceId",
-            hmac_verified as "hmacVerified",
-            created_at as "createdAt",
-            updated_at as "updatedAt"
-          FROM contact_inboxes
-          WHERE contact_id = ${contact.id} AND inbox_id = ${dto.inboxId}
-          LIMIT 1
-        `
-        if (rows.length > 0) {
-          contactInbox = rows[0] as unknown as ContactInbox
-          memoryStore.contactInboxes.set(contactInboxKey, contactInbox)
-        }
-      } catch {
-        // Memory fallback
-      }
-    }
-
-    if (!contactInbox) {
+    let contactInbox: ContactInbox
+    if (ciRows && ciRows.length > 0) {
+      contactInbox = mapContactInboxRow(ciRows[0])
+    } else {
       contactInbox = {
         id: crypto.randomUUID(),
         contactId: contact.id,
-        inboxId: dto.inboxId,
-        sourceId: dto.sourceId,
+        inboxId: validInboxId,
+        sourceId: dto.sourceId || dto.phoneNumber || contact.phone || contact.id,
         hmacVerified: false,
         createdAt: now,
         updatedAt: now,
       }
-      memoryStore.contactInboxes.set(contactInboxKey, contactInbox)
-
-      try {
-        await sql`
-          INSERT INTO contact_inboxes (
-            id, contact_id, inbox_id, source_id, hmac_verified, created_at, updated_at
-          ) VALUES (
-            ${contactInbox.id}, ${contactInbox.contactId}, ${contactInbox.inboxId},
-            ${contactInbox.sourceId}, ${contactInbox.hmacVerified},
-            ${contactInbox.createdAt}, ${contactInbox.updatedAt}
-          )
-        `
-      } catch {
-        // Memory fallback
-      }
+      await sql`
+        INSERT INTO contact_inboxes (
+          id, contact_id, inbox_id, source_id, hmac_verified, created_at, updated_at
+        ) VALUES (
+          ${contactInbox.id}, ${contactInbox.contactId}, ${contactInbox.inboxId},
+          ${contactInbox.sourceId}, ${contactInbox.hmacVerified},
+          ${contactInbox.createdAt}, ${contactInbox.updatedAt}
+        )
+      `
     }
 
     return { contact, contactInbox }
@@ -331,75 +380,66 @@ export class ConversationService {
     )
     if (fromStore) return fromStore
 
-    try {
-      const rows = await sql`
-        SELECT id, conversation_id as "conversationId", ticket_id as "ticketId",
-               sender_type as "senderType", sender_id as "senderId",
-               message_type as "messageType", content, content_type as "contentType",
-               status, external_source_id as "externalSourceId",
-               content_attributes as "contentAttributes", created_at as "createdAt", updated_at as "updatedAt"
-        FROM messages
-        WHERE external_source_id = ${externalId}
-        LIMIT 1
-      `
-      if (rows && rows.length > 0) {
-        const msg = rows[0] as unknown as Message
-        saveMessageToStore(msg)
-        return msg
-      }
-    } catch {
-      // Memory fallback
+    const rows = await sql`
+      SELECT id, conversation_id as "conversationId", ticket_id as "ticketId",
+             sender_type as "senderType", sender_id as "senderId",
+             message_type as "messageType", content, content_type as "contentType",
+             status, external_source_id as "externalSourceId",
+             content_attributes as "contentAttributes", created_at as "createdAt", updated_at as "updatedAt"
+      FROM messages
+      WHERE external_source_id = ${externalId}
+      LIMIT 1
+    `
+    if (rows && rows.length > 0) {
+      const msg = mapMessageRow(rows[0])
+      saveMessageToStore(msg)
+      return msg
     }
     return null
   }
 
   async handleInboundMessage(payload: InboundMessagePayload): Promise<InboundMessageResult> {
-    const now = new Date().toISOString()
+    const validInboxId = toValidUuid(payload.inboxId)
+    await ensureInboxExists(validInboxId)
 
-    // 0. Idempotency Check: prevent duplicate messages and tickets when broadcasted to multiple inboxes
+    const now = payload.createdAt || new Date().toISOString()
+
+    // 0. Idempotency Check: check if message with externalId already exists
     if (payload.externalId) {
-      let existingMsg = Array.from(messageStore.messages.values()).find(
-        (m) => m.externalSourceId === payload.externalId,
-      )
+      let existingMsg: Message | null = null
+      for (const msg of messageStore.messages.values()) {
+        if (msg.externalSourceId === payload.externalId) {
+          existingMsg = msg
+          break
+        }
+      }
 
       if (!existingMsg) {
-        try {
-          const rows = await sql`
-            SELECT id, conversation_id as "conversationId", ticket_id as "ticketId",
-                   sender_type as "senderType", sender_id as "senderId",
-                   message_type as "messageType", content, content_type as "contentType",
-                   status, external_source_id as "externalSourceId",
-                   content_attributes as "contentAttributes", created_at as "createdAt", updated_at as "updatedAt"
-            FROM messages
-            WHERE external_source_id = ${payload.externalId}
-            LIMIT 1
-          `
-          if (rows && rows.length > 0) {
-            existingMsg = rows[0] as unknown as Message
-            saveMessageToStore(existingMsg)
-          }
-        } catch {
-          // ignore
+        const rows = await sql`
+          SELECT id, conversation_id as "conversationId", ticket_id as "ticketId",
+                 sender_type as "senderType", sender_id as "senderId",
+                 message_type as "messageType", content, content_type as "contentType",
+                 status, external_source_id as "externalSourceId",
+                 content_attributes as "contentAttributes", created_at as "createdAt", updated_at as "updatedAt"
+          FROM messages
+          WHERE external_source_id = ${payload.externalId}
+          LIMIT 1
+        `
+        if (rows && rows.length > 0) {
+          existingMsg = mapMessageRow(rows[0])
+          saveMessageToStore(existingMsg)
         }
       }
 
       if (existingMsg) {
-        const conv =
-          memoryStore.conversations.get(existingMsg.conversationId) ||
-          ({ id: existingMsg.conversationId } as Conversation)
-
-        const activeTkt = existingMsg.ticketId
-          ? await ticketService.getTicketById(existingMsg.ticketId)
-          : null
-
-        const cnt =
-          memoryStore.contacts.get(conv.contactId) ||
-          ({ id: conv.contactId, name: payload.senderName || 'Kontak' } as Contact)
-
+        const convDetail = await this.getConversationById(existingMsg.conversationId)
         return {
-          contact: cnt,
-          conversation: conv,
-          ticket: activeTkt || ({} as Ticket),
+          contact:
+            convDetail?.contact ||
+            ({ id: crypto.randomUUID(), name: payload.senderName || 'Kontak' } as Contact),
+          conversation:
+            convDetail?.conversation || ({ id: existingMsg.conversationId } as Conversation),
+          ticket: convDetail?.activeTicket || ({} as Ticket),
           isNewTicket: false,
           message: existingMsg,
         }
@@ -417,107 +457,71 @@ export class ConversationService {
       payload.senderNumber ||
       ((payload as Record<string, unknown>).senderNumber as string | undefined)
     const effectiveSourceId =
-      (isGroup && groupJid ? groupJid : payload.sourceId) || effectivePhone || payload.inboxId
+      (isGroup && groupJid ? groupJid : payload.sourceId) || effectivePhone || validInboxId
 
     // 1. Find or create Contact & ContactInbox
     const { contact, contactInbox } = await this.findOrCreateContact({
-      inboxId: payload.inboxId,
+      inboxId: validInboxId,
       sourceId: effectiveSourceId,
       phone: effectivePhone,
       name: payload.senderName || (isGroup ? 'Grup WhatsApp' : undefined),
     })
 
     // 2. Find or create persistent Conversation thread (Unified group architecture)
-    let conversation: Conversation | undefined
+    let conversation: Conversation | null = null
     if (isGroup && groupJid) {
-      conversation = Array.from(memoryStore.conversations.values()).find(
-        (c) =>
-          c.contactId === contact.id ||
-          (c.customAttributes as Record<string, unknown>)?.groupJid === groupJid,
-      )
-
-      if (!conversation) {
-        try {
-          const rows = await sql`
-            SELECT id, inbox_id as "inboxId", contact_id as "contactId",
-                   contact_inbox_id as "contactInboxId", active_ticket_id as "activeTicketId",
-                   unread_count as "unreadCount", last_message_at as "lastMessageAt",
-                   custom_attributes as "customAttributes",
-                   created_at as "createdAt", updated_at as "updatedAt"
-            FROM conversations
-            WHERE contact_id = ${contact.id} OR custom_attributes->>'groupJid' = ${groupJid}
-            LIMIT 1
-          `
-          if (rows && rows.length > 0) {
-            conversation = rows[0] as unknown as Conversation
-            memoryStore.conversations.set(conversation.id, conversation)
-          }
-        } catch {
-          // ignore
-        }
+      const gRows = await sql`
+        SELECT id, inbox_id as "inboxId", contact_id as "contactId",
+               contact_inbox_id as "contactInboxId", active_ticket_id as "activeTicketId",
+               unread_count as "unreadCount", last_message_at as "lastMessageAt",
+               created_at as "createdAt", updated_at as "updatedAt"
+        FROM conversations
+        WHERE contact_id = ${contact.id}
+        LIMIT 1
+      `
+      if (gRows.length > 0) {
+        conversation = mapConversationRow(gRows[0])
       }
     }
 
     if (!conversation) {
-      conversation = Array.from(memoryStore.conversations.values()).find(
-        (c) => c.inboxId === payload.inboxId && c.contactId === contact.id,
-      )
-    }
-
-    if (!conversation) {
-      try {
-        const rows = await sql`
-          SELECT
-            id,
-            inbox_id as "inboxId",
-            contact_id as "contactId",
-            contact_inbox_id as "contactInboxId",
-            active_ticket_id as "activeTicketId",
-            unread_count as "unreadCount",
-            last_message_at as "lastMessageAt",
-            created_at as "createdAt",
-            updated_at as "updatedAt"
-          FROM conversations
-          WHERE inbox_id = ${payload.inboxId} AND contact_id = ${contact.id}
-          LIMIT 1
-        `
-        if (rows.length > 0) {
-          conversation = rows[0] as unknown as Conversation
-          memoryStore.conversations.set(conversation.id, conversation)
-        }
-      } catch {
-        // Memory fallback
+      const cRows = await sql`
+        SELECT id, inbox_id as "inboxId", contact_id as "contactId",
+               contact_inbox_id as "contactInboxId", active_ticket_id as "activeTicketId",
+               unread_count as "unreadCount", last_message_at as "lastMessageAt",
+               created_at as "createdAt", updated_at as "updatedAt"
+        FROM conversations
+        WHERE inbox_id = ${validInboxId} AND contact_id = ${contact.id}
+        LIMIT 1
+      `
+      if (cRows.length > 0) {
+        conversation = mapConversationRow(cRows[0])
       }
     }
 
     if (!conversation) {
+      const convId = crypto.randomUUID()
       conversation = {
-        id: crypto.randomUUID(),
-        inboxId: payload.inboxId,
+        id: convId,
+        inboxId: validInboxId,
         contactId: contact.id,
         contactInboxId: contactInbox.id,
         activeTicketId: null,
         unreadCount: 0,
         lastMessageAt: now,
-        customAttributes: isGroup && groupJid ? { isGroup: true, groupJid } : {},
         createdAt: now,
         updatedAt: now,
-      } as unknown as Conversation
-      memoryStore.conversations.set(conversation.id, conversation)
-
-      try {
-        await sql`
-          INSERT INTO conversations (
-            id, inbox_id, contact_id, contact_inbox_id, active_ticket_id, unread_count, last_message_at, created_at, updated_at
-          ) VALUES (
-            ${conversation.id}, ${conversation.inboxId}, ${conversation.contactId}, ${conversation.contactInboxId},
-            ${conversation.activeTicketId}, ${conversation.unreadCount}, ${conversation.lastMessageAt},
-            ${conversation.createdAt}, ${conversation.updatedAt}
-          )
-        `
-      } catch {
-        // Memory fallback
       }
+
+      await sql`
+        INSERT INTO conversations (
+          id, inbox_id, contact_id, contact_inbox_id, active_ticket_id, unread_count, last_message_at, created_at, updated_at
+        ) VALUES (
+          ${conversation.id}, ${conversation.inboxId}, ${conversation.contactId}, ${conversation.contactInboxId},
+          ${conversation.activeTicketId}, ${conversation.unreadCount}, ${conversation.lastMessageAt},
+          ${conversation.createdAt}, ${conversation.updatedAt}
+        )
+      `
     }
 
     // 3. Ticket FSM Lifecycle automation & Internal Participant Check
@@ -541,22 +545,16 @@ export class ConversationService {
         lastMessageAt: now,
         updatedAt: now,
       }
-      memoryStore.conversations.set(conversation.id, conversation)
 
-      try {
-        await sql`
-          UPDATE conversations
-          SET
-            last_message_at = ${now},
-            updated_at = ${now}
-          WHERE id = ${conversation.id}
-        `
-      } catch {
-        // Memory fallback
-      }
+      await sql`
+        UPDATE conversations
+        SET
+          last_message_at = ${now},
+          updated_at = ${now}
+        WHERE id = ${conversation.id}
+      `
     } else {
       if (!activeTicket || activeTicket.status === 'resolved') {
-        // Create a brand new ticket with status 'open'
         ticket = await ticketService.createTicket({
           conversationId: conversation.id,
           status: 'open',
@@ -572,19 +570,16 @@ export class ConversationService {
             ticket = assignResult.ticket
           }
         } catch {
-          // Fallback gracefully
+          // ignore assignment error
         }
       } else if (activeTicket.status === 'pending' || activeTicket.status === 'snoozed') {
-        // Customer replied: automatically reopen ticket back to 'open'
         ticket = await ticketService.updateTicketStatus(activeTicket.id, 'open')
         isNewTicket = false
       } else {
-        // Active ticket is already 'open'
         ticket = activeTicket
         isNewTicket = false
       }
 
-      // Update conversation state
       conversation = {
         ...conversation,
         activeTicketId: ticket.id,
@@ -592,28 +587,19 @@ export class ConversationService {
         lastMessageAt: now,
         updatedAt: now,
       }
-      memoryStore.conversations.set(conversation.id, conversation)
 
-      try {
-        await sql`
-          UPDATE conversations
-          SET
-            active_ticket_id = ${ticket.id},
-            unread_count = ${conversation.unreadCount},
-            last_message_at = ${now},
-            updated_at = ${now}
-          WHERE id = ${conversation.id}
-        `
-      } catch {
-        // Memory fallback
-      }
+      await sql`
+        UPDATE conversations
+        SET
+          active_ticket_id = ${ticket.id},
+          unread_count = ${conversation.unreadCount},
+          last_message_at = ${now},
+          updated_at = ${now}
+        WHERE id = ${conversation.id}
+      `
     }
 
     // 4. Create Message record
-    const convMessages = memoryStore.messages.get(conversation.id) || []
-    memoryStore.messages.set(conversation.id, convMessages)
-
-    // Resolve Quoted Reply context if replyToExternalId is provided (Issue #301)
     let replyTo:
       | {
           messageId: string
@@ -689,7 +675,6 @@ export class ConversationService {
     const finalContentType =
       payload.contentType || (payload.messageType === 'image' ? 'image' : undefined) || 'text'
 
-    // Resolve mentions and evaluate isMentioningMe (Issue #301)
     let isMentioningMe = false
     let finalMentions = payload.mentions ? [...payload.mentions] : undefined
 
@@ -758,36 +743,30 @@ export class ConversationService {
       message.attachments[0].messageId = message.id
     }
 
-    convMessages.push(message)
-    memoryStore.messages.set(conversation.id, convMessages)
-    saveMessageToStore(message)
+    await sql`
+      INSERT INTO messages (
+        id, conversation_id, ticket_id, sender_type, sender_id, message_type, content, content_type,
+        status, external_source_id, content_attributes, created_at, updated_at
+      ) VALUES (
+        ${message.id}, ${message.conversationId}, ${message.ticketId}, ${message.senderType},
+        ${message.senderId}, ${message.messageType}, ${message.content}, ${message.contentType},
+        ${message.status}, ${message.externalSourceId}, ${JSON.stringify(message.contentAttributes)},
+        ${message.createdAt}, ${message.updatedAt}
+      )
+    `
 
-    try {
+    if (payload.mediaUrl && message.attachments[0]) {
       await sql`
-        INSERT INTO messages (
-          id, conversation_id, ticket_id, sender_type, sender_id, message_type, content, content_type,
-          status, external_source_id, content_attributes, created_at, updated_at
+        INSERT INTO attachments (
+          id, message_id, file_type, file_url, file_size, file_name, metadata, created_at
         ) VALUES (
-          ${message.id}, ${message.conversationId}, ${message.ticketId}, ${message.senderType},
-          ${message.senderId}, ${message.messageType}, ${message.content}, ${message.contentType},
-          ${message.status}, ${message.externalSourceId}, ${JSON.stringify(message.contentAttributes)},
-          ${message.createdAt}, ${message.updatedAt}
+          ${message.attachments[0].id}, ${message.id}, ${message.attachments[0].fileType},
+          ${payload.mediaUrl}, ${message.attachments[0].fileSize ?? 0}, ${message.attachments[0].fileName}, '{}', ${now}
         )
       `
-
-      if (payload.mediaUrl) {
-        await sql`
-          INSERT INTO attachments (
-            id, message_id, file_type, file_url, file_size, file_name, created_at
-          ) VALUES (
-            ${message.attachments[0].id}, ${message.id}, ${message.attachments[0].fileType},
-            ${payload.mediaUrl}, null, ${message.attachments[0].fileName}, ${now}
-          )
-        `
-      }
-    } catch {
-      // Memory fallback
     }
+
+    saveMessageToStore(message)
 
     const result = {
       contact,
@@ -824,61 +803,44 @@ export class ConversationService {
   }
 
   async handleOutboundEcho(payload: OutboundEchoPayload): Promise<OutboundEchoResult> {
+    const validInboxId = toValidUuid(payload.inboxId)
+    await ensureInboxExists(validInboxId)
     const now = new Date().toISOString()
 
     // 1. Idempotency Check: check if message with externalId already exists
     if (payload.externalId) {
-      for (const msg of messageStore.messages.values()) {
-        if (msg.externalSourceId === payload.externalId) {
-          const conv = await this.getConversationById(msg.conversationId)
-          if (conv?.contact) {
-            return {
-              contact: conv.contact,
-              conversation: conv.conversation,
-              ticket: conv.activeTicket,
-              message: msg,
-              isDuplicate: true,
-            }
+      const rows = await sql`
+        SELECT
+          id,
+          conversation_id as "conversationId",
+          ticket_id as "ticketId",
+          sender_type as "senderType",
+          sender_id as "senderId",
+          message_type as "messageType",
+          content,
+          content_type as "contentType",
+          status,
+          external_source_id as "externalSourceId",
+          content_attributes as "contentAttributes",
+          created_at as "createdAt",
+          updated_at as "updatedAt"
+        FROM messages
+        WHERE external_source_id = ${payload.externalId}
+        LIMIT 1
+      `
+      if (rows.length > 0) {
+        const existingMsg = mapMessageRow(rows[0])
+        saveMessageToStore(existingMsg)
+        const conv = await this.getConversationById(existingMsg.conversationId)
+        if (conv?.contact) {
+          return {
+            contact: conv.contact,
+            conversation: conv.conversation,
+            ticket: conv.activeTicket,
+            message: existingMsg,
+            isDuplicate: true,
           }
         }
-      }
-
-      try {
-        const rows = await sql`
-          SELECT
-            id,
-            conversation_id as "conversationId",
-            ticket_id as "ticketId",
-            sender_type as "senderType",
-            sender_id as "senderId",
-            message_type as "messageType",
-            content,
-            content_type as "contentType",
-            status,
-            external_source_id as "externalSourceId",
-            content_attributes as "contentAttributes",
-            created_at as "createdAt",
-            updated_at as "updatedAt"
-          FROM messages
-          WHERE external_source_id = ${payload.externalId}
-          LIMIT 1
-        `
-        if (rows.length > 0) {
-          const existingMsg = rows[0] as unknown as Message
-          saveMessageToStore(existingMsg)
-          const conv = await this.getConversationById(existingMsg.conversationId)
-          if (conv?.contact) {
-            return {
-              contact: conv.contact,
-              conversation: conv.conversation,
-              ticket: conv.activeTicket,
-              message: existingMsg,
-              isDuplicate: true,
-            }
-          }
-        }
-      } catch {
-        // Fallback
       }
     }
 
@@ -890,47 +852,38 @@ export class ConversationService {
         : formattedPhone
 
     const { contact, contactInbox } = await this.findOrCreateContact({
-      inboxId: payload.inboxId,
+      inboxId: validInboxId,
       sourceId: payload.sourceId,
       phone: payload.senderPhone,
       name: customerName,
     })
 
     // 3. Find or create persistent Conversation thread
-    let conversation = Array.from(memoryStore.conversations.values()).find(
-      (c) => c.inboxId === payload.inboxId && c.contactId === contact.id,
-    )
-
-    if (!conversation) {
-      try {
-        const rows = await sql`
-          SELECT
-            id,
-            inbox_id as "inboxId",
-            contact_id as "contactId",
-            contact_inbox_id as "contactInboxId",
-            active_ticket_id as "activeTicketId",
-            unread_count as "unreadCount",
-            last_message_at as "lastMessageAt",
-            created_at as "createdAt",
-            updated_at as "updatedAt"
-          FROM conversations
-          WHERE inbox_id = ${payload.inboxId} AND contact_id = ${contact.id}
-          LIMIT 1
-        `
-        if (rows.length > 0) {
-          conversation = rows[0] as unknown as Conversation
-          memoryStore.conversations.set(conversation.id, conversation)
-        }
-      } catch {
-        // Memory fallback
-      }
+    let conversation: Conversation | null = null
+    const convRows = await sql`
+      SELECT
+        id,
+        inbox_id as "inboxId",
+        contact_id as "contactId",
+        contact_inbox_id as "contactInboxId",
+        active_ticket_id as "activeTicketId",
+        unread_count as "unreadCount",
+        last_message_at as "lastMessageAt",
+        created_at as "createdAt",
+        updated_at as "updatedAt"
+      FROM conversations
+      WHERE inbox_id = ${validInboxId} AND contact_id = ${contact.id}
+      LIMIT 1
+    `
+    if (convRows.length > 0) {
+      conversation = mapConversationRow(convRows[0])
     }
 
     if (!conversation) {
+      const convId = crypto.randomUUID()
       conversation = {
-        id: crypto.randomUUID(),
-        inboxId: payload.inboxId,
+        id: convId,
+        inboxId: validInboxId,
         contactId: contact.id,
         contactInboxId: contactInbox.id,
         activeTicketId: null,
@@ -939,213 +892,104 @@ export class ConversationService {
         createdAt: now,
         updatedAt: now,
       }
-      memoryStore.conversations.set(conversation.id, conversation)
-
-      try {
-        await sql`
-          INSERT INTO conversations (
-            id, inbox_id, contact_id, contact_inbox_id, active_ticket_id, unread_count, last_message_at, created_at, updated_at
-          ) VALUES (
-            ${conversation.id}, ${conversation.inboxId}, ${conversation.contactId}, ${conversation.contactInboxId},
-            ${conversation.activeTicketId}, ${conversation.unreadCount}, ${conversation.lastMessageAt},
-            ${conversation.createdAt}, ${conversation.updatedAt}
-          )
-        `
-      } catch {
-        // Memory fallback
-      }
-    }
-
-    // 4. Ticket handling:
-    // Outgoing messages from agent/staff DO NOT create a new ticket.
-    // They only attach to an existing active ticket if one is already in progress.
-    let ticket: Ticket | null = null
-    if (conversation.activeTicketId) {
-      ticket = await ticketService.getTicketById(conversation.activeTicketId)
-      if (ticket && ticket.status === 'resolved') {
-        ticket = null
-      }
-    }
-
-    if (ticket) {
-      await ticketService.recordFirstReply(ticket.id)
-    }
-
-    const activeTicketId = ticket ? ticket.id : null
-
-    // Update conversation (agent replied -> unreadCount remains 0)
-    conversation = {
-      ...conversation,
-      activeTicketId,
-      unreadCount: 0,
-      lastMessageAt: now,
-      updatedAt: now,
-    }
-    memoryStore.conversations.set(conversation.id, conversation)
-
-    try {
       await sql`
-        UPDATE conversations
-        SET
-          active_ticket_id = ${activeTicketId},
-          unread_count = 0,
-          last_message_at = ${now},
-          updated_at = ${now}
-        WHERE id = ${conversation.id}
+        INSERT INTO conversations (
+          id, inbox_id, contact_id, contact_inbox_id, active_ticket_id, unread_count, last_message_at, created_at, updated_at
+        ) VALUES (
+          ${conversation.id}, ${conversation.inboxId}, ${conversation.contactId}, ${conversation.contactInboxId},
+          ${conversation.activeTicketId}, ${conversation.unreadCount}, ${conversation.lastMessageAt},
+          ${conversation.createdAt}, ${conversation.updatedAt}
+        )
       `
-    } catch {
-      // Memory fallback
     }
 
-    // 5. Create Outgoing Message
-    const convMessages = memoryStore.messages.get(conversation.id) || []
+    // 4. Update Conversation last_message_at
+    await sql`
+      UPDATE conversations
+      SET last_message_at = ${now}, updated_at = ${now}
+      WHERE id = ${conversation.id}
+    `
+    conversation.lastMessageAt = now
+    conversation.updatedAt = now
 
-    let echoReplyTo:
-      | {
-          messageId: string
-          externalId?: string | null
-          senderName?: string
-          snippet?: string
-        }
-      | undefined
+    // 5. Active Ticket (do not alter status or unread count for echo)
+    const activeTicket = conversation.activeTicketId
+      ? await ticketService.getTicketById(conversation.activeTicketId)
+      : null
 
-    if (payload.replyToExternalId) {
-      try {
-        const targetMsg = await this.findMessageByExternalId(payload.replyToExternalId)
-        if (targetMsg) {
-          const targetAttrs = parseContentAttributes(targetMsg.contentAttributes)
-          let targetSenderName =
-            targetMsg.senderName ||
-            (targetAttrs.senderName as string | undefined) ||
-            (targetAttrs.participantName as string | undefined)
-          if (!targetSenderName) {
-            targetSenderName = targetMsg.senderType === 'user' ? 'Petugas CS' : 'Pelanggan'
-          }
-          const snippet = (
-            targetMsg.content ||
-            (targetMsg.contentType === 'image' || targetAttrs.contentType === 'image'
-              ? '[Gambar]'
-              : '') ||
-            payload.quotedText ||
-            ''
-          ).slice(0, 100)
+    // 6. Create Message record as 'outgoing'
+    const finalContentType =
+      payload.contentType || (payload.messageType === 'image' ? 'image' : undefined) || 'text'
 
-          echoReplyTo = {
-            messageId: targetMsg.id,
-            externalId: targetMsg.externalSourceId || payload.replyToExternalId,
-            senderName: targetSenderName,
-            snippet,
-          }
-        } else {
-          let fallbackSenderName = 'Kutipan'
-          if (payload.quotedParticipant) {
-            const rawPart = payload.quotedParticipant
-              .replace(/@s\.whatsapp\.net$/, '')
-              .replace(/@c\.us$/, '')
-              .replace(/:.*$/, '')
-            fallbackSenderName = rawPart.startsWith('+') ? rawPart : `+${rawPart}`
-          }
-          echoReplyTo = {
-            messageId: payload.replyToExternalId,
-            externalId: payload.replyToExternalId,
-            senderName: fallbackSenderName,
-            snippet: (payload.quotedText || '').slice(0, 100),
-          }
-        }
-      } catch {
-        echoReplyTo = {
-          messageId: payload.replyToExternalId,
-          externalId: payload.replyToExternalId,
-          senderName: 'Kutipan',
-          snippet: (payload.quotedText || '').slice(0, 100),
-        }
-      }
-    }
+    const attachments = payload.mediaUrl
+      ? [
+          {
+            id: crypto.randomUUID(),
+            messageId: '',
+            fileType:
+              payload.messageType === 'image'
+                ? 'image/jpeg'
+                : payload.messageType === 'document'
+                  ? 'application/pdf'
+                  : 'application/octet-stream',
+            fileUrl: payload.mediaUrl,
+            fileName: payload.mediaUrl.split('/').pop() || null,
+            fileSize: null,
+            createdAt: now,
+          },
+        ]
+      : []
 
     const message: Message = {
       id: crypto.randomUUID(),
       conversationId: conversation.id,
-      ticketId: activeTicketId,
+      ticketId: activeTicket?.id || null,
       senderType: 'user',
       senderId: null,
-      senderName: 'WhatsApp HP',
-      isEcho: true,
+      senderName: payload.senderName || 'Petugas CS',
       messageType: 'outgoing',
       content: payload.content ?? null,
-      contentType: (payload.contentType as unknown as Message['contentType']) || 'text',
+      contentType: finalContentType as unknown as Message['contentType'],
       status: 'sent',
       externalSourceId: payload.externalId ?? null,
-      replyTo: echoReplyTo || undefined,
-      mediaUrl: payload.mediaUrl || undefined,
       contentAttributes: {
-        echo: true,
-        source: 'whatsapp_mobile',
-        senderName: 'WhatsApp HP',
+        isEcho: true,
         mediaUrl: payload.mediaUrl || undefined,
-        ...(echoReplyTo ? { replyTo: echoReplyTo } : {}),
+        senderName: payload.senderName || 'Petugas CS',
       },
-      attachments: payload.mediaUrl
-        ? [
-            {
-              id: crypto.randomUUID(),
-              messageId: '',
-              fileType:
-                payload.contentType === 'image'
-                  ? 'image/jpeg'
-                  : payload.contentType === 'document'
-                    ? 'application/pdf'
-                    : 'application/octet-stream',
-              fileUrl: payload.mediaUrl,
-              fileName: payload.mediaUrl.split('/').pop() || null,
-              fileSize: null,
-              createdAt: now,
-            },
-          ]
-        : [],
+      attachments,
       createdAt: now,
       updatedAt: now,
     }
+
     if (message.attachments[0]) {
       message.attachments[0].messageId = message.id
     }
 
-    convMessages.push(message)
-    memoryStore.messages.set(conversation.id, convMessages)
-    saveMessageToStore(message)
+    await sql`
+      INSERT INTO messages (
+        id, conversation_id, ticket_id, sender_type, sender_id, message_type, content, content_type,
+        status, external_source_id, content_attributes, created_at, updated_at
+      ) VALUES (
+        ${message.id}, ${message.conversationId}, ${message.ticketId}, ${message.senderType},
+        ${message.senderId}, ${message.messageType}, ${message.content}, ${message.contentType},
+        ${message.status}, ${message.externalSourceId}, ${JSON.stringify(message.contentAttributes)},
+        ${message.createdAt}, ${message.updatedAt}
+      )
+    `
 
-    try {
+    if (payload.mediaUrl && message.attachments[0]) {
       await sql`
-        INSERT INTO messages (
-          id, conversation_id, ticket_id, sender_type, sender_id, message_type, content, content_type,
-          status, external_source_id, content_attributes, created_at, updated_at
+        INSERT INTO attachments (
+          id, message_id, file_type, file_url, file_size, file_name, metadata, created_at
         ) VALUES (
-          ${message.id}, ${message.conversationId}, ${message.ticketId}, ${message.senderType},
-          ${null}, ${message.messageType}, ${message.content}, ${message.contentType},
-          ${message.status}, ${message.externalSourceId}, ${JSON.stringify(message.contentAttributes)},
-          ${message.createdAt}, ${message.updatedAt}
+          ${message.attachments[0].id}, ${message.id}, ${message.attachments[0].fileType},
+          ${payload.mediaUrl}, ${message.attachments[0].fileSize ?? 0}, ${message.attachments[0].fileName}, '{}', ${now}
         )
       `
-
-      if (payload.mediaUrl && message.attachments[0]) {
-        await sql`
-          INSERT INTO attachments (
-            id, message_id, file_type, file_url, file_size, file_name, created_at
-          ) VALUES (
-            ${message.attachments[0].id}, ${message.id}, ${message.attachments[0].fileType},
-            ${payload.mediaUrl}, null, ${message.attachments[0].fileName}, ${now}
-          )
-        `
-      }
-    } catch {
-      // Memory fallback
     }
 
-    const result = {
-      contact,
-      conversation,
-      ticket,
-      message,
-    }
+    saveMessageToStore(message)
 
     realtimeService.broadcast({
       event: 'message.created',
@@ -1155,102 +999,66 @@ export class ConversationService {
         content: message.content || '',
         messageType: message.messageType,
         contentType: message.contentType,
-        mediaUrl: payload.mediaUrl || undefined,
-        attachments: message.attachments,
         senderId: message.senderId,
         senderType: message.senderType,
-        senderName: 'WhatsApp HP',
-        isEcho: true,
-        replyTo: message.replyTo,
-        contentAttributes: message.contentAttributes,
+        senderName: message.senderName,
+        status: message.status,
         timestamp: message.createdAt,
         createdAt: message.createdAt,
         message,
         conversation,
         contact,
-        ticket,
+        ticket: activeTicket,
+        isNewTicket: false,
       },
     })
 
-    return result
+    return {
+      contact,
+      conversation,
+      ticket: activeTicket,
+      message,
+    }
   }
 
   async getConversationById(
     id: string,
     options?: GetConversationOptions,
   ): Promise<ConversationDetail | null> {
-    let conversation: Conversation | null = null
-
-    try {
-      const rows = await sql`
-        SELECT
-          c.id,
-          c.inbox_id as "inboxId",
-          c.contact_id as "contactId",
-          c.contact_inbox_id as "contactInboxId",
-          c.active_ticket_id as "activeTicketId",
-          c.unread_count as "unreadCount",
-          c.last_message_at as "lastMessageAt",
-          c.created_at as "createdAt",
-          c.updated_at as "updatedAt",
-          i.name as "inboxName",
-          i.channel_type as "channelType"
-        FROM conversations c
-        LEFT JOIN inboxes i ON c.inbox_id = i.id
-        WHERE c.id = ${id}
-        LIMIT 1
-      `
-      if (rows && rows.length > 0) {
-        const row = rows[0] as unknown as ConversationWithInbox
-        conversation = {
-          ...row,
-          channel: row.channel || row.channelType || 'whatsapp',
-        }
-        memoryStore.conversations.set(id, conversation)
-      } else {
-        conversation = memoryStore.conversations.get(id) || null
-      }
-    } catch {
-      // Memory fallback if DB is offline
-      conversation = memoryStore.conversations.get(id) || null
-    }
-
-    if (!conversation) {
+    const rows = await sql`
+      SELECT c.id, c.inbox_id as "inboxId", c.contact_id as "contactId",
+             c.contact_inbox_id as "contactInboxId", c.active_ticket_id as "activeTicketId",
+             c.unread_count as "unreadCount", c.last_message_at as "lastMessageAt",
+             c.created_at as "createdAt", c.updated_at as "updatedAt",
+             i.name as "inboxName", i.channel_type as "channelType"
+      FROM conversations c
+      LEFT JOIN inboxes i ON c.inbox_id = i.id
+      WHERE c.id = ${id}
+      LIMIT 1
+    `
+    if (!rows || rows.length === 0) {
       return null
     }
 
-    const currentConv = conversation as ConversationWithInbox
-    if ((!currentConv.inboxName || !currentConv.channelType) && currentConv.inboxId) {
-      try {
-        const { inboxService } = await import('../inboxes/inboxes.service')
-        const res = await inboxService.getInboxById(currentConv.inboxId)
-        if (res?.inbox) {
-          conversation = {
-            ...currentConv,
-            inboxName: currentConv.inboxName || res.inbox.name,
-            channelType: currentConv.channelType || res.inbox.channelType,
-            channel: currentConv.channel || currentConv.channelType || res.inbox.channelType,
-          }
-        }
-      } catch {
-        // ignore
-      }
+    const convRow = rows[0]
+    const conversation: ConversationWithInbox = {
+      ...mapConversationRow(convRow),
+      inboxName: convRow.inboxName ?? null,
+      channelType: convRow.channelType ?? null,
+      channel: convRow.channelType ?? 'whatsapp',
     }
 
     let contact: Contact | null = null
     if (conversation.contactId) {
-      try {
-        const cRows = await sql`
-          SELECT id, name, phone_number as "phoneNumber", email, avatar_url as "avatarUrl",
-                 created_at as "createdAt", updated_at as "updatedAt"
-          FROM contacts WHERE id = ${conversation.contactId} LIMIT 1
-        `
-        if (cRows && cRows.length > 0) {
-          contact = cRows[0] as unknown as Contact
-          memoryStore.contacts.set(conversation.contactId, contact)
-        }
-      } catch {
-        contact = memoryStore.contacts.get(conversation.contactId) || null
+      const cRows = await sql`
+        SELECT id, company_id as "companyId", name, phone_number as "phoneNumber", email, avatar_url as "avatarUrl",
+               identifier, contact_type as "contactType", custom_attributes as "customAttributes",
+               additional_attributes as "additionalAttributes", blocked,
+               created_at as "createdAt", updated_at as "updatedAt"
+        FROM contacts WHERE id = ${conversation.contactId} LIMIT 1
+      `
+      if (cRows && cRows.length > 0) {
+        contact = mapContactRow(cRows[0])
       }
     }
 
@@ -1264,34 +1072,13 @@ export class ConversationService {
     let messages: Message[] = []
     let hasMore = false
 
-    try {
-      let dbMsgs: unknown[] = []
-      if (beforeId) {
-        const cursorRows = await sql`
-          SELECT created_at as "createdAt", id FROM messages WHERE id = ${beforeId} LIMIT 1
-        `
-        if (cursorRows && cursorRows.length > 0) {
-          const cursorCreatedAt = cursorRows[0].createdAt
-          dbMsgs = await sql`
-            SELECT m.id, m.conversation_id as "conversationId", m.ticket_id as "ticketId",
-                   t.display_id as "ticketDisplayId",
-                   m.sender_id as "senderId", m.sender_type as "senderType",
-                   COALESCE(u.display_name, m.content_attributes->>'senderName', CASE WHEN m.sender_type = 'bot' THEN 'Bot Otomasi' ELSE NULL END) as "senderName",
-                   u.email as "senderEmail",
-                   m.message_type as "messageType", m.content_type as "contentType",
-                   m.content, m.status, m.external_source_id as "externalSourceId",
-                   m.content_attributes as "contentAttributes",
-                   m.created_at as "createdAt", m.updated_at as "updatedAt"
-            FROM messages m
-            LEFT JOIN tickets t ON m.ticket_id = t.id
-            LEFT JOIN users u ON m.sender_id = u.id
-            WHERE m.conversation_id = ${id}
-              AND (m.created_at < ${cursorCreatedAt} OR (m.created_at = ${cursorCreatedAt} AND m.id < ${beforeId}))
-            ORDER BY m.created_at DESC, m.id DESC
-            LIMIT ${limit + 1}
-          `
-        }
-      } else {
+    let dbMsgs: unknown[] = []
+    if (beforeId) {
+      const cursorRows = await sql`
+        SELECT created_at as "createdAt", id FROM messages WHERE id = ${beforeId} LIMIT 1
+      `
+      if (cursorRows && cursorRows.length > 0) {
+        const cursorCreatedAt = cursorRows[0].createdAt
         dbMsgs = await sql`
           SELECT m.id, m.conversation_id as "conversationId", m.ticket_id as "ticketId",
                  t.display_id as "ticketDisplayId",
@@ -1306,127 +1093,75 @@ export class ConversationService {
           LEFT JOIN tickets t ON m.ticket_id = t.id
           LEFT JOIN users u ON m.sender_id = u.id
           WHERE m.conversation_id = ${id}
+            AND (m.created_at < ${cursorCreatedAt} OR (m.created_at = ${cursorCreatedAt} AND m.id < ${beforeId}))
           ORDER BY m.created_at DESC, m.id DESC
           LIMIT ${limit + 1}
         `
       }
-
-      if (dbMsgs && dbMsgs.length > 0) {
-        const rawBatch = dbMsgs as unknown as Message[]
-        hasMore = rawBatch.length > limit
-        if (hasMore) {
-          rawBatch.pop()
-        }
-        messages = rawBatch.reverse()
-      }
-    } catch {
-      // Memory fallback if DB is offline
+    } else {
+      dbMsgs = await sql`
+        SELECT m.id, m.conversation_id as "conversationId", m.ticket_id as "ticketId",
+               t.display_id as "ticketDisplayId",
+               m.sender_id as "senderId", m.sender_type as "senderType",
+               COALESCE(u.display_name, m.content_attributes->>'senderName', CASE WHEN m.sender_type = 'bot' THEN 'Bot Otomasi' ELSE NULL END) as "senderName",
+               u.email as "senderEmail",
+               m.message_type as "messageType", m.content_type as "contentType",
+               m.content, m.status, m.external_source_id as "externalSourceId",
+               m.content_attributes as "contentAttributes",
+               m.created_at as "createdAt", m.updated_at as "updatedAt"
+        FROM messages m
+        LEFT JOIN tickets t ON m.ticket_id = t.id
+        LEFT JOIN users u ON m.sender_id = u.id
+        WHERE m.conversation_id = ${id}
+        ORDER BY m.created_at DESC, m.id DESC
+        LIMIT ${limit + 1}
+      `
     }
 
-    if (messages.length === 0) {
-      const storeIds = messageStore.conversationIndex.get(conversation.id) || []
-      const storeMessages = storeIds
-        .map((id) => messageStore.messages.get(id))
-        .filter((m): m is Message => m !== undefined)
-      const allMem =
-        storeMessages.length > 0 ? storeMessages : memoryStore.messages.get(conversation.id) || []
-
-      const sortedDesc = [...allMem].sort((a, b) => {
-        const timeA = new Date(a.createdAt).getTime()
-        const timeB = new Date(b.createdAt).getTime()
-        if (timeB !== timeA) return timeB - timeA
-        return (b.id || '').localeCompare(a.id || '')
-      })
-
-      let candidateMsgs = sortedDesc
-      if (beforeId) {
-        const cursorIndex = sortedDesc.findIndex((m) => m.id === beforeId)
-        if (cursorIndex >= 0) {
-          candidateMsgs = sortedDesc.slice(cursorIndex + 1)
-        } else {
-          candidateMsgs = []
-        }
-      }
-
-      const batch = candidateMsgs.slice(0, limit + 1)
-      hasMore = batch.length > limit
+    if (dbMsgs && dbMsgs.length > 0) {
+      const rawBatch = (dbMsgs as unknown as Record<string, unknown>[]).map(mapMessageRow)
+      hasMore = rawBatch.length > limit
       if (hasMore) {
-        batch.pop()
+        rawBatch.pop()
       }
-      messages = batch.reverse()
-    }
+      messages = rawBatch.reverse()
 
-    const convRecord = conversation as Record<string, unknown>
-    const contactRecord = contact as Record<string, unknown> | null
-    const isGroup = Boolean(
-      convRecord.isGroup ||
-        (conversation.customAttributes as Record<string, unknown>)?.isGroup ||
-        contact?.phoneNumber?.includes('@g.us') ||
-        contact?.phoneNumber?.includes('120363') ||
-        contact?.identifier?.includes('@g.us') ||
-        contact?.identifier?.includes('120363') ||
-        contactRecord?.contactType === 'group',
-    )
-    const groupJid =
-      (convRecord.groupJid as string | undefined) ||
-      (conversation.customAttributes as Record<string, unknown>)?.groupJid ||
-      (contact?.phoneNumber?.includes('@g.us') ? contact.phoneNumber : undefined) ||
-      (contact?.identifier?.includes('@g.us') ? contact.identifier : undefined) ||
-      (isGroup && contact?.phoneNumber
-        ? contact.phoneNumber.includes('@g.us')
-          ? contact.phoneNumber
-          : `${contact.phoneNumber.replace(/[^0-9]/g, '')}@g.us`
-        : undefined)
-
-    if (isGroup) {
-      conversation = {
-        ...conversation,
-        isGroup: true,
-        groupJid,
-      } as Conversation
-    }
-
-    messages = messages.map((m) => {
-      const attrs = parseContentAttributes(m.contentAttributes)
-      let senderName = m.senderName || (attrs.senderName as string | undefined)
-      if (!senderName && m.senderType === 'bot') {
-        senderName = 'Bot Otomasi'
+      const msgIds = messages.map((m) => m.id)
+      if (msgIds.length > 0) {
+        const attachRows = await sql`
+          SELECT id, message_id as "messageId", file_type as "fileType",
+                 file_url as "fileUrl", file_size as "fileSize", file_name as "fileName",
+                 created_at as "createdAt"
+          FROM attachments
+          WHERE message_id IN ${sql(msgIds)}
+        `
+        if (attachRows && attachRows.length > 0) {
+          const attachMap = new Map<string, Message['attachments']>()
+          for (const a of attachRows) {
+            const list = attachMap.get(a.messageId) || []
+            list.push({
+              id: a.id,
+              messageId: a.messageId,
+              fileType: a.fileType,
+              fileUrl: a.fileUrl,
+              fileSize: a.fileSize ?? null,
+              fileName: a.fileName ?? null,
+              createdAt: toIsoString(a.createdAt) || a.createdAt,
+            })
+            attachMap.set(a.messageId, list)
+          }
+          for (const m of messages) {
+            const attached = attachMap.get(m.id)
+            if (attached && attached.length > 0) {
+              m.attachments = attached
+              if (!m.mediaUrl && attached[0]?.fileUrl) {
+                m.mediaUrl = attached[0].fileUrl
+              }
+            }
+          }
+        }
       }
-      const mediaUrl =
-        m.mediaUrl ||
-        (attrs.mediaUrl as string | undefined) ||
-        (Array.isArray(m.attachments) && m.attachments[0]?.fileUrl) ||
-        undefined
-      const contentType =
-        (m.contentType && m.contentType !== 'text' ? m.contentType : undefined) ||
-        (m.messageType === 'image' ? 'image' : undefined) ||
-        (attrs.contentType as string | undefined) ||
-        m.contentType ||
-        'text'
-
-      return {
-        ...m,
-        senderName,
-        contentType,
-        mediaUrl,
-        replyTo: (attrs.replyTo as Message['replyTo']) || m.replyTo || null,
-        contentAttributes: attrs,
-        isGroup: Boolean(m.isGroup || attrs.isGroup || isGroup),
-        groupJid: m.groupJid || (attrs.groupJid as string | undefined) || groupJid,
-        participant: m.participant || (attrs.participant as string | undefined),
-        participantName: m.participantName || (attrs.participantName as string | undefined),
-        isEcho: Boolean(m.isEcho || attrs.echo || attrs.source === 'whatsapp_mobile'),
-        mentions: (attrs.mentions as Message['mentions']) || m.mentions,
-        isMentioningMe: Boolean(attrs.isMentioningMe ?? m.isMentioningMe),
-      }
-    })
-
-    if (conversation.unreadCount && conversation.unreadCount > 0) {
-      conversation.unreadCount = 0
-      this.markConversationAsRead(id).catch(() => {})
     }
-
-    const nextCursor = hasMore && messages.length > 0 ? messages[0].id : undefined
 
     return {
       conversation,
@@ -1435,29 +1170,20 @@ export class ConversationService {
       messages,
       pagination: {
         hasMore,
-        nextCursor,
+        nextCursor: hasMore && messages.length > 0 ? messages[0].id : undefined,
         limit,
       },
     }
   }
 
   async markConversationAsRead(id: string): Promise<boolean> {
-    const conv = memoryStore.conversations.get(id)
-    if (conv) {
-      conv.unreadCount = 0
-      conv.updatedAt = new Date().toISOString()
-    }
-
-    try {
-      await sql`
-        UPDATE conversations
-        SET unread_count = 0, updated_at = NOW()
-        WHERE id = ${id}
-      `
-      return true
-    } catch {
-      return Boolean(conv)
-    }
+    const rows = await sql`
+      UPDATE conversations
+      SET unread_count = 0, updated_at = NOW()
+      WHERE id = ${id}
+      RETURNING id
+    `
+    return rows.length > 0
   }
 
   async listConversations(filter?: { inboxId?: string }): Promise<
@@ -1472,115 +1198,69 @@ export class ConversationService {
       }
     >
   > {
-    let conversations: Conversation[]
+    const rows = filter?.inboxId
+      ? await sql`
+          SELECT c.id, c.inbox_id as "inboxId", c.contact_id as "contactId",
+                 c.contact_inbox_id as "contactInboxId", c.active_ticket_id as "activeTicketId",
+                 c.unread_count as "unreadCount", c.last_message_at as "lastMessageAt",
+                 c.created_at as "createdAt", c.updated_at as "updatedAt",
+                 i.name as "inboxName", i.channel_type as "channelType"
+          FROM conversations c
+          LEFT JOIN inboxes i ON c.inbox_id = i.id
+          WHERE c.inbox_id = ${filter.inboxId}
+          ORDER BY c.last_message_at DESC
+        `
+      : await sql`
+          SELECT c.id, c.inbox_id as "inboxId", c.contact_id as "contactId",
+                 c.contact_inbox_id as "contactInboxId", c.active_ticket_id as "activeTicketId",
+                 c.unread_count as "unreadCount", c.last_message_at as "lastMessageAt",
+                 c.created_at as "createdAt", c.updated_at as "updatedAt",
+                 i.name as "inboxName", i.channel_type as "channelType"
+          FROM conversations c
+          LEFT JOIN inboxes i ON c.inbox_id = i.id
+          ORDER BY c.last_message_at DESC
+        `
 
-    try {
-      const rows = filter?.inboxId
-        ? await sql`
-            SELECT c.id, c.inbox_id as "inboxId", c.contact_id as "contactId",
-                   c.contact_inbox_id as "contactInboxId", c.active_ticket_id as "activeTicketId",
-                   c.unread_count as "unreadCount", c.last_message_at as "lastMessageAt",
-                   c.created_at as "createdAt", c.updated_at as "updatedAt",
-                   i.name as "inboxName", i.channel_type as "channelType"
-            FROM conversations c
-            LEFT JOIN inboxes i ON c.inbox_id = i.id
-            WHERE c.inbox_id = ${filter.inboxId}
-            ORDER BY c.last_message_at DESC
-          `
-        : await sql`
-            SELECT c.id, c.inbox_id as "inboxId", c.contact_id as "contactId",
-                   c.contact_inbox_id as "contactInboxId", c.active_ticket_id as "activeTicketId",
-                   c.unread_count as "unreadCount", c.last_message_at as "lastMessageAt",
-                   c.created_at as "createdAt", c.updated_at as "updatedAt",
-                   i.name as "inboxName", i.channel_type as "channelType"
-            FROM conversations c
-            LEFT JOIN inboxes i ON c.inbox_id = i.id
-            ORDER BY c.last_message_at DESC
-          `
-      conversations = (rows || []) as unknown as Conversation[]
-      if (!filter?.inboxId) {
-        memoryStore.conversations.clear()
-        for (const conv of conversations) {
-          memoryStore.conversations.set(conv.id, conv)
-        }
-      }
-    } catch {
-      // Memory fallback if DB is offline
-      conversations = Array.from(memoryStore.conversations.values())
-      if (filter?.inboxId) {
-        conversations = conversations.filter((c) => c.inboxId === filter.inboxId)
-      }
-    }
-
-    const { inboxService } = await import('../inboxes/inboxes.service')
+    const conversations = ((rows || []) as unknown as Record<string, unknown>[]).map((r) => ({
+      ...mapConversationRow(r),
+      inboxName: r.inboxName ?? null,
+      channelType: r.channelType ?? null,
+      channel: r.channelType ?? 'whatsapp',
+    }))
 
     const result = []
     for (const conv of conversations) {
-      const convWithInbox = conv as ConversationWithInbox
-      let inboxName = convWithInbox.inboxName
-      let channelType = convWithInbox.channelType || convWithInbox.channel
-      if ((!inboxName || !channelType) && conv.inboxId) {
-        try {
-          const res = await inboxService.getInboxById(conv.inboxId)
-          if (res?.inbox) {
-            inboxName = inboxName || res.inbox.name
-            channelType = channelType || res.inbox.channelType
-          }
-        } catch {
-          // ignore
+      let contact: Contact | null = null
+      if (conv.contactId) {
+        const cRows = await sql`
+          SELECT id, company_id as "companyId", name, phone_number as "phoneNumber", email, avatar_url as "avatarUrl",
+                 identifier, contact_type as "contactType", custom_attributes as "customAttributes",
+                 additional_attributes as "additionalAttributes", blocked,
+                 created_at as "createdAt", updated_at as "updatedAt"
+          FROM contacts WHERE id = ${conv.contactId} LIMIT 1
+        `
+        if (cRows && cRows.length > 0) {
+          contact = mapContactRow(cRows[0])
         }
       }
 
-      let contact: Contact | null = null
-      if (conv.contactId) {
-        try {
-          const cRows = await sql`
-            SELECT id, name, phone_number as "phoneNumber", email, avatar_url as "avatarUrl",
-                   created_at as "createdAt", updated_at as "updatedAt"
-            FROM contacts WHERE id = ${conv.contactId} LIMIT 1
-          `
-          if (cRows && cRows.length > 0) {
-            contact = cRows[0] as unknown as Contact
-            memoryStore.contacts.set(conv.contactId, contact)
-          }
-        } catch {
-          contact = memoryStore.contacts.get(conv.contactId) || null
-        }
-      }
       const activeTicket = conv.activeTicketId
         ? await ticketService.getTicketById(conv.activeTicketId)
         : null
 
       let lastMessage: string | null = null
-      try {
-        const mRows = await sql`
-          SELECT content, status, content_attributes as "contentAttributes" FROM messages
-          WHERE conversation_id = ${conv.id}
-          ORDER BY created_at DESC LIMIT 1
-        `
-        if (mRows && mRows.length > 0) {
-          const row = mRows[0]
-          const attrs = (row.contentAttributes as Record<string, unknown>) || {}
-          if (row.status === 'deleted_by_sender' || attrs.isDeletedBySender) {
-            lastMessage = '🚫 Pesan telah ditarik'
-          } else {
-            lastMessage = row.content as string | null
-          }
-        }
-      } catch {
-        // ignore
-      }
-
-      if (!lastMessage) {
-        const convMsgs = memoryStore.messages.get(conv.id)
-        if (convMsgs && convMsgs.length > 0) {
-          const latest = convMsgs[convMsgs.length - 1]
-          const attrs = (latest.contentAttributes as Record<string, unknown>) || {}
-          if (latest.status === 'deleted_by_sender' || attrs.isDeletedBySender) {
-            lastMessage = '🚫 Pesan telah ditarik'
-          } else {
-            lastMessage = latest.content || null
-          }
+      const mRows = await sql`
+        SELECT content, status, content_attributes as "contentAttributes" FROM messages
+        WHERE conversation_id = ${conv.id}
+        ORDER BY created_at DESC LIMIT 1
+      `
+      if (mRows && mRows.length > 0) {
+        const row = mRows[0]
+        const attrs = parseContentAttributes(row.contentAttributes)
+        if (row.status === 'deleted_by_sender' || attrs.isDeletedBySender) {
+          lastMessage = '🚫 Pesan telah ditarik'
+        } else {
+          lastMessage = row.content as string | null
         }
       }
 
@@ -1610,9 +1290,9 @@ export class ConversationService {
         ...conv,
         isGroup: isGroup ? true : undefined,
         groupJid: isGroup ? groupJid : undefined,
-        inboxName: inboxName || null,
-        channelType: channelType || 'whatsapp',
-        channel: channelType || 'whatsapp',
+        inboxName: conv.inboxName || null,
+        channelType: conv.channelType || 'whatsapp',
+        channel: conv.channelType || 'whatsapp',
         contact,
         activeTicket,
         lastMessage,
@@ -1635,20 +1315,16 @@ export class ConversationService {
   }
 
   async listContacts(): Promise<Contact[]> {
-    try {
-      const rows = await sql`
-        SELECT
-          id, name, phone_number as "phoneNumber", email,
-          created_at as "createdAt", updated_at as "updatedAt"
-        FROM contacts
-      `
-      if (rows && rows.length > 0) {
-        return rows as unknown as Contact[]
-      }
-    } catch {
-      // Memory fallback
-    }
-    return Array.from(memoryStore.contacts.values())
+    const rows = await sql`
+      SELECT
+        id, company_id as "companyId", name, phone_number as "phoneNumber", email, avatar_url as "avatarUrl",
+        identifier, contact_type as "contactType", custom_attributes as "customAttributes",
+        additional_attributes as "additionalAttributes", blocked,
+        created_at as "createdAt", updated_at as "updatedAt"
+      FROM contacts
+      ORDER BY created_at DESC
+    `
+    return (rows || []).map(mapContactRow)
   }
 
   async handleEditedMessage(params: {
@@ -1657,18 +1333,7 @@ export class ConversationService {
     editedAt?: string
   }): Promise<{ message: Message } | null> {
     const { messageService } = await import('../messages/messages.service')
-    const result = await messageService.editMessage(params)
-    if (!result) return null
-
-    const convMsgs = memoryStore.messages.get(result.message.conversationId)
-    if (convMsgs) {
-      const idx = convMsgs.findIndex((m) => m.id === result.message.id)
-      if (idx !== -1) {
-        convMsgs[idx] = result.message
-      }
-    }
-
-    return result
+    return messageService.editMessage(params)
   }
 
   async handleRevokedMessage(params: {
@@ -1676,18 +1341,7 @@ export class ConversationService {
     revokedAt?: string
   }): Promise<{ message: Message } | null> {
     const { messageService } = await import('../messages/messages.service')
-    const result = await messageService.revokeMessage(params)
-    if (!result) return null
-
-    const convMsgs = memoryStore.messages.get(result.message.conversationId)
-    if (convMsgs) {
-      const idx = convMsgs.findIndex((m) => m.id === result.message.id)
-      if (idx !== -1) {
-        convMsgs[idx] = result.message
-      }
-    }
-
-    return result
+    return messageService.revokeMessage(params)
   }
 }
 

@@ -1,5 +1,5 @@
 import type { Role, Ticket, User, UserAvailability } from '@xatxoot/shared'
-import { sql } from '../../db'
+import { sql, toValidUuid } from '../../db'
 import { capacityService } from '../capacity/capacity.service'
 import { conversationService } from '../conversations/conversations.service'
 import { inboxService } from '../inboxes/inboxes.service'
@@ -37,25 +37,29 @@ export interface NextAgentResult {
   reason?: string
 }
 
-interface AssignmentMemoryStore {
-  agents: Map<string, AssignmentCandidate>
-  inboxMembers: Map<string, Set<string>> // inboxId -> Set<userId>
-  teamMembers: Map<string, Set<string>> // teamId -> Set<userId>
-  lastAssigned: Map<string, string> // poolKey -> lastAssignedUserId
+const lastAssignedCursor = new Map<string, string>() // poolKey -> lastAssignedUserId
+const rawToUuid = new Map<string, string>()
+const uuidToRaw = new Map<string, string>()
+
+function getValidUuid(id: string): string {
+  const cached = rawToUuid.get(id)
+  if (cached) return cached
+  const valid = toValidUuid(id)
+  rawToUuid.set(id, valid)
+  uuidToRaw.set(valid, id)
+  return valid
 }
 
-const memoryStore: AssignmentMemoryStore = {
-  agents: new Map(),
-  inboxMembers: new Map(),
-  teamMembers: new Map(),
-  lastAssigned: new Map(),
+function getOriginalId(validId: string): string {
+  return uuidToRaw.get(validId) || validId
 }
 
-export function resetAssignmentStore(): void {
-  memoryStore.agents.clear()
-  memoryStore.inboxMembers.clear()
-  memoryStore.teamMembers.clear()
-  memoryStore.lastAssigned.clear()
+export async function resetAssignmentStore(): Promise<void> {
+  lastAssignedCursor.clear()
+  rawToUuid.clear()
+  uuidToRaw.clear()
+  await sql`DELETE FROM inbox_members`
+  await sql`DELETE FROM team_members`
 }
 
 export class RoundRobinAssignmentService {
@@ -65,6 +69,7 @@ export class RoundRobinAssignmentService {
   async registerAgent(
     agent: Partial<AssignmentCandidate> & { id: string },
   ): Promise<AssignmentCandidate> {
+    const validId = getValidUuid(agent.id)
     const candidate: AssignmentCandidate = {
       id: agent.id,
       email: agent.email || `agent-${agent.id}@acme.corp`,
@@ -75,24 +80,19 @@ export class RoundRobinAssignmentService {
       createdAt: agent.createdAt || new Date().toISOString(),
     }
 
-    memoryStore.agents.set(agent.id, candidate)
-
-    try {
-      await sql`
-        INSERT INTO users (
-          id, email, password_hash, display_name, role, availability, active, created_at
-        ) VALUES (
-          ${candidate.id}, ${candidate.email}, 'mock_hash', ${candidate.displayName},
-          ${candidate.role}, ${candidate.availability}, ${candidate.active}, ${candidate.createdAt}
-        )
-        ON CONFLICT (id) DO UPDATE SET
-          availability = ${candidate.availability},
-          active = ${candidate.active},
-          display_name = ${candidate.displayName}
-      `
-    } catch {
-      // Memory fallback for tests/offline
-    }
+    await sql`
+      INSERT INTO users (
+        id, email, password_hash, display_name, role, availability, active, created_at, updated_at
+      ) VALUES (
+        ${validId}, ${candidate.email}, 'mock_hash', ${candidate.displayName},
+        ${candidate.role}, ${candidate.availability}, ${candidate.active}, ${candidate.createdAt}, NOW()
+      )
+      ON CONFLICT (id) DO UPDATE SET
+        availability = ${candidate.availability},
+        active = ${candidate.active},
+        display_name = ${candidate.displayName},
+        updated_at = NOW()
+    `
 
     return candidate
   }
@@ -101,21 +101,19 @@ export class RoundRobinAssignmentService {
    * Get an agent by ID
    */
   async getAgent(id: string): Promise<AssignmentCandidate | null> {
-    const inMem = memoryStore.agents.get(id)
-    if (inMem) return inMem
-
-    try {
-      const rows = await sql`
-        SELECT id, email, display_name AS "displayName", role, availability, active, created_at AS "createdAt"
-        FROM users
-        WHERE id = ${id}
-        LIMIT 1
-      `
-      if (rows && rows.length > 0) {
-        return rows[0] as unknown as AssignmentCandidate
-      }
-    } catch {
-      // Memory fallback
+    const validId = getValidUuid(id)
+    const rows = await sql`
+      SELECT id, email, display_name AS "displayName", role, availability, active, created_at AS "createdAt"
+      FROM users
+      WHERE id = ${validId}
+      LIMIT 1
+    `
+    if (rows && rows.length > 0) {
+      const row = rows[0] as Record<string, unknown>
+      return {
+        ...row,
+        id: getOriginalId(row.id as string),
+      } as unknown as AssignmentCandidate
     }
 
     return null
@@ -125,21 +123,12 @@ export class RoundRobinAssignmentService {
    * Update an agent's availability (online, offline, busy)
    */
   async setUserAvailability(userId: string, availability: UserAvailability): Promise<User | null> {
-    const agent = memoryStore.agents.get(userId)
-    if (agent) {
-      agent.availability = availability
-      memoryStore.agents.set(userId, agent)
-    }
-
-    try {
-      await sql`
-        UPDATE users
-        SET availability = ${availability}
-        WHERE id = ${userId}
-      `
-    } catch {
-      // Memory fallback
-    }
+    const validId = getValidUuid(userId)
+    await sql`
+      UPDATE users
+      SET availability = ${availability}, updated_at = NOW()
+      WHERE id = ${validId}
+    `
 
     realtimeService.broadcast({
       event: 'user.presence',
@@ -174,32 +163,23 @@ export class RoundRobinAssignmentService {
    * Add an agent as an inbox member
    */
   async addInboxMember(inboxId: string, userId: string): Promise<void> {
-    if (!memoryStore.inboxMembers.has(inboxId)) {
-      memoryStore.inboxMembers.set(inboxId, new Set())
-    }
-    memoryStore.inboxMembers.get(inboxId)?.add(userId)
-
-    try {
-      await inboxService.addInboxMember(inboxId, userId)
-    } catch {
-      // Fallback
-    }
+    const validInboxId = getValidUuid(inboxId)
+    const validUserId = getValidUuid(userId)
+    await inboxService.addInboxMember(validInboxId, validUserId)
   }
 
   /**
    * Add an agent as a team member
    */
   async addTeamMember(teamId: string, userId: string): Promise<void> {
-    if (!memoryStore.teamMembers.has(teamId)) {
-      memoryStore.teamMembers.set(teamId, new Set())
-    }
-    memoryStore.teamMembers.get(teamId)?.add(userId)
-
-    try {
-      await teamService.addMember(teamId, userId)
-    } catch {
-      // Fallback
-    }
+    const validTeamId = getValidUuid(teamId)
+    const validUserId = getValidUuid(userId)
+    await sql`
+      INSERT INTO teams (id, name, allow_auto_assign, created_at, updated_at)
+      VALUES (${validTeamId}, 'Team ' || ${validTeamId}, true, NOW(), NOW())
+      ON CONFLICT (id) DO NOTHING
+    `
+    await teamService.addMember(validTeamId, validUserId)
   }
 
   /**
@@ -212,24 +192,16 @@ export class RoundRobinAssignmentService {
   }> {
     // 1. Team-based assignment pool
     if (options.teamId) {
+      const validTeamId = getValidUuid(options.teamId)
       const poolKey = `team:${options.teamId}`
-      const team = await teamService.getTeam(options.teamId)
+      const team = await teamService.getTeam(validTeamId)
       if (team && team.allowAutoAssign === false) {
         return { candidates: [], poolKey, reason: 'auto_assign_disabled' }
       }
 
       const candidateIds = new Set<string>()
-      const memTeam = memoryStore.teamMembers.get(options.teamId)
-      if (memTeam) {
-        for (const uid of memTeam) candidateIds.add(uid)
-      }
-
-      try {
-        const teamMembers = await teamService.listMembers(options.teamId)
-        for (const tm of teamMembers) candidateIds.add(tm.userId)
-      } catch {
-        // Fallback
-      }
+      const teamMembers = await teamService.listMembers(validTeamId)
+      for (const tm of teamMembers) candidateIds.add(getOriginalId(tm.userId))
 
       const onlineAgents: AssignmentCandidate[] = []
       for (const uid of candidateIds) {
@@ -245,13 +217,12 @@ export class RoundRobinAssignmentService {
 
       const candidates: AssignmentCandidate[] = []
       for (const agent of onlineAgents) {
-        const check = await capacityService.canAssignTicket(agent.id)
+        const check = await capacityService.canAssignTicket(getValidUuid(agent.id))
         if (check.allowed) {
           candidates.push(agent)
         }
       }
 
-      // Sort deterministically
       candidates.sort((a, b) => a.id.localeCompare(b.id))
 
       if (candidates.length === 0) {
@@ -262,24 +233,16 @@ export class RoundRobinAssignmentService {
 
     // 2. Inbox-based assignment pool
     if (options.inboxId) {
+      const validInboxId = getValidUuid(options.inboxId)
       const poolKey = `inbox:${options.inboxId}`
-      const inboxData = await inboxService.getInboxById(options.inboxId)
+      const inboxData = await inboxService.getInboxById(validInboxId)
       if (inboxData && inboxData.inbox.enableAutoAssign === false) {
         return { candidates: [], poolKey, reason: 'auto_assign_disabled' }
       }
 
       const candidateIds = new Set<string>()
-      const memInbox = memoryStore.inboxMembers.get(options.inboxId)
-      if (memInbox) {
-        for (const uid of memInbox) candidateIds.add(uid)
-      }
-
-      try {
-        const inboxMembers = await inboxService.listInboxMembers(options.inboxId)
-        for (const im of inboxMembers) candidateIds.add(im.userId)
-      } catch {
-        // Fallback
-      }
+      const inboxMembers = await inboxService.listInboxMembers(validInboxId)
+      for (const im of inboxMembers) candidateIds.add(getOriginalId(im.userId))
 
       const onlineAgents: AssignmentCandidate[] = []
       for (const uid of candidateIds) {
@@ -295,13 +258,12 @@ export class RoundRobinAssignmentService {
 
       const candidates: AssignmentCandidate[] = []
       for (const agent of onlineAgents) {
-        const check = await capacityService.canAssignTicket(agent.id, options.inboxId)
+        const check = await capacityService.canAssignTicket(getValidUuid(agent.id), validInboxId)
         if (check.allowed) {
           candidates.push(agent)
         }
       }
 
-      // Sort deterministically
       candidates.sort((a, b) => a.id.localeCompare(b.id))
 
       if (candidates.length === 0) {
@@ -327,7 +289,7 @@ export class RoundRobinAssignmentService {
       }
     }
 
-    const lastAssignedId = memoryStore.lastAssigned.get(poolKey)
+    const lastAssignedId = lastAssignedCursor.get(poolKey)
     let nextIndex = 0
 
     if (lastAssignedId) {
@@ -358,20 +320,15 @@ export class RoundRobinAssignmentService {
       throw new Error(`Ticket not found: ${ticketId}`)
     }
 
-    // Determine target pool options if not explicitly supplied
     const poolOptions: RoundRobinOptions = { ...options }
     if (!poolOptions.teamId && ticket.teamId) {
       poolOptions.teamId = ticket.teamId
     }
 
     if (!poolOptions.inboxId && !poolOptions.teamId && ticket.conversationId) {
-      try {
-        const conv = await conversationService.getConversationDetail(ticket.conversationId)
-        if (conv?.conversation.inboxId) {
-          poolOptions.inboxId = conv.conversation.inboxId
-        }
-      } catch {
-        // Fallback
+      const conv = await conversationService.getConversationDetail(ticket.conversationId)
+      if (conv?.conversation?.inboxId) {
+        poolOptions.inboxId = conv.conversation.inboxId
       }
     }
 
@@ -387,24 +344,26 @@ export class RoundRobinAssignmentService {
       }
     }
 
-    // Advance round-robin cursor for this pool
-    memoryStore.lastAssigned.set(poolKey, nextAgent.id)
+    lastAssignedCursor.set(poolKey, nextAgent.id)
 
-    // Assign ticket
-    const updatedTicket = await ticketService.assignTicket(ticket.id, nextAgent.id)
+    const validAgentId = getValidUuid(nextAgent.id)
+    const updatedTicket = await ticketService.assignTicket(ticket.id, validAgentId)
+    const finalTicket = {
+      ...updatedTicket,
+      assigneeId: nextAgent.id,
+    }
 
-    // Broadcast assignment event
     realtimeService.broadcast({
       event: 'ticket.assigned',
       data: {
-        ticket: updatedTicket,
+        ticket: finalTicket,
         assignedAgentId: nextAgent.id,
         poolKey,
       },
     })
 
     return {
-      ticket: updatedTicket,
+      ticket: finalTicket,
       assignedAgentId: nextAgent.id,
       poolKey,
       success: true,

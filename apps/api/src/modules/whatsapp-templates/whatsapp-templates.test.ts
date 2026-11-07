@@ -165,8 +165,8 @@ describe('WhatsApp Templates Module - Auth Guards', () => {
 })
 
 describe('WhatsApp Templates Module - CRUD & Storage', () => {
-  beforeEach(() => {
-    resetWhatsAppTemplateStore()
+  beforeEach(async () => {
+    await resetWhatsAppTemplateStore()
   })
 
   it('should create and retrieve templates with filtering by status and category', async () => {
@@ -221,9 +221,9 @@ describe('WhatsApp Templates Module - CRUD & Storage', () => {
 })
 
 describe('WhatsApp Templates Module - WABA Template Sync Engine', () => {
-  beforeEach(() => {
-    resetWhatsAppTemplateStore()
-    resetInboxStore()
+  beforeEach(async () => {
+    await resetWhatsAppTemplateStore()
+    await resetInboxStore()
   })
 
   it('should synchronize templates from WABA Meta Cloud API and upsert into database', async () => {
@@ -262,11 +262,11 @@ describe('WhatsApp Templates Module - WABA Template Sync Engine', () => {
 })
 
 describe('WhatsApp Templates Module - Outbound Sender via Template', () => {
-  beforeEach(() => {
-    resetWhatsAppTemplateStore()
-    resetInboxStore()
-    resetConversationStore()
-    resetTicketStore()
+  beforeEach(async () => {
+    await resetWhatsAppTemplateStore()
+    await resetInboxStore()
+    await resetConversationStore()
+    await resetTicketStore()
     lastSentPayload = null
   })
 
@@ -399,11 +399,11 @@ describe('WhatsApp Templates Module - Outbound Sender via Template', () => {
 })
 
 describe('WhatsApp Templates Module - HTTP Endpoints', () => {
-  beforeEach(() => {
-    resetWhatsAppTemplateStore()
-    resetInboxStore()
-    resetConversationStore()
-    resetTicketStore()
+  beforeEach(async () => {
+    await resetWhatsAppTemplateStore()
+    await resetInboxStore()
+    await resetConversationStore()
+    await resetTicketStore()
   })
 
   it('should interact with templates API via GET and POST endpoints', async () => {

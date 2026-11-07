@@ -4,7 +4,7 @@ import type {
   CampaignStatus,
   CreateCampaignInput,
 } from '@xatxoot/shared'
-import { sql } from '../../db'
+import { parseJsonField, sql, toIsoString, toValidUuid } from '../../db'
 import { conversationService } from '../conversations/conversations.service'
 import { inboxService } from '../inboxes/inboxes.service'
 import { messageService } from '../messages/messages.service'
@@ -29,16 +29,57 @@ export interface DeliveryStats {
   failedCount: number
 }
 
-const memoryStore = {
-  campaigns: new Map<string, Campaign>(),
-  deliveries: new Map<string, CampaignDelivery>(),
-  queuedDispatchJobs: [] as QueuedCampaignDispatchJob[],
+function mapCampaignRow(row: Record<string, unknown>): Campaign {
+  return {
+    id: String(row.id),
+    inboxId: String(row.inboxId),
+    title: String(row.title),
+    messageContent: String(row.messageContent),
+    scheduledAt: toIsoString(row.scheduledAt),
+    status: row.status as Campaign['status'],
+    antiBanDelayMin: Number(row.antiBanDelayMin ?? 15),
+    antiBanDelayMax: Number(row.antiBanDelayMax ?? 45),
+    audience: parseJsonField(row.audience, { type: 'all_contacts' }),
+    createdAt: toIsoString(row.createdAt) || (row.createdAt as string),
+    updatedAt: toIsoString(row.updatedAt) || (row.updatedAt as string),
+  }
 }
 
-export function resetCampaignsStore(): void {
-  memoryStore.campaigns.clear()
-  memoryStore.deliveries.clear()
-  memoryStore.queuedDispatchJobs = []
+function mapDeliveryRow(row: Record<string, unknown>): CampaignDelivery {
+  return {
+    id: String(row.id),
+    campaignId: String(row.campaignId),
+    contactId: String(row.contactId),
+    status: row.status as CampaignDelivery['status'],
+    errorMessage: (row.errorMessage as string | null) ?? null,
+    sentAt: toIsoString(row.sentAt),
+    createdAt: toIsoString(row.createdAt) || (row.createdAt as string),
+    updatedAt: toIsoString(row.updatedAt) || (row.updatedAt as string),
+  }
+}
+
+async function ensureInboxExists(inboxId: string): Promise<void> {
+  const validInboxId = toValidUuid(inboxId)
+  await sql`
+    INSERT INTO inboxes (id, name, channel_type, channel_id, created_at, updated_at)
+    VALUES (${validInboxId}, 'Inbox ' || ${validInboxId}, 'api', ${crypto.randomUUID()}, NOW(), NOW())
+    ON CONFLICT (id) DO NOTHING
+  `
+}
+
+async function ensureContactExists(contactId: string): Promise<void> {
+  const validContactId = toValidUuid(contactId)
+  await sql`
+    INSERT INTO contacts (id, name, created_at, updated_at)
+    VALUES (${validContactId}, 'Contact ' || ${validContactId}, NOW(), NOW())
+    ON CONFLICT (id) DO NOTHING
+  `
+}
+
+export async function resetCampaignsStore(): Promise<void> {
+  await sql`DELETE FROM campaign_deliveries`
+  await sql`DELETE FROM campaigns`
+  broadcastEngine.reset()
 }
 
 // ==========================================
@@ -112,37 +153,28 @@ export class CampaignsService {
     const now = new Date().toISOString()
     const antiBanDelayMin = input.antiBanDelayMin ?? 15
     const antiBanDelayMax = input.antiBanDelayMax ?? 45
+    const inboxId = toValidUuid(input.inboxId)
+    await ensureInboxExists(inboxId)
 
-    const campaign: Campaign = {
-      id,
-      inboxId: input.inboxId,
-      title: input.title,
-      messageContent: input.messageContent,
-      scheduledAt: input.scheduledAt ? new Date(input.scheduledAt).toISOString() : null,
-      status: 'draft',
-      antiBanDelayMin,
-      antiBanDelayMax,
-      audience: input.audience,
-      createdAt: now,
-      updatedAt: now,
-    }
+    const scheduledAt = input.scheduledAt ? new Date(input.scheduledAt).toISOString() : null
+    const audience = input.audience || { type: 'all_contacts' }
 
-    memoryStore.campaigns.set(id, campaign)
+    const rows = await sql`
+      INSERT INTO campaigns (
+        id, inbox_id, title, message_content, scheduled_at, status,
+        anti_ban_delay_min, anti_ban_delay_max, audience, created_at, updated_at
+      ) VALUES (
+        ${id}, ${inboxId}, ${input.title}, ${input.messageContent},
+        ${scheduledAt}, 'draft', ${antiBanDelayMin},
+        ${antiBanDelayMax}, ${JSON.stringify(audience)}, ${now}, ${now}
+      )
+      RETURNING
+        id, inbox_id as "inboxId", title, message_content as "messageContent",
+        scheduled_at as "scheduledAt", status, anti_ban_delay_min as "antiBanDelayMin",
+        anti_ban_delay_max as "antiBanDelayMax", audience, created_at as "createdAt", updated_at as "updatedAt"
+    `
 
-    try {
-      await sql`
-        INSERT INTO campaigns (
-          id, inbox_id, title, message_content, scheduled_at, status,
-          anti_ban_delay_min, anti_ban_delay_max, created_at, updated_at
-        ) VALUES (
-          ${campaign.id}, ${campaign.inboxId}, ${campaign.title}, ${campaign.messageContent},
-          ${campaign.scheduledAt}, ${campaign.status}, ${campaign.antiBanDelayMin},
-          ${campaign.antiBanDelayMax}, ${campaign.createdAt}, ${campaign.updatedAt}
-        )
-      `
-    } catch {
-      // Memory fallback
-    }
+    const campaign = mapCampaignRow(rows[0])
 
     // Resolve audience recipients and create pending deliveries
     await this.resolveAudienceDeliveries(campaign)
@@ -172,111 +204,71 @@ export class CampaignsService {
     const uniqueContactIds = Array.from(new Set(recipientContactIds))
     const now = new Date().toISOString()
 
-    for (const contactId of uniqueContactIds) {
+    for (const rawContactId of uniqueContactIds) {
+      const contactId = toValidUuid(rawContactId)
+      await ensureContactExists(contactId)
       const deliveryId = crypto.randomUUID()
-      const delivery: CampaignDelivery = {
-        id: deliveryId,
-        campaignId: campaign.id,
-        contactId,
-        status: 'pending',
-        errorMessage: null,
-        sentAt: null,
-        createdAt: now,
-        updatedAt: now,
-      }
 
-      memoryStore.deliveries.set(deliveryId, delivery)
-
-      try {
-        await sql`
-          INSERT INTO campaign_deliveries (
-            id, campaign_id, contact_id, status, error_message, sent_at, created_at, updated_at
-          ) VALUES (
-            ${delivery.id}, ${delivery.campaignId}, ${delivery.contactId}, ${delivery.status},
-            ${delivery.errorMessage}, ${delivery.sentAt}, ${delivery.createdAt}, ${delivery.updatedAt}
-          )
-        `
-      } catch {
-        // Memory fallback
-      }
+      await sql`
+        INSERT INTO campaign_deliveries (
+          id, campaign_id, contact_id, status, error_message, sent_at, created_at, updated_at
+        ) VALUES (
+          ${deliveryId}, ${campaign.id}, ${contactId}, 'pending',
+          ${null}, ${null}, ${now}, ${now}
+        )
+      `
     }
   }
 
   async listCampaigns(filter?: { inboxId?: string; status?: string }): Promise<Campaign[]> {
-    try {
-      let query = sql`
-        SELECT
-          id, inbox_id as "inboxId", title, message_content as "messageContent",
-          scheduled_at as "scheduledAt", status, anti_ban_delay_min as "antiBanDelayMin",
-          anti_ban_delay_max as "antiBanDelayMax", created_at as "createdAt", updated_at as "updatedAt"
-        FROM campaigns
-        WHERE 1 = 1
-      `
-      if (filter?.inboxId) {
-        query = sql`${query} AND inbox_id = ${filter.inboxId}`
-      }
-      if (filter?.status) {
-        query = sql`${query} AND status = ${filter.status}`
-      }
-      query = sql`${query} ORDER BY created_at DESC`
-      const rows = await query
-      if (rows && rows.length > 0) {
-        return rows as unknown as Campaign[]
-      }
-    } catch {
-      // Memory fallback
-    }
-
-    let campaigns = Array.from(memoryStore.campaigns.values())
+    let query = sql`
+      SELECT
+        id, inbox_id as "inboxId", title, message_content as "messageContent",
+        scheduled_at as "scheduledAt", status, anti_ban_delay_min as "antiBanDelayMin",
+        anti_ban_delay_max as "antiBanDelayMax", audience, created_at as "createdAt", updated_at as "updatedAt"
+      FROM campaigns
+      WHERE 1 = 1
+    `
     if (filter?.inboxId) {
-      campaigns = campaigns.filter((c) => c.inboxId === filter.inboxId)
+      const vInboxId = toValidUuid(filter.inboxId)
+      query = sql`${query} AND inbox_id = ${vInboxId}`
     }
     if (filter?.status) {
-      campaigns = campaigns.filter((c) => c.status === filter.status)
+      query = sql`${query} AND status = ${filter.status}`
     }
-    return campaigns
+    query = sql`${query} ORDER BY created_at DESC`
+    const rows = await query
+    return (rows || []).map(mapCampaignRow)
   }
 
   async getCampaignById(id: string): Promise<Campaign | null> {
-    try {
-      const rows = await sql`
-        SELECT
-          id, inbox_id as "inboxId", title, message_content as "messageContent",
-          scheduled_at as "scheduledAt", status, anti_ban_delay_min as "antiBanDelayMin",
-          anti_ban_delay_max as "antiBanDelayMax", created_at as "createdAt", updated_at as "updatedAt"
-        FROM campaigns
-        WHERE id = ${id}
-        LIMIT 1
-      `
-      if (rows && rows.length > 0) {
-        return rows[0] as unknown as Campaign
-      }
-    } catch {
-      // Memory fallback
+    const rows = await sql`
+      SELECT
+        id, inbox_id as "inboxId", title, message_content as "messageContent",
+        scheduled_at as "scheduledAt", status, anti_ban_delay_min as "antiBanDelayMin",
+        anti_ban_delay_max as "antiBanDelayMax", audience, created_at as "createdAt", updated_at as "updatedAt"
+      FROM campaigns
+      WHERE id = ${id}
+      LIMIT 1
+    `
+    if (rows && rows.length > 0) {
+      return mapCampaignRow(rows[0])
     }
 
-    return memoryStore.campaigns.get(id) || null
+    return null
   }
 
   async listCampaignDeliveries(campaignId: string): Promise<CampaignDelivery[]> {
-    try {
-      const rows = await sql`
-        SELECT
-          id, campaign_id as "campaignId", contact_id as "contactId", status,
-          error_message as "errorMessage", sent_at as "sentAt",
-          created_at as "createdAt", updated_at as "updatedAt"
-        FROM campaign_deliveries
-        WHERE campaign_id = ${campaignId}
-        ORDER BY created_at ASC
-      `
-      if (rows && rows.length > 0) {
-        return rows as unknown as CampaignDelivery[]
-      }
-    } catch {
-      // Memory fallback
-    }
-
-    return Array.from(memoryStore.deliveries.values()).filter((d) => d.campaignId === campaignId)
+    const rows = await sql`
+      SELECT
+        id, campaign_id as "campaignId", contact_id as "contactId", status,
+        error_message as "errorMessage", sent_at as "sentAt",
+        created_at as "createdAt", updated_at as "updatedAt"
+      FROM campaign_deliveries
+      WHERE campaign_id = ${campaignId}
+      ORDER BY created_at ASC
+    `
+    return (rows || []).map(mapDeliveryRow)
   }
 
   async getCampaignWithStats(
@@ -297,25 +289,21 @@ export class CampaignsService {
   }
 
   async updateCampaignStatus(id: string, status: CampaignStatus): Promise<Campaign> {
-    const existing = await this.getCampaignById(id)
-    if (!existing) {
+    const now = new Date().toISOString()
+    const rows = await sql`
+      UPDATE campaigns
+      SET status = ${status}, updated_at = ${now}
+      WHERE id = ${id}
+      RETURNING
+        id, inbox_id as "inboxId", title, message_content as "messageContent",
+        scheduled_at as "scheduledAt", status, anti_ban_delay_min as "antiBanDelayMin",
+        anti_ban_delay_max as "antiBanDelayMax", audience, created_at as "createdAt", updated_at as "updatedAt"
+    `
+    if (!rows || rows.length === 0) {
       throw new Error(`Campaign not found: ${id}`)
     }
 
-    const now = new Date().toISOString()
-    const updated: Campaign = {
-      ...existing,
-      status,
-      updatedAt: now,
-    }
-
-    memoryStore.campaigns.set(id, updated)
-
-    try {
-      await sql`UPDATE campaigns SET status = ${status}, updated_at = ${now} WHERE id = ${id}`
-    } catch {
-      // Memory fallback
-    }
+    const updated = mapCampaignRow(rows[0])
 
     realtimeService.broadcast({
       event: 'campaign.updated',
@@ -334,29 +322,22 @@ export class CampaignsService {
     status: 'pending' | 'sent' | 'failed',
     errorMessage?: string | null,
   ): Promise<CampaignDelivery | null> {
-    const delivery = memoryStore.deliveries.get(deliveryId)
-    if (!delivery) return null
-
     const now = new Date().toISOString()
-    delivery.status = status
-    delivery.errorMessage = errorMessage ?? null
-    if (status === 'sent') {
-      delivery.sentAt = now
-    }
-    delivery.updatedAt = now
-    memoryStore.deliveries.set(deliveryId, delivery)
+    const sentAt = status === 'sent' ? now : null
 
-    try {
-      await sql`
-        UPDATE campaign_deliveries
-        SET status = ${status}, error_message = ${delivery.errorMessage}, sent_at = ${delivery.sentAt}, updated_at = ${now}
-        WHERE id = ${deliveryId}
-      `
-    } catch {
-      // Memory fallback
-    }
+    const rows = await sql`
+      UPDATE campaign_deliveries
+      SET status = ${status}, error_message = ${errorMessage ?? null},
+          sent_at = COALESCE(sent_at, ${sentAt}), updated_at = ${now}
+      WHERE id = ${deliveryId}
+      RETURNING
+        id, campaign_id as "campaignId", contact_id as "contactId", status,
+        error_message as "errorMessage", sent_at as "sentAt",
+        created_at as "createdAt", updated_at as "updatedAt"
+    `
+    if (!rows || rows.length === 0) return null
 
-    return delivery
+    return mapDeliveryRow(rows[0])
   }
 }
 
@@ -368,13 +349,18 @@ export const campaignsService = new CampaignsService()
 
 export class BroadcastEngine {
   private limiter: AntiBanRateLimiter
+  private queuedJobs: QueuedCampaignDispatchJob[] = []
 
   constructor(limiter?: AntiBanRateLimiter) {
     this.limiter = limiter || antiBanRateLimiter
   }
 
+  reset(): void {
+    this.queuedJobs = []
+  }
+
   getQueuedDispatchJobs(): QueuedCampaignDispatchJob[] {
-    return [...memoryStore.queuedDispatchJobs]
+    return [...this.queuedJobs]
   }
 
   async enqueueCampaignDispatch(
@@ -400,7 +386,7 @@ export class BroadcastEngine {
       },
     }
 
-    memoryStore.queuedDispatchJobs.push(job)
+    this.queuedJobs.push(job)
 
     return {
       jobId,

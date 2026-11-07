@@ -7,12 +7,8 @@ import { sql } from '../../db'
 
 export type { CannedResponse, CreateCannedResponseInput, UpdateCannedResponseInput }
 
-const memoryStore = {
-  cannedResponses: new Map<string, CannedResponse>(),
-}
-
-export function resetCannedResponseStore(): void {
-  memoryStore.cannedResponses.clear()
+export async function resetCannedResponseStore(): Promise<void> {
+  await sql`DELETE FROM canned_responses`
 }
 
 function normalizeShortCode(shortCode: string): string {
@@ -39,113 +35,71 @@ export class CannedResponseService {
     const id = crypto.randomUUID()
     const now = new Date().toISOString()
 
-    const record: CannedResponse = {
-      id,
-      shortCode,
-      content: dto.content,
-      createdAt: now,
-      updatedAt: now,
-    }
+    const rows = await sql`
+      INSERT INTO canned_responses (
+        id, short_code, content, created_at, updated_at
+      ) VALUES (
+        ${id}, ${shortCode}, ${dto.content}, ${now}, ${now}
+      )
+      RETURNING id, short_code AS "shortCode", content, created_at AS "createdAt", updated_at AS "updatedAt"
+    `
 
-    try {
-      await sql`
-        INSERT INTO canned_responses (
-          id, short_code, content, created_at, updated_at
-        ) VALUES (
-          ${id}, ${shortCode}, ${record.content}, ${now}, ${now}
-        )
-      `
-    } catch {
-      // DB offline fallback
-    }
-
-    memoryStore.cannedResponses.set(id, record)
-    return record
+    return rows[0] as unknown as CannedResponse
   }
 
   async getByShortCode(shortCode: string): Promise<CannedResponse | null> {
     const cleaned = normalizeShortCode(shortCode)
-    try {
-      const rows = await sql`
-        SELECT id, short_code AS "shortCode", content,
-               created_at AS "createdAt", updated_at AS "updatedAt"
-        FROM canned_responses
-        WHERE short_code = ${cleaned}
-        LIMIT 1
-      `
-      if (rows && rows.length > 0) {
-        return rows[0] as unknown as CannedResponse
-      }
-    } catch {
-      // DB offline fallback
+    const rows = await sql`
+      SELECT id, short_code AS "shortCode", content,
+             created_at AS "createdAt", updated_at AS "updatedAt"
+      FROM canned_responses
+      WHERE short_code = ${cleaned}
+      LIMIT 1
+    `
+    if (rows && rows.length > 0) {
+      return rows[0] as unknown as CannedResponse
     }
 
-    for (const item of memoryStore.cannedResponses.values()) {
-      if (item.shortCode.toLowerCase() === cleaned.toLowerCase()) {
-        return item
-      }
-    }
     return null
   }
 
   async listCannedResponses(prefix?: string): Promise<CannedResponse[]> {
     const cleanPrefix = prefix ? normalizeShortCode(prefix) : undefined
 
-    try {
-      if (cleanPrefix) {
-        const pattern = `${cleanPrefix}%`
-        const rows = await sql`
-          SELECT id, short_code AS "shortCode", content,
-                 created_at AS "createdAt", updated_at AS "updatedAt"
-          FROM canned_responses
-          WHERE short_code ILIKE ${pattern}
-          ORDER BY short_code ASC
-        `
-        if (rows && rows.length >= 0) {
-          return rows as unknown as CannedResponse[]
-        }
-      } else {
-        const rows = await sql`
-          SELECT id, short_code AS "shortCode", content,
-                 created_at AS "createdAt", updated_at AS "updatedAt"
-          FROM canned_responses
-          ORDER BY short_code ASC
-        `
-        if (rows && rows.length > 0) {
-          return rows as unknown as CannedResponse[]
-        }
-      }
-    } catch {
-      // DB offline fallback
-    }
-
-    const list = Array.from(memoryStore.cannedResponses.values())
     if (cleanPrefix) {
-      const lower = cleanPrefix.toLowerCase()
-      return list
-        .filter((item) => item.shortCode.toLowerCase().startsWith(lower))
-        .sort((a, b) => a.shortCode.localeCompare(b.shortCode))
-    }
-    return list.sort((a, b) => a.shortCode.localeCompare(b.shortCode))
-  }
-
-  async getCannedResponseById(id: string): Promise<CannedResponse | null> {
-    try {
+      const pattern = `${cleanPrefix}%`
       const rows = await sql`
         SELECT id, short_code AS "shortCode", content,
                created_at AS "createdAt", updated_at AS "updatedAt"
         FROM canned_responses
-        WHERE id = ${id}
-        LIMIT 1
+        WHERE short_code ILIKE ${pattern}
+        ORDER BY short_code ASC
       `
-      if (rows && rows.length > 0) {
-        return rows[0] as unknown as CannedResponse
-      }
-    } catch {
-      // DB offline fallback
+      return (rows || []) as unknown as CannedResponse[]
     }
 
-    return memoryStore.cannedResponses.get(id) || null
+    const rows = await sql`
+      SELECT id, short_code AS "shortCode", content,
+             created_at AS "createdAt", updated_at AS "updatedAt"
+      FROM canned_responses
+      ORDER BY short_code ASC
+    `
+    return (rows || []) as unknown as CannedResponse[]
+  }
+
+  async getCannedResponseById(id: string): Promise<CannedResponse | null> {
+    const rows = await sql`
+      SELECT id, short_code AS "shortCode", content,
+             created_at AS "createdAt", updated_at AS "updatedAt"
+      FROM canned_responses
+      WHERE id = ${id}
+      LIMIT 1
+    `
+    if (rows && rows.length > 0) {
+      return rows[0] as unknown as CannedResponse
+    }
+
+    return null
   }
 
   async updateCannedResponse(
@@ -169,43 +123,27 @@ export class CannedResponseService {
     }
 
     const now = new Date().toISOString()
-    const updated: CannedResponse = {
-      ...existing,
-      shortCode: newShortCode,
-      content: dto.content !== undefined ? dto.content : existing.content,
-      updatedAt: now,
+    const content = dto.content !== undefined ? dto.content : existing.content
+
+    const rows = await sql`
+      UPDATE canned_responses
+      SET short_code = ${newShortCode},
+          content = ${content},
+          updated_at = ${now}
+      WHERE id = ${id}
+      RETURNING id, short_code AS "shortCode", content, created_at AS "createdAt", updated_at AS "updatedAt"
+    `
+
+    if (rows && rows.length > 0) {
+      return rows[0] as unknown as CannedResponse
     }
 
-    try {
-      await sql`
-        UPDATE canned_responses
-        SET short_code = ${updated.shortCode},
-            content = ${updated.content},
-            updated_at = ${now}
-        WHERE id = ${id}
-      `
-    } catch {
-      // DB offline fallback
-    }
-
-    memoryStore.cannedResponses.set(id, updated)
-    return updated
+    return null
   }
 
   async deleteCannedResponse(id: string): Promise<boolean> {
-    const existing = await this.getCannedResponseById(id)
-    if (!existing) {
-      return false
-    }
-
-    try {
-      await sql`DELETE FROM canned_responses WHERE id = ${id}`
-    } catch {
-      // DB offline fallback
-    }
-
-    memoryStore.cannedResponses.delete(id)
-    return true
+    const rows = await sql`DELETE FROM canned_responses WHERE id = ${id} RETURNING id`
+    return rows.length > 0
   }
 }
 

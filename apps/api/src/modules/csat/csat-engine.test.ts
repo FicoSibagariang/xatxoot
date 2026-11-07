@@ -8,8 +8,8 @@ describe('CSAT Engine & Public Survey Endpoint (Task 3.12 - apps/api)', () => {
   const dummyContactId = '123e4567-e89b-12d3-a456-426614174002'
   const dummyConversationId = '123e4567-e89b-12d3-a456-426614174003'
 
-  beforeEach(() => {
-    resetCsatStore()
+  beforeEach(async () => {
+    await resetCsatStore()
   })
 
   describe('CSAT Invite Generation upon Ticket Resolution', () => {

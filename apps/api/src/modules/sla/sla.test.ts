@@ -1,7 +1,8 @@
-import { beforeEach, describe, expect, it } from 'bun:test'
+import { beforeAll, beforeEach, describe, expect, it } from 'bun:test'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { Hono } from 'hono'
+import { sql } from '../../db'
 import { conversationService } from '../conversations/conversations.service'
 import { inboxService } from '../inboxes/inboxes.service'
 import { type RealtimeEvent, realtimeService } from '../realtime/realtime.service'
@@ -20,12 +21,20 @@ describe('SLA Monitoring Worker & Escalation Engine (Task 5.11 - apps/api)', () 
   const rootDir = join(import.meta.dir, '..', '..', '..', '..', '..')
   const validInboxId = '123e4567-e89b-12d3-a456-426614174001'
 
+  beforeAll(async () => {
+    await sql`
+      INSERT INTO inboxes (id, name, channel_type, channel_id)
+      VALUES (${validInboxId}, 'SLA Test Inbox', 'api', ${crypto.randomUUID()})
+      ON CONFLICT (id) DO NOTHING
+    `
+  })
+
   let app: Hono
   let capturedEvents: RealtimeEvent[] = []
 
   beforeEach(async () => {
-    resetTicketStore()
-    resetSlaStore()
+    await resetTicketStore()
+    await resetSlaStore()
     capturedEvents = []
 
     // Hook realtimeService broadcast to capture emitted SSE events
@@ -239,6 +248,9 @@ describe('SLA Monitoring Worker & Escalation Engine (Task 5.11 - apps/api)', () 
 
       // Simulate that first reply WAS already created in time
       ticket.firstReplyCreatedAt = new Date(Date.now() - 700 * 1000).toISOString()
+      await ticketService.updateTicket(ticket.id, {
+        firstReplyCreatedAt: ticket.firstReplyCreatedAt,
+      })
 
       await slaService.attachSlaToTicket({
         ticketId: ticket.id,

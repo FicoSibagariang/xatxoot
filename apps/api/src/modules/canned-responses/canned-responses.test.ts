@@ -51,8 +51,8 @@ describe('Canned Responses Module - Auth Guard', () => {
 })
 
 describe('Canned Responses Module - CRUD Operations', () => {
-  beforeEach(() => {
-    resetCannedResponseStore()
+  beforeEach(async () => {
+    await resetCannedResponseStore()
   })
 
   it('POST /api/v1/canned-responses should create canned response with valid input', async () => {
@@ -236,7 +236,7 @@ describe('Canned Responses Module - CRUD Operations', () => {
 
 describe('Canned Responses Module - Instant Prefix Shortcut Search', () => {
   beforeEach(async () => {
-    resetCannedResponseStore()
+    await resetCannedResponseStore()
     await cannedResponseService.createCannedResponse({
       shortCode: 'halo',
       content: 'Halo kak, ada yang bisa dibantu?',

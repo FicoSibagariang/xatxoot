@@ -16,9 +16,9 @@ describe('Capacity Policy Engine (Task 5.13 - apps/api)', () => {
   let capturedEvents: RealtimeEvent[] = []
 
   beforeEach(async () => {
-    resetCapacityStore()
-    resetAssignmentStore()
-    resetTicketStore()
+    await resetCapacityStore()
+    await resetAssignmentStore()
+    await resetTicketStore()
     capturedEvents = []
 
     const originalBroadcast = realtimeService.broadcast.bind(realtimeService)
@@ -218,8 +218,8 @@ describe('Capacity Policy Engine (Task 5.13 - apps/api)', () => {
         maxActiveTickets: 1,
       })
 
-      const agent1Id = 'agent-1111-1111-1111'
-      const agent2Id = 'agent-2222-2222-2222'
+      const agent1Id = '11111111-1111-1111-1111-111111111111'
+      const agent2Id = '22222222-2222-2222-2222-222222222222'
 
       await assignmentService.registerAgent({ id: agent1Id, availability: 'online', active: true })
       await assignmentService.registerAgent({ id: agent2Id, availability: 'online', active: true })
@@ -254,7 +254,7 @@ describe('Capacity Policy Engine (Task 5.13 - apps/api)', () => {
         maxActiveTickets: 1,
       })
 
-      const agentId = 'agent-single-full'
+      const agentId = '33333333-3333-3333-3333-333333333333'
       await assignmentService.registerAgent({ id: agentId, availability: 'online', active: true })
       await assignmentService.addInboxMember(validInboxId, agentId)
 

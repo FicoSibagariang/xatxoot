@@ -45,12 +45,12 @@ describe('Assignment Module - Auth Guards', () => {
 })
 
 describe('Assignment Module - Round-Robin Engine (Core Logic)', () => {
-  beforeEach(() => {
-    resetAssignmentStore()
-    resetTicketStore()
-    resetConversationStore()
-    resetInboxStore()
-    resetTeamStore()
+  beforeEach(async () => {
+    await resetAssignmentStore()
+    await resetTicketStore()
+    await resetConversationStore()
+    await resetInboxStore()
+    await resetTeamStore()
   })
 
   it('should rotate ticket assignment sequentially among online agents in an inbox', async () => {
@@ -388,12 +388,12 @@ describe('Assignment Module - Inbound Message Automation Integration', () => {
 })
 
 describe('Assignment Module - HTTP API Endpoints', () => {
-  beforeEach(() => {
-    resetAssignmentStore()
-    resetTicketStore()
-    resetConversationStore()
-    resetInboxStore()
-    resetTeamStore()
+  beforeEach(async () => {
+    await resetAssignmentStore()
+    await resetTicketStore()
+    await resetConversationStore()
+    await resetInboxStore()
+    await resetTeamStore()
   })
 
   it('POST /api/v1/tickets/:id/auto-assign should trigger round-robin assignment for an open ticket', async () => {
