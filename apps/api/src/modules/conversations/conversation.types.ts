@@ -258,9 +258,7 @@ export async function findOrCreateContact(
     contact = mapContactRow(rows[0])
     const isPlaceholder =
       !contact.name ||
-      ['Unknown', contact.phoneNumber, contact.identifier, 'Nia', 'Grup WhatsApp'].includes(
-        contact.name,
-      )
+      ['Unknown', contact.phoneNumber, contact.identifier, 'Grup WhatsApp'].includes(contact.name)
     if (
       dto.name &&
       isPlaceholder &&

@@ -45,14 +45,15 @@ export class MessageService {
   async saveMessage(message: Message): Promise<Message> {
     saveMessageToStore(message)
 
+    const isUuid = (val?: string | null) =>
+      Boolean(val && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val))
+
+    if (message.senderType === 'user' && message.senderId && !isUuid(message.senderId)) {
+      throw new Error(`Invalid senderId: ${message.senderId} must be a valid UUID`)
+    }
+
     try {
-      const isUuid = (val?: string | null) =>
-        Boolean(val && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val))
-
-      const dbSenderId = isUuid(message.senderId)
-        ? message.senderId
-        : '3b87d597-cde4-4b3e-8cce-e3bd24ac1c4f'
-
+      const dbSenderId = isUuid(message.senderId) ? message.senderId : null
       const dbTicketId = isUuid(message.ticketId) ? message.ticketId : null
 
       await sql`
@@ -407,6 +408,14 @@ export class MessageService {
       throw new Error('Content or attachment is required')
     }
 
+    const isUuid = (val?: string | null) =>
+      Boolean(val && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val))
+
+    const senderType = input.senderType || 'user'
+    if (senderType === 'user' && input.senderId && !isUuid(input.senderId)) {
+      throw new Error(`Invalid senderId: ${input.senderId} must be a valid UUID`)
+    }
+
     // 3. Resolve Inbox & Channel
     const inboxData = await inboxService.getInboxById(conversation.inboxId)
     const channelType = inboxData?.inbox.channelType || 'whatsapp_cloud'
@@ -587,8 +596,8 @@ export class MessageService {
       id: messageId,
       conversationId: conversation.id,
       ticketId: conversation.activeTicketId || null,
-      senderType: input.senderType || 'user',
-      senderId: input.senderId || 'mock-user-id',
+      senderType,
+      senderId: input.senderId || (senderType === 'user' ? crypto.randomUUID() : null),
       senderName: senderName || null,
       isEcho: false,
       replyTo: replyTo || undefined,
@@ -683,7 +692,7 @@ export class MessageService {
       contentType: sourceMessage.contentType,
       attachments,
       senderType: 'user',
-      senderId: input.senderId || 'mock-user-id',
+      senderId: input.senderId,
       senderName: input.senderName,
       isForwarded: true,
       forwardingScore: 1,

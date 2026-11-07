@@ -1,5 +1,6 @@
 import type { User } from '@xatxoot/shared'
 import type { Context } from 'hono'
+import { toValidUuid } from '../../db'
 import { conversationService } from '../conversations/conversations.service'
 import { messageService } from './messages.service'
 
@@ -53,7 +54,7 @@ export async function handleSendConversationMessage(c: Context) {
       contentType: body.contentType,
       attachments: body.attachments,
       senderType: body.senderType || 'user',
-      senderId: user?.id || body.senderId || 'mock-user-id',
+      senderId: (user?.id ? toValidUuid(user.id) : undefined) || body.senderId,
       senderName: user?.displayName || body.senderName,
       replyToMessageId: body.replyToMessageId,
       simulateError,
@@ -65,7 +66,11 @@ export async function handleSendConversationMessage(c: Context) {
     if (message.includes('not found')) {
       return c.json({ error: message }, 404)
     }
-    if (message.includes('required')) {
+    if (
+      message.includes('required') ||
+      message.includes('Invalid') ||
+      message.includes('invalid')
+    ) {
       return c.json({ error: message }, 400)
     }
     return c.json({ error: message }, 500)
@@ -114,7 +119,7 @@ export async function handleForwardMessage(c: Context) {
       targetConversationId,
       targetJid,
       targetPhone,
-      senderId: user?.id,
+      senderId: user?.id ? toValidUuid(user.id) : undefined,
       senderName: user?.displayName,
     })
 
@@ -124,7 +129,11 @@ export async function handleForwardMessage(c: Context) {
     if (message.includes('not found')) {
       return c.json({ error: message }, 404)
     }
-    if (message.includes('required')) {
+    if (
+      message.includes('required') ||
+      message.includes('Invalid') ||
+      message.includes('invalid')
+    ) {
       return c.json({ error: message }, 400)
     }
     return c.json({ error: message }, 500)

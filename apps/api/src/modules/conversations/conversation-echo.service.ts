@@ -28,7 +28,33 @@ export class ConversationEchoService {
         FROM messages WHERE external_source_id = ${payload.externalId} LIMIT 1
       `
       if (rows.length > 0) {
-        const existingMsg = mapMessageRow(rows[0])
+        const attRows = await sql`
+          SELECT id, message_id as "messageId", file_type as "fileType", file_url as "fileUrl",
+                 file_name as "fileName", file_size as "fileSize", created_at as "createdAt"
+          FROM attachments WHERE message_id = ${rows[0].id}
+        `
+        const existingMsg = mapMessageRow({ ...rows[0], attachments: attRows || [] })
+        if (
+          payload.mediaUrl &&
+          (!existingMsg.attachments || existingMsg.attachments.length === 0)
+        ) {
+          existingMsg.attachments = [
+            {
+              id: crypto.randomUUID(),
+              messageId: existingMsg.id,
+              fileType:
+                payload.messageType === 'image'
+                  ? 'image/jpeg'
+                  : payload.messageType === 'document'
+                    ? 'application/pdf'
+                    : 'application/octet-stream',
+              fileUrl: payload.mediaUrl,
+              fileName: payload.mediaUrl.split('/').pop() || null,
+              fileSize: null,
+              createdAt: now,
+            },
+          ]
+        }
         existingMsg.isEcho = true
         existingMsg.senderName = 'WhatsApp HP'
         if (typeof existingMsg.contentAttributes === 'object' && existingMsg.contentAttributes) {
@@ -36,6 +62,9 @@ export class ConversationEchoService {
           existingMsg.contentAttributes.isEcho = true
           existingMsg.contentAttributes.source = 'whatsapp_mobile'
           existingMsg.contentAttributes.senderName = 'WhatsApp HP'
+          if (payload.mediaUrl) {
+            existingMsg.contentAttributes.mediaUrl = payload.mediaUrl
+          }
         }
         saveMessageToStore(existingMsg)
         const conv = await conversationQueryService.getConversationById(existingMsg.conversationId)
@@ -53,10 +82,10 @@ export class ConversationEchoService {
 
     // 2. Find or create Contact & ContactInbox for customer
     const formattedPhone = payload.senderPhone || payload.sourceId
-    const customerName =
-      payload.senderName && payload.senderName !== 'Nia' && payload.senderName !== formattedPhone
-        ? payload.senderName
-        : formattedPhone
+    const isGroup = Boolean(payload.sourceId?.endsWith('@g.us'))
+    // For outbound echo messages, the sender is an agent (sender_type === 'user').
+    // The profile name in payload.senderName belongs to the agent/operator, not the recipient customer.
+    const customerName = isGroup ? payload.senderName || 'Grup WhatsApp' : formattedPhone
 
     const { contact, contactInbox } = await conversationInboundService.findOrCreateContact({
       inboxId: validInboxId,

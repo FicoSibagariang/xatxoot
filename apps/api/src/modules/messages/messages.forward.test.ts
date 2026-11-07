@@ -50,21 +50,22 @@ describe('API Forward Message Processing (Issue #300 - TDD RED)', () => {
     // 1. Source customer conversation
     const sourceInbound = await conversationService.handleInboundMessage({
       inboxId: inbox.id,
-      senderNumber: '+6281111111111',
+      senderNumber: `+62811${Date.now().toString().slice(-7)}`,
       senderName: 'Customer Sumber',
       content: 'Tolong cek foto bukti kendala server ini ya.',
-      externalId: 'wamid_source_msg_01',
+      externalId: `wamid_source_msg_${crypto.randomUUID()}`,
     })
 
     // 2. Target group conversation (e.g. NOC / Vendor team group)
+    const targetGroupJid = '120363888777666555@g.us'
     const targetGroupInbound = await conversationService.handleInboundMessage({
       inboxId: inbox.id,
-      senderNumber: '120363888777666555@g.us',
+      senderNumber: targetGroupJid,
       senderName: 'Grup Tim Teknis',
       content: 'Halo tim standby.',
       isGroup: true,
-      groupJid: '120363888777666555@g.us',
-      externalId: 'wamid_target_group_msg_01',
+      groupJid: targetGroupJid,
+      externalId: `wamid_target_group_msg_${crypto.randomUUID()}`,
     })
 
     const sourceMessageId = sourceInbound.message.id
