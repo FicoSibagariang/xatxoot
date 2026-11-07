@@ -1,15 +1,30 @@
-import { beforeEach, describe, expect, it } from 'bun:test'
+import { beforeAll, beforeEach, describe, expect, it } from 'bun:test'
+import { sql } from '../../db'
 import app from '../../index'
 import {
   type CreateInboxInput,
   type CreateWhatsAppCloudChannelInput,
   type CreateWhatsAppUnofficialChannelInput,
   inboxService,
+  resetInboxStore,
 } from './inboxes.service'
 
 const AUTH_HEADER = {
   Authorization: 'Bearer valid-access-token',
 }
+
+beforeAll(async () => {
+  const dummyUserId = '11111111-2222-3333-4444-555555555555'
+  await sql`
+    INSERT INTO users (id, email, password_hash, display_name, role)
+    VALUES (${dummyUserId}, 'inbox-agent@test.com', 'hash', 'Inbox Agent', 'agent')
+    ON CONFLICT (id) DO NOTHING
+  `
+})
+
+beforeEach(async () => {
+  await resetInboxStore()
+})
 
 describe('Inboxes Module - Auth Guard', () => {
   it('GET /api/v1/inboxes should reject requests without Authorization header with 401', async () => {
@@ -236,6 +251,11 @@ describe('Inboxes Module - Create Inbox (POST /api/v1/inboxes)', () => {
 
 describe('Inboxes Module - List and Read Inbox (GET /api/v1/inboxes)', () => {
   it('should list all registered inboxes', async () => {
+    await inboxService.createInbox({
+      name: 'List Test Inbox',
+      channelType: 'api',
+    })
+
     const res = await app.request('/api/v1/inboxes', {
       method: 'GET',
       headers: AUTH_HEADER,

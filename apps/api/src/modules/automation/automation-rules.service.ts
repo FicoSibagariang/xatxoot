@@ -6,7 +6,7 @@ import type {
   CreateAutomationRuleInput,
   UpdateAutomationRuleInput,
 } from '@xatxoot/shared'
-import { sql } from '../../db'
+import { parseJsonField, sql, toIsoString } from '../../db'
 import { messageService } from '../messages/messages.service'
 import { ticketService } from '../tickets/tickets.service'
 
@@ -21,12 +21,21 @@ export interface EvaluationResult {
   }[]
 }
 
-const memoryStore = {
-  rules: new Map<string, AutomationRule>(),
+function mapRuleRow(row: Record<string, unknown>): AutomationRule {
+  return {
+    id: String(row.id),
+    name: String(row.name),
+    eventName: row.eventName as AutomationRule['eventName'],
+    conditions: parseJsonField<AutomationRuleCondition[]>(row.conditions, []),
+    actions: parseJsonField<AutomationRuleAction[]>(row.actions, []),
+    active: Boolean(row.active),
+    createdAt: toIsoString(row.createdAt) || (row.createdAt as string),
+    updatedAt: toIsoString(row.updatedAt) || (row.updatedAt as string),
+  }
 }
 
-export function resetAutomationRulesStore(): void {
-  memoryStore.rules.clear()
+export async function resetAutomationRulesStore(): Promise<void> {
+  await sql`DELETE FROM automation_rules`
 }
 
 export class AutomationRulesEngine {
@@ -100,13 +109,15 @@ export class AutomationRulesEngine {
       case 'in_list': {
         if (!expected) return false
         const expectedList = Array.isArray(expected) ? expected : [expected]
-        const normalizedExpected = expectedList.map((x) => String(x).toLowerCase())
+        const normalizedExpected = expectedList.map((x) => String(x).toLowerCase().trim())
 
         if (Array.isArray(actual)) {
-          return actual.some((item) => normalizedExpected.includes(String(item).toLowerCase()))
+          return actual.some((item) =>
+            normalizedExpected.includes(String(item).toLowerCase().trim()),
+          )
         }
         if (actual !== undefined && actual !== null) {
-          return normalizedExpected.includes(String(actual).toLowerCase())
+          return normalizedExpected.includes(String(actual).toLowerCase().trim())
         }
         return false
       }
@@ -120,8 +131,11 @@ export class AutomationRulesEngine {
     conditions: AutomationRuleCondition[],
     context: Record<string, unknown>,
   ): boolean {
-    if (!conditions || conditions.length === 0) return true
-    return conditions.every((cond) => this.evaluateCondition(cond, context))
+    const parsedConditions = Array.isArray(conditions)
+      ? conditions
+      : parseJsonField<AutomationRuleCondition[]>(conditions, [])
+    if (!parsedConditions || parsedConditions.length === 0) return true
+    return parsedConditions.every((cond) => this.evaluateCondition(cond, context))
   }
 
   async executeAction(
@@ -234,87 +248,58 @@ export class AutomationRulesService {
   async createRule(input: CreateAutomationRuleInput): Promise<AutomationRule> {
     const id = crypto.randomUUID()
     const now = new Date().toISOString()
-    const rule: AutomationRule = {
-      id,
-      name: input.name,
-      eventName: input.eventName,
-      conditions: input.conditions,
-      actions: input.actions,
-      active: input.active !== undefined ? input.active : true,
-      createdAt: now,
-      updatedAt: now,
-    }
+    const conditions = input.conditions || []
+    const actions = input.actions || []
+    const active = input.active !== undefined ? input.active : true
 
-    memoryStore.rules.set(id, rule)
+    const rows = await sql`
+      INSERT INTO automation_rules (id, name, event_name, conditions, actions, active, created_at, updated_at)
+      VALUES (
+        ${id}, ${input.name}, ${input.eventName},
+        ${JSON.stringify(conditions)}, ${JSON.stringify(actions)},
+        ${active}, ${now}, ${now}
+      )
+      RETURNING
+        id, name, event_name as "eventName", conditions, actions, active,
+        created_at as "createdAt", updated_at as "updatedAt"
+    `
 
-    try {
-      await sql`
-        INSERT INTO automation_rules (id, name, event_name, conditions, actions, active, created_at, updated_at)
-        VALUES (
-          ${rule.id}, ${rule.name}, ${rule.eventName},
-          ${JSON.stringify(rule.conditions)}, ${JSON.stringify(rule.actions)},
-          ${rule.active}, ${rule.createdAt}, ${rule.updatedAt}
-        )
-      `
-    } catch {
-      // Memory fallback for tests
-    }
-
-    return rule
+    return mapRuleRow(rows[0])
   }
 
   async listRules(filter?: { eventName?: string; active?: boolean }): Promise<AutomationRule[]> {
-    try {
-      let query = sql`
-        SELECT
-          id, name, event_name as "eventName", conditions, actions, active,
-          created_at as "createdAt", updated_at as "updatedAt"
-        FROM automation_rules
-        WHERE 1 = 1
-      `
-      if (filter?.eventName) {
-        query = sql`${query} AND event_name = ${filter.eventName}`
-      }
-      if (filter?.active !== undefined) {
-        query = sql`${query} AND active = ${filter.active}`
-      }
-      query = sql`${query} ORDER BY created_at DESC`
-      const rows = await query
-      if (rows && rows.length > 0) {
-        return rows as unknown as AutomationRule[]
-      }
-    } catch {
-      // Memory fallback
-    }
-
-    let rules = Array.from(memoryStore.rules.values())
+    let query = sql`
+      SELECT
+        id, name, event_name as "eventName", conditions, actions, active,
+        created_at as "createdAt", updated_at as "updatedAt"
+      FROM automation_rules
+      WHERE 1 = 1
+    `
     if (filter?.eventName) {
-      rules = rules.filter((r) => r.eventName === filter.eventName)
+      query = sql`${query} AND event_name = ${filter.eventName}`
     }
     if (filter?.active !== undefined) {
-      rules = rules.filter((r) => r.active === filter.active)
+      query = sql`${query} AND active = ${filter.active}`
     }
-    return rules
+    query = sql`${query} ORDER BY created_at DESC`
+    const rows = await query
+    return (rows || []).map(mapRuleRow)
   }
 
   async getRuleById(id: string): Promise<AutomationRule | null> {
-    try {
-      const rows = await sql`
-        SELECT
-          id, name, event_name as "eventName", conditions, actions, active,
-          created_at as "createdAt", updated_at as "updatedAt"
-        FROM automation_rules
-        WHERE id = ${id}
-        LIMIT 1
-      `
-      if (rows && rows.length > 0) {
-        return rows[0] as unknown as AutomationRule
-      }
-    } catch {
-      // Memory fallback
+    const rows = await sql`
+      SELECT
+        id, name, event_name as "eventName", conditions, actions, active,
+        created_at as "createdAt", updated_at as "updatedAt"
+      FROM automation_rules
+      WHERE id = ${id}
+      LIMIT 1
+    `
+    if (rows && rows.length > 0) {
+      return mapRuleRow(rows[0])
     }
 
-    return memoryStore.rules.get(id) || null
+    return null
   }
 
   async updateRule(id: string, input: UpdateAutomationRuleInput): Promise<AutomationRule> {
@@ -324,45 +309,33 @@ export class AutomationRulesService {
     }
 
     const now = new Date().toISOString()
-    const updated: AutomationRule = {
-      ...existing,
-      name: input.name ?? existing.name,
-      eventName: input.eventName ?? existing.eventName,
-      conditions: input.conditions ?? existing.conditions,
-      actions: input.actions ?? existing.actions,
-      active: input.active !== undefined ? input.active : existing.active,
-      updatedAt: now,
-    }
+    const name = input.name ?? existing.name
+    const eventName = input.eventName ?? existing.eventName
+    const conditions = input.conditions ?? existing.conditions
+    const actions = input.actions ?? existing.actions
+    const active = input.active !== undefined ? input.active : existing.active
 
-    memoryStore.rules.set(id, updated)
+    const rows = await sql`
+      UPDATE automation_rules
+      SET
+        name = ${name},
+        event_name = ${eventName},
+        conditions = ${JSON.stringify(conditions)},
+        actions = ${JSON.stringify(actions)},
+        active = ${active},
+        updated_at = ${now}
+      WHERE id = ${id}
+      RETURNING
+        id, name, event_name as "eventName", conditions, actions, active,
+        created_at as "createdAt", updated_at as "updatedAt"
+    `
 
-    try {
-      await sql`
-        UPDATE automation_rules
-        SET
-          name = ${updated.name},
-          event_name = ${updated.eventName},
-          conditions = ${JSON.stringify(updated.conditions)},
-          actions = ${JSON.stringify(updated.actions)},
-          active = ${updated.active},
-          updated_at = ${now}
-        WHERE id = ${id}
-      `
-    } catch {
-      // Memory fallback
-    }
-
-    return updated
+    return mapRuleRow(rows[0])
   }
 
   async deleteRule(id: string): Promise<boolean> {
-    memoryStore.rules.delete(id)
-    try {
-      await sql`DELETE FROM automation_rules WHERE id = ${id}`
-    } catch {
-      // Memory fallback
-    }
-    return true
+    const rows = await sql`DELETE FROM automation_rules WHERE id = ${id} RETURNING id`
+    return rows.length > 0
   }
 
   async evaluateAndExecute(

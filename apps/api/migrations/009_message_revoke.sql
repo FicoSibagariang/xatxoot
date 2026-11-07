@@ -3,8 +3,13 @@
 -- Karena kolom status menggunakan VARCHAR (bukan PostgreSQL ENUM), tidak perlu ALTER TYPE.
 -- Audit trail disimpan di kolom content_attributes (JSONB) yang sudah ada.
 
--- Tambahkan index untuk membantu query pesan yang telah di-revoke
-CREATE INDEX IF NOT EXISTS idx_messages_status ON messages(status);
+-- Tambahkan index untuk membantu query pesan yang telah di-revoke (jika memiliki hak akses)
+DO $$
+BEGIN
+  CREATE INDEX IF NOT EXISTS idx_messages_status ON messages(status);
+EXCEPTION WHEN insufficient_privilege THEN
+  NULL;
+END $$;
 
 -- Dokumentasi: content_attributes untuk pesan revoke akan berisi:
 -- {

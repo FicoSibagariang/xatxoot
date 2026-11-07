@@ -12,9 +12,9 @@ describe('Vector & RAG Search Engine (Task 5.9 - apps/api)', () => {
   const rootDir = join(import.meta.dir, '..', '..', '..', '..', '..')
   let app: Hono
 
-  beforeEach(() => {
-    resetHelpCenterStore()
-    resetRagStore()
+  beforeEach(async () => {
+    await resetHelpCenterStore()
+    await resetRagStore()
     app = new Hono()
     app.route('/api/v1/rag', ragRoutes)
   })

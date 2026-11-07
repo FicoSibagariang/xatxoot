@@ -77,97 +77,75 @@ export class MessageService {
     const memory = messageStore.messages.get(id)
     if (memory) return memory
 
-    try {
-      const rows = await sql`
-        SELECT
-          id,
-          conversation_id as "conversationId",
-          ticket_id as "ticketId",
-          sender_type as "senderType",
-          sender_id as "senderId",
-          message_type as "messageType",
-          content,
-          content_type as "contentType",
-          status,
-          external_source_id as "externalSourceId",
-          content_attributes as "contentAttributes",
-          created_at as "createdAt",
-          updated_at as "updatedAt"
-        FROM messages
-        WHERE id = ${id}
-        LIMIT 1
-      `
-      if (rows.length > 0) {
-        const msg = rows[0] as unknown as Message
-        saveMessageToStore(msg)
-        return msg
-      }
-    } catch {
-      // Memory fallback
+    const rows = await sql`
+      SELECT
+        id,
+        conversation_id as "conversationId",
+        ticket_id as "ticketId",
+        sender_type as "senderType",
+        sender_id as "senderId",
+        message_type as "messageType",
+        content,
+        content_type as "contentType",
+        status,
+        external_source_id as "externalSourceId",
+        content_attributes as "contentAttributes",
+        created_at as "createdAt",
+        updated_at as "updatedAt"
+      FROM messages
+      WHERE id = ${id}
+      LIMIT 1
+    `
+    if (rows.length > 0) {
+      const msg = rows[0] as unknown as Message
+      saveMessageToStore(msg)
+      return msg
     }
 
     return null
   }
 
   async listConversationMessages(conversationId: string): Promise<Message[]> {
-    try {
-      const rows = await sql`
-        SELECT
-          m.id,
-          m.conversation_id as "conversationId",
-          m.ticket_id as "ticketId",
-          m.sender_type as "senderType",
-          m.sender_id as "senderId",
-          COALESCE(u.display_name, m.content_attributes->>'senderName', CASE WHEN m.sender_type = 'bot' THEN 'Bot Otomasi' ELSE NULL END) as "senderName",
-          u.email as "senderEmail",
-          m.message_type as "messageType",
-          m.content,
-          m.content_type as "contentType",
-          m.status,
-          m.external_source_id as "externalSourceId",
-          m.content_attributes as "contentAttributes",
-          m.created_at as "createdAt",
-          m.updated_at as "updatedAt"
-        FROM messages m
-        LEFT JOIN users u ON m.sender_id = u.id
-        WHERE m.conversation_id = ${conversationId}
-        ORDER BY m.created_at ASC
-      `
-      return ((rows || []) as unknown as Message[]).map((m) => {
-        const attrs = parseContentAttributes(m.contentAttributes)
-        let senderName = m.senderName || (attrs.senderName as string | undefined)
-        if (!senderName && m.senderType === 'bot') {
-          senderName = 'Bot Otomasi'
-        }
-        return {
-          ...m,
-          senderName,
-          replyTo: (attrs.replyTo as Message['replyTo']) || m.replyTo,
-          isEcho: Boolean(m.isEcho || attrs.echo || attrs.source === 'whatsapp_mobile'),
-        }
-      })
-    } catch {
-      // Memory fallback if DB is offline
-      const messageIds = messageStore.conversationIndex.get(conversationId) || []
-      const memoryMsgs = messageIds
-        .map((id) => messageStore.messages.get(id))
-        .filter((m): m is Message => m !== undefined)
-        .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
-
-      return memoryMsgs.map((m) => {
-        const attrs = parseContentAttributes(m.contentAttributes)
-        let senderName = m.senderName || (attrs.senderName as string | undefined)
-        if (!senderName && m.senderType === 'bot') {
-          senderName = 'Bot Otomasi'
-        }
-        return {
-          ...m,
-          senderName,
-          replyTo: (attrs.replyTo as Message['replyTo']) || m.replyTo,
-          isEcho: Boolean(m.isEcho || attrs.echo || attrs.source === 'whatsapp_mobile'),
-        }
-      })
-    }
+    const rows = await sql`
+      SELECT
+        m.id,
+        m.conversation_id as "conversationId",
+        m.ticket_id as "ticketId",
+        m.sender_type as "senderType",
+        m.sender_id as "senderId",
+        COALESCE(u.display_name, m.content_attributes->>'senderName', CASE WHEN m.sender_type = 'bot' THEN 'Bot Otomasi' ELSE NULL END) as "senderName",
+        u.email as "senderEmail",
+        m.message_type as "messageType",
+        m.content,
+        m.content_type as "contentType",
+        m.status,
+        m.external_source_id as "externalSourceId",
+        m.content_attributes as "contentAttributes",
+        m.created_at as "createdAt",
+        m.updated_at as "updatedAt"
+      FROM messages m
+      LEFT JOIN users u ON m.sender_id = u.id
+      WHERE m.conversation_id = ${conversationId}
+      ORDER BY m.created_at ASC
+    `
+    return ((rows || []) as unknown as Message[]).map((m) => {
+      const attrs = parseContentAttributes(m.contentAttributes)
+      const isEcho = Boolean(
+        m.isEcho || attrs.echo || attrs.isEcho || attrs.source === 'whatsapp_mobile',
+      )
+      let senderName = m.senderName || (attrs.senderName as string | undefined)
+      if (!senderName && m.senderType === 'bot') {
+        senderName = 'Bot Otomasi'
+      } else if (!senderName && isEcho) {
+        senderName = 'WhatsApp HP'
+      }
+      return {
+        ...m,
+        senderName,
+        replyTo: (attrs.replyTo as Message['replyTo']) || m.replyTo,
+        isEcho,
+      }
+    })
   }
 
   async getMessageByExternalId(externalId: string): Promise<Message | null> {
@@ -178,33 +156,29 @@ export class MessageService {
       }
     }
 
-    try {
-      const rows = await sql`
-        SELECT
-          id,
-          conversation_id as "conversationId",
-          ticket_id as "ticketId",
-          sender_type as "senderType",
-          sender_id as "senderId",
-          message_type as "messageType",
-          content,
-          content_type as "contentType",
-          status,
-          external_source_id as "externalSourceId",
-          content_attributes as "contentAttributes",
-          created_at as "createdAt",
-          updated_at as "updatedAt"
-        FROM messages
-        WHERE external_source_id = ${externalId}
-        LIMIT 1
-      `
-      if (rows.length > 0) {
-        const msg = rows[0] as unknown as Message
-        saveMessageToStore(msg)
-        return msg
-      }
-    } catch {
-      // Memory fallback
+    const rows = await sql`
+      SELECT
+        id,
+        conversation_id as "conversationId",
+        ticket_id as "ticketId",
+        sender_type as "senderType",
+        sender_id as "senderId",
+        message_type as "messageType",
+        content,
+        content_type as "contentType",
+        status,
+        external_source_id as "externalSourceId",
+        content_attributes as "contentAttributes",
+        created_at as "createdAt",
+        updated_at as "updatedAt"
+      FROM messages
+      WHERE external_source_id = ${externalId}
+      LIMIT 1
+    `
+    if (rows.length > 0) {
+      const msg = rows[0] as unknown as Message
+      saveMessageToStore(msg)
+      return msg
     }
     return null
   }
@@ -224,15 +198,11 @@ export class MessageService {
 
     messageStore.messages.set(updated.id, updated)
 
-    try {
-      await sql`
-        UPDATE messages
-        SET status = ${status}, updated_at = ${now}
-        WHERE external_source_id = ${externalId}
-      `
-    } catch {
-      // Memory fallback
-    }
+    await sql`
+      UPDATE messages
+      SET status = ${status}, updated_at = ${now}
+      WHERE external_source_id = ${externalId}
+    `
 
     realtimeService.broadcast({
       event: 'message.status_updated',
@@ -264,18 +234,14 @@ export class MessageService {
     }
 
     messageStore.messages.set(updated.id, updated)
-    try {
-      await sql`
-        UPDATE messages
-        SET
-          content = ${params.newContent},
-          content_attributes = ${JSON.stringify(contentAttributes)},
-          updated_at = ${now}
-        WHERE id = ${updated.id}
-      `
-    } catch {
-      // Memory fallback
-    }
+    await sql`
+      UPDATE messages
+      SET
+        content = ${params.newContent},
+        content_attributes = ${JSON.stringify(contentAttributes)},
+        updated_at = ${now}
+      WHERE id = ${updated.id}
+    `
 
     realtimeService.broadcast({
       event: 'message.edited',
@@ -317,18 +283,14 @@ export class MessageService {
     }
 
     messageStore.messages.set(updated.id, updated)
-    try {
-      await sql`
-        UPDATE messages
-        SET
-          status = 'deleted_by_sender',
-          content_attributes = ${JSON.stringify(contentAttributes)},
-          updated_at = ${now}
-        WHERE id = ${updated.id}
-      `
-    } catch {
-      // Memory fallback
-    }
+    await sql`
+      UPDATE messages
+      SET
+        status = 'deleted_by_sender',
+        content_attributes = ${JSON.stringify(contentAttributes)},
+        updated_at = ${now}
+      WHERE id = ${updated.id}
+    `
 
     realtimeService.broadcast({
       event: 'message.revoked',
@@ -408,15 +370,11 @@ export class MessageService {
         if (res.ok) {
           const data = (await res.json()) as { success: boolean; externalMessageId?: string }
           if (data?.externalMessageId && params.messageId) {
-            try {
-              await sql`
-                UPDATE messages
-                SET external_source_id = ${data.externalMessageId}
-                WHERE id = ${params.messageId}
-              `
-            } catch {
-              // fallback
-            }
+            await sql`
+              UPDATE messages
+              SET external_source_id = ${data.externalMessageId}
+              WHERE id = ${params.messageId}
+            `
           }
         }
       })
@@ -606,8 +564,8 @@ export class MessageService {
         if (u) {
           senderName = u.displayName
         }
-      } catch {
-        // fallback
+      } catch (err) {
+        console.warn('[messages.service] Could not fetch user:', (err as Error).message)
       }
     }
 

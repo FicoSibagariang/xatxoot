@@ -54,12 +54,8 @@ function normalizeCommandName(name: string): string {
   return cleaned
 }
 
-const memoryStore = {
-  slashCommands: new Map<string, SlashCommand>(),
-}
-
-export function resetSlashCommandStore(): void {
-  memoryStore.slashCommands.clear()
+export async function resetSlashCommandStore(): Promise<void> {
+  await sql`DELETE FROM slash_commands`
 }
 
 export class SlashCommandService {
@@ -77,114 +73,70 @@ export class SlashCommandService {
     const id = crypto.randomUUID()
     const now = new Date().toISOString()
 
-    const record: SlashCommand = {
-      id,
-      name,
-      description: dto.description ?? null,
-      endpointUrl: dto.endpointUrl,
-      authHeader: dto.authHeader ?? null,
-      createdAt: now,
-      updatedAt: now,
-    }
-
-    try {
-      await sql`
-        INSERT INTO slash_commands (
-          id, name, description, endpoint_url, auth_header, created_at, updated_at
-        ) VALUES (
-          ${id}, ${name}, ${record.description}, ${record.endpointUrl}, ${record.authHeader}, ${now}, ${now}
-        )
-      `
-    } catch {
-      // DB offline fallback
-    }
-
-    memoryStore.slashCommands.set(id, record)
-    return record
+    const rows = await sql`
+      INSERT INTO slash_commands (
+        id, name, description, endpoint_url, auth_header, created_at, updated_at
+      ) VALUES (
+        ${id}, ${name}, ${dto.description ?? null}, ${dto.endpointUrl}, ${dto.authHeader ?? null}, ${now}, ${now}
+      )
+      RETURNING id, name, description, endpoint_url AS "endpointUrl",
+                auth_header AS "authHeader", created_at AS "createdAt", updated_at AS "updatedAt"
+    `
+    return rows[0] as unknown as SlashCommand
   }
 
   async listSlashCommands(search?: string): Promise<SlashCommand[]> {
     const cleanSearch = search ? normalizeCommandName(search) : undefined
 
-    try {
-      if (cleanSearch) {
-        const pattern = `${cleanSearch}%`
-        const rows = await sql`
-          SELECT id, name, description, endpoint_url AS "endpointUrl",
-                 auth_header AS "authHeader", created_at AS "createdAt", updated_at AS "updatedAt"
-          FROM slash_commands
-          WHERE name ILIKE ${pattern}
-          ORDER BY name ASC
-        `
-        if (rows && rows.length >= 0) {
-          return rows as unknown as SlashCommand[]
-        }
-      } else {
-        const rows = await sql`
-          SELECT id, name, description, endpoint_url AS "endpointUrl",
-                 auth_header AS "authHeader", created_at AS "createdAt", updated_at AS "updatedAt"
-          FROM slash_commands
-          ORDER BY name ASC
-        `
-        if (rows && rows.length > 0) {
-          return rows as unknown as SlashCommand[]
-        }
-      }
-    } catch {
-      // DB offline fallback
-    }
-
-    const list = Array.from(memoryStore.slashCommands.values())
     if (cleanSearch) {
-      const lower = cleanSearch.toLowerCase()
-      return list
-        .filter((item) => item.name.toLowerCase().startsWith(lower))
-        .sort((a, b) => a.name.localeCompare(b.name))
-    }
-    return list.sort((a, b) => a.name.localeCompare(b.name))
-  }
-
-  async getSlashCommandById(id: string): Promise<SlashCommand | null> {
-    try {
+      const pattern = `${cleanSearch}%`
       const rows = await sql`
         SELECT id, name, description, endpoint_url AS "endpointUrl",
                auth_header AS "authHeader", created_at AS "createdAt", updated_at AS "updatedAt"
         FROM slash_commands
-        WHERE id = ${id}
-        LIMIT 1
+        WHERE name ILIKE ${pattern}
+        ORDER BY name ASC
       `
-      if (rows && rows.length > 0) {
-        return rows[0] as unknown as SlashCommand
-      }
-    } catch {
-      // DB offline fallback
+      return rows as unknown as SlashCommand[]
     }
 
-    return memoryStore.slashCommands.get(id) || null
+    const rows = await sql`
+      SELECT id, name, description, endpoint_url AS "endpointUrl",
+             auth_header AS "authHeader", created_at AS "createdAt", updated_at AS "updatedAt"
+      FROM slash_commands
+      ORDER BY name ASC
+    `
+    return rows as unknown as SlashCommand[]
+  }
+
+  async getSlashCommandById(id: string): Promise<SlashCommand | null> {
+    const rows = await sql`
+      SELECT id, name, description, endpoint_url AS "endpointUrl",
+             auth_header AS "authHeader", created_at AS "createdAt", updated_at AS "updatedAt"
+      FROM slash_commands
+      WHERE id = ${id}
+      LIMIT 1
+    `
+    if (rows && rows.length > 0) {
+      return rows[0] as unknown as SlashCommand
+    }
+
+    return null
   }
 
   async getSlashCommandByName(name: string): Promise<SlashCommand | null> {
     const cleanName = normalizeCommandName(name)
-    try {
-      const rows = await sql`
-        SELECT id, name, description, endpoint_url AS "endpointUrl",
-               auth_header AS "authHeader", created_at AS "createdAt", updated_at AS "updatedAt"
-        FROM slash_commands
-        WHERE name = ${cleanName}
-        LIMIT 1
-      `
-      if (rows && rows.length > 0) {
-        return rows[0] as unknown as SlashCommand
-      }
-    } catch {
-      // DB offline fallback
+    const rows = await sql`
+      SELECT id, name, description, endpoint_url AS "endpointUrl",
+             auth_header AS "authHeader", created_at AS "createdAt", updated_at AS "updatedAt"
+      FROM slash_commands
+      WHERE LOWER(name) = LOWER(${cleanName})
+      LIMIT 1
+    `
+    if (rows && rows.length > 0) {
+      return rows[0] as unknown as SlashCommand
     }
 
-    for (const cmd of memoryStore.slashCommands.values()) {
-      if (cmd.name.toLowerCase() === cleanName.toLowerCase()) {
-        return cmd
-      }
-    }
     return null
   }
 
@@ -206,47 +158,31 @@ export class SlashCommandService {
     }
 
     const now = new Date().toISOString()
-    const updated: SlashCommand = {
-      ...existing,
-      name: newName,
-      description: dto.description !== undefined ? dto.description : existing.description,
-      endpointUrl: dto.endpointUrl ?? existing.endpointUrl,
-      authHeader: dto.authHeader !== undefined ? dto.authHeader : existing.authHeader,
-      updatedAt: now,
+    const description = dto.description !== undefined ? dto.description : existing.description
+    const endpointUrl = dto.endpointUrl ?? existing.endpointUrl
+    const authHeader = dto.authHeader !== undefined ? dto.authHeader : existing.authHeader
+
+    const rows = await sql`
+      UPDATE slash_commands
+      SET name = ${newName},
+          description = ${description},
+          endpoint_url = ${endpointUrl},
+          auth_header = ${authHeader},
+          updated_at = ${now}
+      WHERE id = ${id}
+      RETURNING id, name, description, endpoint_url AS "endpointUrl",
+                auth_header AS "authHeader", created_at AS "createdAt", updated_at AS "updatedAt"
+    `
+    if (rows && rows.length > 0) {
+      return rows[0] as unknown as SlashCommand
     }
 
-    try {
-      await sql`
-        UPDATE slash_commands
-        SET name = ${updated.name},
-            description = ${updated.description},
-            endpoint_url = ${updated.endpointUrl},
-            auth_header = ${updated.authHeader},
-            updated_at = ${now}
-        WHERE id = ${id}
-      `
-    } catch {
-      // DB offline fallback
-    }
-
-    memoryStore.slashCommands.set(id, updated)
-    return updated
+    return null
   }
 
   async deleteSlashCommand(id: string): Promise<boolean> {
-    const existing = await this.getSlashCommandById(id)
-    if (!existing) {
-      return false
-    }
-
-    try {
-      await sql`DELETE FROM slash_commands WHERE id = ${id}`
-    } catch {
-      // DB offline fallback
-    }
-
-    memoryStore.slashCommands.delete(id)
-    return true
+    const rows = await sql`DELETE FROM slash_commands WHERE id = ${id} RETURNING id`
+    return rows.length > 0
   }
 
   async executeSlashCommand(dto: ExecuteSlashCommandInput): Promise<SlashCommandExecutionResponse> {

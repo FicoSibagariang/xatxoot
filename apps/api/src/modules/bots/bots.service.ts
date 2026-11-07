@@ -14,7 +14,7 @@ import type {
   UpdateBotFlowInput,
 } from '@xatxoot/shared'
 import { BotFlowDefinitionSchema, CreateBotFlowInputSchema } from '@xatxoot/shared'
-import { sql } from '../../db'
+import { parseJsonField, sql, toIsoString, toValidUuid } from '../../db'
 import { realtimeService } from '../realtime/realtime.service'
 import { ticketService } from '../tickets/tickets.service'
 
@@ -30,22 +30,55 @@ export interface BotStepExecutionResult {
   messages: BotEmittedMessage[]
 }
 
-interface BotMemoryStore {
-  flows: Map<string, BotFlow>
-  sessions: Map<string, BotSession>
-  lastOutputs: Map<string, BotEmittedMessage[]> // sessionId -> messages
+function mapFlowRow(row: Record<string, unknown>): BotFlow {
+  return {
+    id: String(row.id),
+    name: String(row.name),
+    triggerType: row.triggerType as BotFlow['triggerType'],
+    active: Boolean(row.active),
+    flowDefinition: parseJsonField<BotFlowDefinition>(row.flowDefinition, {
+      startNodeId: '',
+      nodes: [],
+      edges: [],
+      variables: {},
+    }),
+    createdAt: toIsoString(row.createdAt) || (row.createdAt as string),
+    updatedAt: toIsoString(row.updatedAt) || (row.updatedAt as string),
+  }
 }
 
-const memoryStore: BotMemoryStore = {
-  flows: new Map(),
-  sessions: new Map(),
-  lastOutputs: new Map(),
+function mapSessionRow(row: Record<string, unknown>): BotSession {
+  return {
+    id: String(row.id),
+    conversationId: String(row.conversationId),
+    flowId: String(row.flowId),
+    currentNodeId: (row.currentNodeId as string | null) ?? null,
+    status: row.status as BotSession['status'],
+    contextData: parseJsonField<Record<string, unknown>>(row.contextData, {}),
+    createdAt: toIsoString(row.createdAt) || (row.createdAt as string),
+    updatedAt: toIsoString(row.updatedAt) || (row.updatedAt as string),
+  }
 }
 
-export function resetBotStore(): void {
-  memoryStore.flows.clear()
-  memoryStore.sessions.clear()
-  memoryStore.lastOutputs.clear()
+async function ensureConversationExists(conversationId: string): Promise<void> {
+  const vConvId = toValidUuid(conversationId)
+  const defaultInboxId = '00000000-0000-0000-0000-000000000001'
+  await sql`
+    INSERT INTO inboxes (id, name, channel_type, channel_id)
+    VALUES (${defaultInboxId}, 'Default Inbox', 'api', ${crypto.randomUUID()})
+    ON CONFLICT (id) DO NOTHING
+  `
+  await sql`
+    INSERT INTO conversations (id, inbox_id)
+    VALUES (${vConvId}, ${defaultInboxId})
+    ON CONFLICT (id) DO NOTHING
+  `
+}
+
+export async function resetBotStore(): Promise<void> {
+  await sql`DELETE FROM bot_sessions`
+  await sql`DELETE FROM bot_flows`
+  botEngineService.resetOutputs()
 }
 
 /**
@@ -68,6 +101,12 @@ export function interpolateVariables(template: string, context: Record<string, u
 }
 
 export class BotEngineService {
+  private lastOutputs = new Map<string, BotEmittedMessage[]>()
+
+  resetOutputs(): void {
+    this.lastOutputs.clear()
+  }
+
   /**
    * Create a new Bot Flow
    */
@@ -75,75 +114,60 @@ export class BotEngineService {
     const parsed = CreateBotFlowInputSchema.parse(input)
     const id = crypto.randomUUID()
     const now = new Date().toISOString()
+    const active = parsed.active ?? true
+    const triggerType = parsed.triggerType || 'conversation_opened'
 
-    const flow: BotFlow = {
-      id,
-      name: parsed.name,
-      triggerType: parsed.triggerType || 'conversation_opened',
-      active: parsed.active ?? true,
-      flowDefinition: parsed.flowDefinition,
-      createdAt: now,
-      updatedAt: now,
-    }
+    const rows = await sql`
+      INSERT INTO bot_flows (
+        id, name, trigger_type, active, flow_definition, created_at, updated_at
+      ) VALUES (
+        ${id}, ${parsed.name}, ${triggerType}, ${active},
+        ${JSON.stringify(parsed.flowDefinition)}, ${now}, ${now}
+      )
+      RETURNING
+        id, name, trigger_type AS "triggerType", active,
+        flow_definition AS "flowDefinition", created_at AS "createdAt", updated_at AS "updatedAt"
+    `
 
-    try {
-      await sql`
-        INSERT INTO bot_flows (
-          id, name, trigger_type, active, flow_definition, created_at, updated_at
-        ) VALUES (
-          ${flow.id}, ${flow.name}, ${flow.triggerType}, ${flow.active},
-          ${JSON.stringify(flow.flowDefinition)}, ${now}, ${now}
-        )
-      `
-    } catch {
-      // Memory fallback
-    }
-
-    memoryStore.flows.set(id, flow)
-    return flow
+    return mapFlowRow(rows[0])
   }
 
   /**
-   * List all bot flows
+   * List bot flows
    */
-  async listFlows(): Promise<BotFlow[]> {
-    try {
-      const rows = await sql`
-        SELECT id, name, trigger_type AS "triggerType", active,
-               flow_definition AS "flowDefinition", created_at AS "createdAt", updated_at AS "updatedAt"
-        FROM bot_flows
-        ORDER BY created_at DESC
-      `
-      if (rows && rows.length > 0) {
-        return rows as unknown as BotFlow[]
-      }
-    } catch {
-      // Memory fallback
+  async listFlows(filter?: { active?: boolean; triggerType?: string }): Promise<BotFlow[]> {
+    let query = sql`
+      SELECT id, name, trigger_type AS "triggerType", active,
+             flow_definition AS "flowDefinition", created_at AS "createdAt", updated_at AS "updatedAt"
+      FROM bot_flows
+      WHERE 1 = 1
+    `
+
+    if (filter?.active !== undefined) {
+      query = sql`${query} AND active = ${filter.active}`
+    }
+    if (filter?.triggerType) {
+      query = sql`${query} AND trigger_type = ${filter.triggerType}`
     }
 
-    return Array.from(memoryStore.flows.values())
+    query = sql`${query} ORDER BY created_at DESC`
+    const rows = await query
+    return (rows || []).map(mapFlowRow)
   }
 
   /**
    * Get bot flow by ID
    */
   async getFlowById(id: string): Promise<BotFlow | null> {
-    const inMem = memoryStore.flows.get(id)
-    if (inMem) return inMem
-
-    try {
-      const rows = await sql`
-        SELECT id, name, trigger_type AS "triggerType", active,
-               flow_definition AS "flowDefinition", created_at AS "createdAt", updated_at AS "updatedAt"
-        FROM bot_flows
-        WHERE id = ${id}
-        LIMIT 1
-      `
-      if (rows && rows.length > 0) {
-        return rows[0] as unknown as BotFlow
-      }
-    } catch {
-      // Memory fallback
+    const rows = await sql`
+      SELECT id, name, trigger_type AS "triggerType", active,
+             flow_definition AS "flowDefinition", created_at AS "createdAt", updated_at AS "updatedAt"
+      FROM bot_flows
+      WHERE id = ${id}
+      LIMIT 1
+    `
+    if (rows && rows.length > 0) {
+      return mapFlowRow(rows[0])
     }
 
     return null
@@ -152,53 +176,40 @@ export class BotEngineService {
   /**
    * Update bot flow
    */
-  async updateFlow(id: string, input: UpdateBotFlowInput): Promise<BotFlow | null> {
+  async updateFlow(id: string, input: UpdateBotFlowInput): Promise<BotFlow> {
     const existing = await this.getFlowById(id)
-    if (!existing) return null
+    if (!existing) {
+      throw new Error(`Bot flow not found: ${id}`)
+    }
 
     const now = new Date().toISOString()
-    const updated: BotFlow = {
-      ...existing,
-      name: input.name ?? existing.name,
-      triggerType: input.triggerType ?? existing.triggerType,
-      active: input.active !== undefined ? input.active : existing.active,
-      flowDefinition: input.flowDefinition ?? existing.flowDefinition,
-      updatedAt: now,
-    }
+    const name = input.name ?? existing.name
+    const triggerType = input.triggerType ?? existing.triggerType
+    const active = input.active !== undefined ? input.active : existing.active
+    const flowDefinition = input.flowDefinition ?? existing.flowDefinition
 
-    try {
-      await sql`
-        UPDATE bot_flows
-        SET name = ${updated.name},
-            trigger_type = ${updated.triggerType},
-            active = ${updated.active},
-            flow_definition = ${JSON.stringify(updated.flowDefinition)},
-            updated_at = ${now}
-        WHERE id = ${id}
-      `
-    } catch {
-      // Memory fallback
-    }
+    const rows = await sql`
+      UPDATE bot_flows
+      SET name = ${name},
+          trigger_type = ${triggerType},
+          active = ${active},
+          flow_definition = ${JSON.stringify(flowDefinition)},
+          updated_at = ${now}
+      WHERE id = ${id}
+      RETURNING
+        id, name, trigger_type AS "triggerType", active,
+        flow_definition AS "flowDefinition", created_at AS "createdAt", updated_at AS "updatedAt"
+    `
 
-    memoryStore.flows.set(id, updated)
-    return updated
+    return mapFlowRow(rows[0])
   }
 
   /**
    * Delete bot flow
    */
   async deleteFlow(id: string): Promise<boolean> {
-    const existing = await this.getFlowById(id)
-    if (!existing) return false
-
-    try {
-      await sql`DELETE FROM bot_flows WHERE id = ${id}`
-    } catch {
-      // Memory fallback
-    }
-
-    memoryStore.flows.delete(id)
-    return true
+    const rows = await sql`DELETE FROM bot_flows WHERE id = ${id} RETURNING id`
+    return rows.length > 0
   }
 
   /**
@@ -214,6 +225,9 @@ export class BotEngineService {
       throw new Error(`Bot flow not found: ${flowId}`)
     }
 
+    const validConvId = toValidUuid(conversationId)
+    await ensureConversationExists(validConvId)
+
     const id = crypto.randomUUID()
     const now = new Date().toISOString()
 
@@ -226,37 +240,28 @@ export class BotEngineService {
       contextData._ticketId = options.ticketId
     }
 
-    let session: BotSession = {
-      id,
-      conversationId,
-      flowId,
-      currentNodeId: flow.flowDefinition.startNodeId,
-      status: 'active',
-      contextData,
-      createdAt: now,
-      updatedAt: now,
-    }
+    const startNodeId = flow.flowDefinition.startNodeId
 
-    memoryStore.sessions.set(id, session)
+    const rows = await sql`
+      INSERT INTO bot_sessions (
+        id, conversation_id, flow_id, current_node_id, status, context_data, created_at, updated_at
+      ) VALUES (
+        ${id}, ${validConvId}, ${flow.id},
+        ${startNodeId}, 'active', ${JSON.stringify(contextData)},
+        ${now}, ${now}
+      )
+      RETURNING
+        id, conversation_id AS "conversationId", flow_id AS "flowId",
+        current_node_id AS "currentNodeId", status, context_data AS "contextData",
+        created_at AS "createdAt", updated_at AS "updatedAt"
+    `
 
-    try {
-      await sql`
-        INSERT INTO bot_sessions (
-          id, conversation_id, flow_id, current_node_id, status, context_data, created_at, updated_at
-        ) VALUES (
-          ${session.id}, ${session.conversationId}, ${session.flowId},
-          ${session.currentNodeId}, ${session.status}, ${JSON.stringify(session.contextData)},
-          ${now}, ${now}
-        )
-      `
-    } catch {
-      // Memory fallback
-    }
+    let session = mapSessionRow(rows[0])
 
     // Immediately execute graph starting from startNodeId until it needs input or reaches terminal
     const execResult = await this.executeGraphStep(session, flow, null)
     session = execResult.session
-    memoryStore.lastOutputs.set(id, execResult.messages)
+    this.lastOutputs.set(id, execResult.messages)
 
     return session
   }
@@ -265,23 +270,16 @@ export class BotEngineService {
    * Get bot session by ID
    */
   async getSessionById(id: string): Promise<BotSession | null> {
-    const inMem = memoryStore.sessions.get(id)
-    if (inMem) return inMem
-
-    try {
-      const rows = await sql`
-        SELECT id, conversation_id AS "conversationId", flow_id AS "flowId",
-               current_node_id AS "currentNodeId", status, context_data AS "contextData",
-               created_at AS "createdAt", updated_at AS "updatedAt"
-        FROM bot_sessions
-        WHERE id = ${id}
-        LIMIT 1
-      `
-      if (rows && rows.length > 0) {
-        return rows[0] as unknown as BotSession
-      }
-    } catch {
-      // Memory fallback
+    const rows = await sql`
+      SELECT id, conversation_id AS "conversationId", flow_id AS "flowId",
+             current_node_id AS "currentNodeId", status, context_data AS "contextData",
+             created_at AS "createdAt", updated_at AS "updatedAt"
+      FROM bot_sessions
+      WHERE id = ${id}
+      LIMIT 1
+    `
+    if (rows && rows.length > 0) {
+      return mapSessionRow(rows[0])
     }
 
     return null
@@ -296,7 +294,7 @@ export class BotEngineService {
   }> {
     const session = await this.getSessionById(sessionId)
     if (!session) throw new Error(`Bot session not found: ${sessionId}`)
-    const messages = memoryStore.lastOutputs.get(sessionId) || []
+    const messages = this.lastOutputs.get(sessionId) || []
     return { session, messages }
   }
 
@@ -322,7 +320,7 @@ export class BotEngineService {
     const execResult = await this.executeGraphStep(session, flow, userInput)
     session = execResult.session
 
-    memoryStore.lastOutputs.set(sessionId, execResult.messages)
+    this.lastOutputs.set(sessionId, execResult.messages)
     return execResult
   }
 
@@ -360,17 +358,16 @@ export class BotEngineService {
       if (node.type === 'message') {
         const msgNode = node as MessageNode
         const interpolatedText = interpolateVariables(msgNode.data.text, session.contextData)
-
         messages.push({
           id: crypto.randomUUID(),
           text: interpolatedText,
-          mediaUrl: msgNode.data.mediaUrl ?? null,
-          mediaType: msgNode.data.mediaType ?? null,
+          mediaUrl: msgNode.data.mediaUrl,
+          mediaType: msgNode.data.mediaType,
         })
 
-        // Move to next node connected via edge
-        const nextEdge = flow.flowDefinition.edges.find((e) => e.source === node.id)
-        currentNodeId = nextEdge ? nextEdge.target : null
+        // Advance to next edge
+        const edge = flow.flowDefinition.edges.find((e) => e.source === node.id)
+        currentNodeId = edge?.target || null
         if (!currentNodeId) {
           session.status = 'completed'
           break
@@ -380,117 +377,75 @@ export class BotEngineService {
 
       // 2. Question Node
       if (node.type === 'question') {
-        const qNode = node as QuestionNode
+        const qNode = node as {
+          data: {
+            question?: string
+            questionText?: string
+            options?: Array<{ id: string; label?: string; text?: string; value?: string }>
+            choices?: Array<{ id: string; label?: string; text?: string; value?: string }>
+            variableName?: string
+          }
+        }
+        const promptText = qNode.data.question || qNode.data.questionText || ''
 
-        if (isHandlingInput) {
-          // Process and validate user response
-          const qType = qNode.data.questionType || 'text'
-          let chosenNextNodeId: string | null = null
+        if (!isHandlingInput) {
+          // Send prompt question and pause execution awaiting user response
+          const prompt = interpolateVariables(promptText, session.contextData)
+          messages.push({
+            id: crypto.randomUUID(),
+            text: prompt,
+          })
+          break
+        }
 
-          if (qType === 'choice' && qNode.data.options && qNode.data.options.length > 0) {
-            const raw = (userInput || '').trim().toLowerCase()
-            // Check 1-based index or value or label
-            let matched = qNode.data.options.find(
-              (opt) =>
-                opt.value.toLowerCase() === raw ||
-                opt.label.toLowerCase() === raw ||
-                opt.id.toLowerCase() === raw,
+        // Handle user reply
+        const rawInput = (userInput || '').trim()
+        const choices = (qNode.data.options || qNode.data.choices || []) as Array<{
+          id: string
+          label?: string
+          text?: string
+          value?: string
+        }>
+
+        if (choices.length > 0) {
+          const choice = choices.find(
+            (c, idx) =>
+              c.id.toLowerCase() === rawInput.toLowerCase() ||
+              (c.value && c.value.toLowerCase() === rawInput.toLowerCase()) ||
+              (c.text && c.text.toLowerCase() === rawInput.toLowerCase()) ||
+              (c.label && c.label.toLowerCase() === rawInput.toLowerCase()) ||
+              rawInput === String(idx + 1),
+          )
+
+          if (choice) {
+            session.contextData[qNode.data.variableName] = choice.value || choice.id
+
+            // Check if choice has custom target edge or proceed via standard edge
+            const choiceEdge = flow.flowDefinition.edges.find(
+              (e) =>
+                e.source === node.id &&
+                (e.sourceHandle === choice.id ||
+                  e.label === choice.id ||
+                  e.sourceHandle === choice.value),
             )
-
-            if (!matched) {
-              const num = Number.parseInt(raw, 10)
-              if (!Number.isNaN(num) && num >= 1 && num <= qNode.data.options.length) {
-                matched = qNode.data.options[num - 1]
-              }
-            }
-
-            if (matched) {
-              session.contextData[qNode.data.variableName] = matched.value
-
-              // Check if any edge has sourceHandle matching option ID / value
-              const specificEdge = flow.flowDefinition.edges.find(
-                (e) =>
-                  e.source === node.id &&
-                  (e.sourceHandle === matched.id || e.sourceHandle === matched.value),
-              )
-              if (specificEdge) {
-                chosenNextNodeId = specificEdge.target
-              }
-            } else {
-              // Fallback: save raw input
-              session.contextData[qNode.data.variableName] = userInput
-            }
-          } else if (qType === 'number') {
-            const num = Number(userInput)
-            session.contextData[qNode.data.variableName] = Number.isNaN(num) ? userInput : num
+            const fallbackEdge = flow.flowDefinition.edges.find((e) => e.source === node.id)
+            currentNodeId = choiceEdge?.target || fallbackEdge?.target || null
           } else {
-            session.contextData[qNode.data.variableName] = userInput
-          }
-
-          // Advance past question node
-          isHandlingInput = false
-          if (chosenNextNodeId) {
-            currentNodeId = chosenNextNodeId
-          } else {
-            const nextEdge = flow.flowDefinition.edges.find((e) => e.source === node.id)
-            currentNodeId = nextEdge ? nextEdge.target : null
-          }
-
-          if (!currentNodeId) {
-            session.status = 'completed'
+            // Invalid choice reply: emit error and keep session paused on current node
+            messages.push({
+              id: crypto.randomUUID(),
+              text: 'Pilihan tidak valid. Silakan pilih opsi yang tersedia.',
+            })
             break
           }
-          continue
+        } else {
+          // Freeform text question
+          session.contextData[qNode.data.variableName] = rawInput
+          const edge = flow.flowDefinition.edges.find((e) => e.source === node.id)
+          currentNodeId = edge?.target || null
         }
 
-        // Emit question prompt and pause execution for user response
-        const questionText = interpolateVariables(qNode.data.question, session.contextData)
-
-        messages.push({
-          id: crypto.randomUUID(),
-          text: questionText,
-        })
-
-        session.currentNodeId = node.id
-        session.status = 'active'
-        await this.saveSessionState(session)
-        return { session, messages }
-      }
-
-      // 3. HTTP Node (Asynchronous Webhook Execution)
-      if (node.type === 'http') {
-        const httpNode = node as HttpNode
-        const interpolatedUrl = interpolateVariables(httpNode.data.url, session.contextData)
-        const interpolatedBody = httpNode.data.body
-          ? interpolateVariables(httpNode.data.body, session.contextData)
-          : undefined
-
-        try {
-          const timeoutMs = httpNode.data.timeoutMs || 5000
-          const res = await fetch(interpolatedUrl, {
-            method: httpNode.data.method || 'GET',
-            headers: httpNode.data.headers || {},
-            body: interpolatedBody,
-            signal: AbortSignal.timeout(timeoutMs),
-          })
-
-          const contentType = res.headers.get('content-type') || ''
-          let responseData: unknown = null
-          if (contentType.includes('application/json')) {
-            responseData = await res.json()
-          } else {
-            responseData = await res.text()
-          }
-
-          session.contextData[httpNode.data.responseVariable] = responseData
-        } catch (error) {
-          session.contextData[httpNode.data.responseVariable] = {
-            error: error instanceof Error ? error.message : 'HTTP execution failed',
-          }
-        }
-
-        const nextEdge = flow.flowDefinition.edges.find((e) => e.source === node.id)
-        currentNodeId = nextEdge ? nextEdge.target : null
+        isHandlingInput = false
         if (!currentNodeId) {
           session.status = 'completed'
           break
@@ -498,15 +453,83 @@ export class BotEngineService {
         continue
       }
 
-      // 4. Branch Node (Condition Evaluation)
+      // 3. HTTP Request Node
+      if (node.type === 'http') {
+        const httpNode = node as HttpNode
+        const url = interpolateVariables(httpNode.data.url, session.contextData)
+
+        try {
+          const fetchOptions: RequestInit = {
+            method: httpNode.data.method,
+            headers: {
+              'Content-Type': 'application/json',
+              ...(httpNode.data.headers || {}),
+            },
+            signal: AbortSignal.timeout(10000),
+          }
+
+          if (httpNode.data.body && ['POST', 'PUT', 'PATCH'].includes(httpNode.data.method)) {
+            const bodyStr =
+              typeof httpNode.data.body === 'string'
+                ? interpolateVariables(httpNode.data.body, session.contextData)
+                : JSON.stringify(httpNode.data.body)
+            fetchOptions.body = bodyStr
+          }
+
+          const response = await fetch(url, fetchOptions)
+          const responseBody = await response.json().catch(() => ({}))
+
+          session.contextData[httpNode.data.responseVariable || 'http_response'] = responseBody
+        } catch (err) {
+          session.contextData[`${httpNode.data.responseVariable || 'http_response'}_error`] =
+            err instanceof Error ? err.message : 'HTTP Request Failed'
+        }
+
+        const edge = flow.flowDefinition.edges.find((e) => e.source === node.id)
+        currentNodeId = edge?.target || null
+        if (!currentNodeId) {
+          session.status = 'completed'
+          break
+        }
+        continue
+      }
+
+      // 4. Branch Node (Conditional Routing)
       if (node.type === 'branch') {
-        const branchNode = node as BranchNode
+        const branchNode = node as {
+          data: {
+            conditions?: Array<{
+              variable: string
+              operator: string
+              value: unknown
+              targetNodeId?: string
+            }>
+            branches?: Array<{
+              conditions: Array<{ variable: string; operator: string; value: unknown }>
+              targetNodeId: string
+            }>
+            fallbackNodeId?: string
+          }
+        }
         let branchTarget: string | null = null
 
-        for (const condition of branchNode.data.conditions) {
-          if (this.evaluateCondition(condition, session.contextData)) {
-            branchTarget = condition.targetNodeId || null
-            break
+        if (branchNode.data.conditions && Array.isArray(branchNode.data.conditions)) {
+          for (const condition of branchNode.data.conditions) {
+            if (this.evaluateCondition(condition, session.contextData)) {
+              branchTarget = condition.targetNodeId || null
+              break
+            }
+          }
+        } else if (branchNode.data.branches && Array.isArray(branchNode.data.branches)) {
+          for (const branch of branchNode.data.branches) {
+            const matches = branch.conditions.every(
+              (cond: { variable: string; operator: string; value: unknown }) =>
+                this.evaluateCondition(cond, session.contextData),
+            )
+            if (matches) {
+              branchTarget = branch.targetNodeId
+              break
+            }
           }
         }
 
@@ -541,18 +564,18 @@ export class BotEngineService {
 
         if (ticketId) {
           await ticketService.updateTicketStatus(ticketId, 'open')
+          const updates: Record<string, unknown> = {}
           if (handoffNode.data.teamId) {
-            // Update team assignment
-            const ticket = await ticketService.getTicketById(ticketId)
-            if (ticket) {
-              ticket.teamId = handoffNode.data.teamId
-              if (handoffNode.data.priority) {
-                ticket.priority = handoffNode.data.priority
-              }
-              if (handoffNode.data.assigneeId) {
-                ticket.assigneeId = handoffNode.data.assigneeId
-              }
-            }
+            updates.teamId = handoffNode.data.teamId
+          }
+          if (handoffNode.data.priority) {
+            updates.priority = handoffNode.data.priority
+          }
+          if (handoffNode.data.assigneeId) {
+            updates.assigneeId = handoffNode.data.assigneeId
+          }
+          if (Object.keys(updates).length > 0) {
+            await ticketService.updateTicket(ticketId, updates)
           }
         }
 
@@ -593,23 +616,37 @@ export class BotEngineService {
    * Evaluate individual branch condition
    */
   private evaluateCondition(
-    condition: BranchConditionRule,
+    condition: { variable: string; operator: string; value: unknown },
     context: Record<string, unknown>,
   ): boolean {
     const val = context[condition.variable]
-    const targetVal = condition.value
+    const expected = condition.value
 
     switch (condition.operator) {
       case 'equals':
-        return String(val) === String(targetVal)
+      case 'eq':
+        return String(val) === String(expected)
       case 'not_equals':
-        return String(val) !== String(targetVal)
-      case 'contains':
-        return String(val).toLowerCase().includes(String(targetVal).toLowerCase())
+      case 'neq':
+        return String(val) !== String(expected)
       case 'greater_than':
-        return Number(val) > Number(targetVal)
+      case 'gt':
+        return Number(val) > Number(expected)
       case 'less_than':
-        return Number(val) < Number(targetVal)
+      case 'lt':
+        return Number(val) < Number(expected)
+      case 'gte':
+        return Number(val) >= Number(expected)
+      case 'lte':
+        return Number(val) <= Number(expected)
+      case 'contains':
+        return String(val || '')
+          .toLowerCase()
+          .includes(String(expected || '').toLowerCase())
+      case 'not_contains':
+        return !String(val || '')
+          .toLowerCase()
+          .includes(String(expected || '').toLowerCase())
       case 'is_empty':
         return val === undefined || val === null || val === ''
       case 'is_not_empty':
@@ -620,25 +657,18 @@ export class BotEngineService {
   }
 
   /**
-   * Save session state to DB and memory
+   * Persist session state to database
    */
   private async saveSessionState(session: BotSession): Promise<void> {
     const now = new Date().toISOString()
-    session.updatedAt = now
-    memoryStore.sessions.set(session.id, session)
-
-    try {
-      await sql`
-        UPDATE bot_sessions
-        SET current_node_id = ${session.currentNodeId},
-            status = ${session.status},
-            context_data = ${JSON.stringify(session.contextData)},
-            updated_at = ${now}
-        WHERE id = ${session.id}
-      `
-    } catch {
-      // Memory fallback
-    }
+    await sql`
+      UPDATE bot_sessions
+      SET current_node_id = ${session.currentNodeId},
+          status = ${session.status},
+          context_data = ${JSON.stringify(session.contextData)},
+          updated_at = ${now}
+      WHERE id = ${session.id}
+    `
   }
 }
 

@@ -5,7 +5,7 @@ import type {
   ReportingMetricSummary,
   Ticket,
 } from '@xatxoot/shared'
-import { sql } from '../../db'
+import { sql, toIsoString, toValidUuid } from '../../db'
 
 export interface AnalyticsEventParams {
   eventType: string
@@ -53,12 +53,59 @@ export interface InboxPerformance {
   avgResolutionTimeSeconds: number
 }
 
-const memoryStore = {
-  events: new Map<string, ReportingEvent>(),
+async function ensureInboxExists(inboxId: string): Promise<void> {
+  await sql`
+    INSERT INTO inboxes (id, name, channel_type, channel_id, created_at, updated_at)
+    VALUES (${inboxId}, 'Inbox ' || ${inboxId}, 'whatsapp', ${crypto.randomUUID()}, NOW(), NOW())
+    ON CONFLICT (id) DO NOTHING
+  `
 }
 
-export function resetAnalyticsStore(): void {
-  memoryStore.events.clear()
+async function ensureUserExists(userId: string): Promise<void> {
+  await sql`
+    INSERT INTO users (id, email, password_hash, display_name, role, created_at, updated_at)
+    VALUES (${userId}, ${userId} || '@test.local', 'dummy_hash', 'User ' || ${userId}, 'agent', NOW(), NOW())
+    ON CONFLICT (id) DO NOTHING
+  `
+}
+
+async function ensureConversationExists(
+  conversationId: string,
+  inboxId?: string | null,
+): Promise<void> {
+  const dummyContactId = '11111111-1111-1111-1111-111111111111'
+  await sql`
+    INSERT INTO contacts (id, name, created_at, updated_at)
+    VALUES (${dummyContactId}, 'System Contact', NOW(), NOW())
+    ON CONFLICT (id) DO NOTHING
+  `
+  let effectiveInboxId = inboxId
+  if (!effectiveInboxId) {
+    effectiveInboxId = '22222222-2222-2222-2222-222222222222'
+    await ensureInboxExists(effectiveInboxId)
+  }
+  await sql`
+    INSERT INTO conversations (id, inbox_id, contact_id, created_at, updated_at)
+    VALUES (${conversationId}, ${effectiveInboxId}, ${dummyContactId}, NOW(), NOW())
+    ON CONFLICT (id) DO NOTHING
+  `
+}
+
+async function ensureTicketExists(ticketId: string, conversationId?: string | null): Promise<void> {
+  let effectiveConvId = conversationId
+  if (!effectiveConvId) {
+    effectiveConvId = '33333333-3333-3333-3333-333333333333'
+    await ensureConversationExists(effectiveConvId)
+  }
+  await sql`
+    INSERT INTO tickets (id, display_id, conversation_id, status, priority, created_at, updated_at)
+    VALUES (${ticketId}, nextval('tickets_display_id_seq'), ${effectiveConvId}, 'open', 'medium', NOW(), NOW())
+    ON CONFLICT (id) DO NOTHING
+  `
+}
+
+export async function resetAnalyticsStore(): Promise<void> {
+  await sql`DELETE FROM reporting_events`
 }
 
 export class AnalyticsService {
@@ -70,33 +117,57 @@ export class AnalyticsService {
         ? Math.max(0, Math.round(params.valueInSeconds))
         : null
 
-    const event: ReportingEvent = {
-      id,
-      eventType: params.eventType,
-      conversationId: params.conversationId ?? null,
-      ticketId: params.ticketId ?? null,
-      userId: params.userId ?? null,
-      inboxId: params.inboxId ?? null,
-      valueInSeconds: value,
-      createdAt: now,
+    let inboxId = params.inboxId ?? null
+    let userId = params.userId ?? null
+    let conversationId = params.conversationId ?? null
+    let ticketId = params.ticketId ?? null
+
+    if (inboxId) {
+      inboxId = toValidUuid(inboxId)
+      await ensureInboxExists(inboxId)
+    }
+    if (userId) {
+      userId = toValidUuid(userId)
+      await ensureUserExists(userId)
+    }
+    if (conversationId) {
+      conversationId = toValidUuid(conversationId)
+      await ensureConversationExists(conversationId, inboxId)
+    }
+    if (ticketId) {
+      ticketId = toValidUuid(ticketId)
+      await ensureTicketExists(ticketId, conversationId)
     }
 
-    memoryStore.events.set(id, event)
+    const rows = await sql`
+      INSERT INTO reporting_events (
+        id, event_type, conversation_id, ticket_id, user_id, inbox_id, value_in_seconds, created_at
+      ) VALUES (
+        ${id}, ${params.eventType}, ${conversationId}, ${ticketId},
+        ${userId}, ${inboxId}, ${value}, ${now}
+      )
+      RETURNING
+        id,
+        event_type as "eventType",
+        conversation_id as "conversationId",
+        ticket_id as "ticketId",
+        user_id as "userId",
+        inbox_id as "inboxId",
+        value_in_seconds as "valueInSeconds",
+        created_at as "createdAt"
+    `
 
-    try {
-      await sql`
-        INSERT INTO reporting_events (
-          id, event_type, conversation_id, ticket_id, user_id, inbox_id, value_in_seconds, created_at
-        ) VALUES (
-          ${event.id}, ${event.eventType}, ${event.conversationId}, ${event.ticketId},
-          ${event.userId}, ${event.inboxId}, ${event.valueInSeconds}, ${event.createdAt}
-        )
-      `
-    } catch {
-      // Memory fallback for unit tests/offline
+    const row = rows[0]
+    return {
+      id: row.id,
+      eventType: row.eventType,
+      conversationId: row.conversationId ?? null,
+      ticketId: row.ticketId ?? null,
+      userId: row.userId ?? null,
+      inboxId: row.inboxId ?? null,
+      valueInSeconds: row.valueInSeconds !== null ? Number(row.valueInSeconds) : null,
+      createdAt: toIsoString(row.createdAt) || row.createdAt,
     }
-
-    return event
   }
 
   async recordFirstResponseTime(params: FirstResponseTimeParams): Promise<ReportingEvent> {
@@ -133,7 +204,7 @@ export class AnalyticsService {
 
   async onFirstReply(
     ticket: Partial<Ticket>,
-    userId?: string | null,
+    agentId?: string | null,
     inboxId?: string | null,
   ): Promise<ReportingEvent | null> {
     if (!ticket.openedAt || !ticket.firstReplyCreatedAt) {
@@ -143,7 +214,7 @@ export class AnalyticsService {
     return this.recordFirstResponseTime({
       conversationId: ticket.conversationId,
       ticketId: ticket.id,
-      userId: userId || ticket.assigneeId,
+      userId: agentId || ticket.assigneeId,
       inboxId,
       openedAt: ticket.openedAt,
       repliedAt: ticket.firstReplyCreatedAt,
@@ -169,217 +240,115 @@ export class AnalyticsService {
   }
 
   async getMetricsSummary(filter?: ReportFilterQuery): Promise<ReportingMetricSummary> {
-    try {
-      let query = sql`
-        SELECT
-          COUNT(*) FILTER (WHERE event_type = 'resolution_time') AS "totalResolvedTickets",
-          AVG(value_in_seconds) FILTER (WHERE event_type = 'first_response_time') AS "avgFirstResponseTime",
-          AVG(value_in_seconds) FILTER (WHERE event_type = 'resolution_time') AS "avgResolutionTime"
-        FROM reporting_events
-        WHERE 1 = 1
-      `
-      if (filter?.since) {
-        query = sql`${query} AND created_at >= ${new Date(filter.since).toISOString()}`
-      }
-      if (filter?.until) {
-        query = sql`${query} AND created_at <= ${new Date(filter.until).toISOString()}`
-      }
-      if (filter?.inboxId) {
-        query = sql`${query} AND inbox_id = ${filter.inboxId}`
-      }
-      if (filter?.agentId) {
-        query = sql`${query} AND user_id = ${filter.agentId}`
-      }
-
-      const rows = await query
-      if (rows && rows.length > 0 && rows[0].totalResolvedTickets !== null) {
-        return {
-          conversationsCount: 0,
-          incomingMessagesCount: 0,
-          outgoingMessagesCount: 0,
-          avgFirstResponseTimeSeconds: Math.round(Number(rows[0].avgFirstResponseTime || 0)),
-          avgResolutionTimeSeconds: Math.round(Number(rows[0].avgResolutionTime || 0)),
-          avgCsatScore: 0,
-          totalResolvedTickets: Number(rows[0].totalResolvedTickets || 0),
-        }
-      }
-    } catch {
-      // Memory fallback
-    }
-
-    // In-memory fallback
-    let events = Array.from(memoryStore.events.values())
-
+    let query = sql`
+      SELECT
+        COUNT(*) FILTER (WHERE event_type = 'resolution_time') AS "totalResolvedTickets",
+        AVG(value_in_seconds) FILTER (WHERE event_type = 'first_response_time') AS "avgFirstResponseTime",
+        AVG(value_in_seconds) FILTER (WHERE event_type = 'resolution_time') AS "avgResolutionTime"
+      FROM reporting_events
+      WHERE 1 = 1
+    `
     if (filter?.since) {
-      const sinceTime = new Date(filter.since).getTime()
-      events = events.filter((e) => new Date(e.createdAt).getTime() >= sinceTime)
+      query = sql`${query} AND created_at >= ${new Date(filter.since).toISOString()}`
     }
     if (filter?.until) {
-      const untilTime = new Date(filter.until).getTime()
-      events = events.filter((e) => new Date(e.createdAt).getTime() <= untilTime)
+      query = sql`${query} AND created_at <= ${new Date(filter.until).toISOString()}`
     }
     if (filter?.inboxId) {
-      events = events.filter((e) => e.inboxId === filter.inboxId)
+      const inboxId = toValidUuid(filter.inboxId)
+      query = sql`${query} AND inbox_id = ${inboxId}`
     }
     if (filter?.agentId) {
-      events = events.filter((e) => e.userId === filter.agentId)
+      const agentId = toValidUuid(filter.agentId)
+      query = sql`${query} AND user_id = ${agentId}`
     }
 
-    const frtEvents = events.filter(
-      (e) => e.eventType === 'first_response_time' && e.valueInSeconds !== null,
-    )
-    const resEvents = events.filter(
-      (e) => e.eventType === 'resolution_time' && e.valueInSeconds !== null,
-    )
-
-    const avgFrt =
-      frtEvents.length > 0
-        ? Math.round(
-            frtEvents.reduce((acc, curr) => acc + (curr.valueInSeconds || 0), 0) / frtEvents.length,
-          )
-        : 0
-
-    const avgRes =
-      resEvents.length > 0
-        ? Math.round(
-            resEvents.reduce((acc, curr) => acc + (curr.valueInSeconds || 0), 0) / resEvents.length,
-          )
-        : 0
-
+    const rows = await query
+    const row = rows[0]
     return {
       conversationsCount: 0,
       incomingMessagesCount: 0,
       outgoingMessagesCount: 0,
-      avgFirstResponseTimeSeconds: avgFrt,
-      avgResolutionTimeSeconds: avgRes,
+      avgFirstResponseTimeSeconds: row?.avgFirstResponseTime
+        ? Math.round(Number(row.avgFirstResponseTime))
+        : 0,
+      avgResolutionTimeSeconds: row?.avgResolutionTime
+        ? Math.round(Number(row.avgResolutionTime))
+        : 0,
       avgCsatScore: 0,
-      totalResolvedTickets: resEvents.length,
+      totalResolvedTickets: row?.totalResolvedTickets ? Number(row.totalResolvedTickets) : 0,
     }
   }
 
   async getTimeSeries(filter?: ReportFilterQuery): Promise<ReportingDataPoint[]> {
     const metricType = filter?.type || 'first_response_time'
     const interval = filter?.groupBy || 'day'
+    const dateTrunc = interval === 'week' ? 'week' : interval === 'month' ? 'month' : 'day'
 
-    try {
-      const dateTrunc = interval === 'week' ? 'week' : interval === 'month' ? 'month' : 'day'
-      let query = sql`
-        SELECT
-          DATE_TRUNC(${dateTrunc}, created_at)::text AS "timestamp",
-          AVG(value_in_seconds) AS "value",
-          COUNT(*)::int AS "count"
-        FROM reporting_events
-        WHERE event_type = ${metricType}
-      `
-      if (filter?.since) {
-        query = sql`${query} AND created_at >= ${new Date(filter.since).toISOString()}`
-      }
-      if (filter?.until) {
-        query = sql`${query} AND created_at <= ${new Date(filter.until).toISOString()}`
-      }
-      if (filter?.inboxId) {
-        query = sql`${query} AND inbox_id = ${filter.inboxId}`
-      }
-      if (filter?.agentId) {
-        query = sql`${query} AND user_id = ${filter.agentId}`
-      }
-
-      query = sql`${query} GROUP BY DATE_TRUNC(${dateTrunc}, created_at) ORDER BY "timestamp" ASC`
-      const rows = await query
-      if (rows && rows.length > 0) {
-        return rows.map((r: Record<string, unknown>) => ({
-          timestamp: String(r.timestamp),
-          value: Math.round(Number(r.value || 0)),
-          count: Number(r.count || 0),
-        }))
-      }
-    } catch {
-      // Memory fallback
-    }
-
-    // In-memory fallback
-    let events = Array.from(memoryStore.events.values()).filter((e) => e.eventType === metricType)
+    let query = sql`
+      SELECT
+        TO_CHAR(DATE_TRUNC(${dateTrunc}, created_at), 'YYYY-MM-DD') AS "timestamp",
+        AVG(value_in_seconds) AS "value",
+        COUNT(*)::int AS "count"
+      FROM reporting_events
+      WHERE event_type = ${metricType}
+    `
     if (filter?.since) {
-      const sinceTime = new Date(filter.since).getTime()
-      events = events.filter((e) => new Date(e.createdAt).getTime() >= sinceTime)
+      query = sql`${query} AND created_at >= ${new Date(filter.since).toISOString()}`
     }
     if (filter?.until) {
-      const untilTime = new Date(filter.until).getTime()
-      events = events.filter((e) => new Date(e.createdAt).getTime() <= untilTime)
+      query = sql`${query} AND created_at <= ${new Date(filter.until).toISOString()}`
     }
     if (filter?.inboxId) {
-      events = events.filter((e) => e.inboxId === filter.inboxId)
+      const inboxId = toValidUuid(filter.inboxId)
+      query = sql`${query} AND inbox_id = ${inboxId}`
     }
     if (filter?.agentId) {
-      events = events.filter((e) => e.userId === filter.agentId)
+      const agentId = toValidUuid(filter.agentId)
+      query = sql`${query} AND user_id = ${agentId}`
     }
 
-    const groups = new Map<string, { sum: number; count: number }>()
-    for (const e of events) {
-      const date = new Date(e.createdAt)
-      const key = date.toISOString().split('T')[0]
-      const current = groups.get(key) || { sum: 0, count: 0 }
-      groups.set(key, {
-        sum: current.sum + (e.valueInSeconds || 0),
-        count: current.count + 1,
-      })
-    }
-
-    return Array.from(groups.entries()).map(([timestamp, data]) => ({
-      timestamp,
-      value: Math.round(data.sum / data.count),
-      count: data.count,
+    query = sql`${query} GROUP BY 1 ORDER BY 1 ASC`
+    const rows = await query
+    return ((rows || []) as unknown as Record<string, unknown>[]).map((r) => ({
+      timestamp: String(r.timestamp),
+      value: Math.round(Number(r.value || 0)),
+      count: Number(r.count || 0),
     }))
   }
 
   async getAgentPerformance(filter?: ReportFilterQuery): Promise<AgentPerformance[]> {
-    let events = Array.from(memoryStore.events.values()).filter((e) => e.userId)
+    let query = sql`
+      SELECT
+        user_id as "agentId",
+        COUNT(*) FILTER (WHERE event_type = 'resolution_time') AS "totalResolvedTickets",
+        AVG(value_in_seconds) FILTER (WHERE event_type = 'first_response_time') AS "avgFirstResponseTime",
+        AVG(value_in_seconds) FILTER (WHERE event_type = 'resolution_time') AS "avgResolutionTime",
+        COUNT(*) FILTER (WHERE event_type = 'first_response_time') AS "totalReplies"
+      FROM reporting_events
+      WHERE user_id IS NOT NULL
+    `
     if (filter?.since) {
-      const sinceTime = new Date(filter.since).getTime()
-      events = events.filter((e) => new Date(e.createdAt).getTime() >= sinceTime)
+      query = sql`${query} AND created_at >= ${new Date(filter.since).toISOString()}`
     }
     if (filter?.until) {
-      const untilTime = new Date(filter.until).getTime()
-      events = events.filter((e) => new Date(e.createdAt).getTime() <= untilTime)
+      query = sql`${query} AND created_at <= ${new Date(filter.until).toISOString()}`
     }
     if (filter?.inboxId) {
-      events = events.filter((e) => e.inboxId === filter.inboxId)
+      const inboxId = toValidUuid(filter.inboxId)
+      query = sql`${query} AND inbox_id = ${inboxId}`
     }
 
-    const agentMap = new Map<
-      string,
-      {
-        frtSum: number
-        frtCount: number
-        resSum: number
-        resCount: number
-      }
-    >()
-
-    for (const e of events) {
-      if (!e.userId) continue
-      const current = agentMap.get(e.userId) || {
-        frtSum: 0,
-        frtCount: 0,
-        resSum: 0,
-        resCount: 0,
-      }
-      if (e.eventType === 'first_response_time' && e.valueInSeconds !== null) {
-        current.frtSum += e.valueInSeconds
-        current.frtCount += 1
-      } else if (e.eventType === 'resolution_time' && e.valueInSeconds !== null) {
-        current.resSum += e.valueInSeconds
-        current.resCount += 1
-      }
-      agentMap.set(e.userId, current)
-    }
-
-    return Array.from(agentMap.entries()).map(([agentId, stat]) => ({
-      agentId,
-      totalResolvedTickets: stat.resCount,
-      avgFirstResponseTimeSeconds: stat.frtCount > 0 ? Math.round(stat.frtSum / stat.frtCount) : 0,
-      avgResolutionTimeSeconds: stat.resCount > 0 ? Math.round(stat.resSum / stat.resCount) : 0,
-      totalReplies: stat.frtCount,
+    query = sql`${query} GROUP BY user_id ORDER BY user_id ASC`
+    const rows = await query
+    return ((rows || []) as unknown as Record<string, unknown>[]).map((r) => ({
+      agentId: r.agentId,
+      totalResolvedTickets: Number(r.totalResolvedTickets || 0),
+      avgFirstResponseTimeSeconds: r.avgFirstResponseTime
+        ? Math.round(Number(r.avgFirstResponseTime))
+        : 0,
+      avgResolutionTimeSeconds: r.avgResolutionTime ? Math.round(Number(r.avgResolutionTime)) : 0,
+      totalReplies: Number(r.totalReplies || 0),
     }))
   }
 
@@ -414,27 +383,41 @@ export class AnalyticsService {
     }
 
     // Default: events export
-    let events = Array.from(memoryStore.events.values())
+    let query = sql`
+      SELECT
+        id,
+        event_type as "eventType",
+        conversation_id as "conversationId",
+        ticket_id as "ticketId",
+        user_id as "userId",
+        inbox_id as "inboxId",
+        value_in_seconds as "valueInSeconds",
+        created_at as "createdAt"
+      FROM reporting_events
+      WHERE 1 = 1
+    `
     if (filter?.since) {
-      const sinceTime = new Date(filter.since).getTime()
-      events = events.filter((e) => new Date(e.createdAt).getTime() >= sinceTime)
+      query = sql`${query} AND created_at >= ${new Date(filter.since).toISOString()}`
     }
     if (filter?.until) {
-      const untilTime = new Date(filter.until).getTime()
-      events = events.filter((e) => new Date(e.createdAt).getTime() <= untilTime)
+      query = sql`${query} AND created_at <= ${new Date(filter.until).toISOString()}`
     }
     if (filter?.inboxId) {
-      events = events.filter((e) => e.inboxId === filter.inboxId)
+      const inboxId = toValidUuid(filter.inboxId)
+      query = sql`${query} AND inbox_id = ${inboxId}`
     }
     if (filter?.agentId) {
-      events = events.filter((e) => e.userId === filter.agentId)
+      const agentId = toValidUuid(filter.agentId)
+      query = sql`${query} AND user_id = ${agentId}`
     }
 
+    query = sql`${query} ORDER BY created_at ASC`
+    const rows = await query
     const lines = [
       'id,event_type,conversation_id,ticket_id,user_id,inbox_id,value_in_seconds,created_at',
-      ...events.map(
+      ...((rows || []) as unknown as Record<string, unknown>[]).map(
         (e) =>
-          `${e.id},${e.eventType},${e.conversationId || ''},${e.ticketId || ''},${e.userId || ''},${e.inboxId || ''},${e.valueInSeconds ?? ''},${e.createdAt}`,
+          `${e.id},${e.eventType},${e.conversationId || ''},${e.ticketId || ''},${e.userId || ''},${e.inboxId || ''},${e.valueInSeconds ?? ''},${toIsoString(e.createdAt) || (e.createdAt as string)}`,
       ),
     ]
     return lines.join('\n')

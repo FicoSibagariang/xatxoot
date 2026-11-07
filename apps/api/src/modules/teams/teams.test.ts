@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it } from 'bun:test'
+import { beforeAll, beforeEach, describe, expect, it } from 'bun:test'
+import { sql } from '../../db'
 import app from '../../index'
 import { resetTeamStore, teamService } from './teams.service'
 
@@ -78,8 +79,25 @@ describe('Teams Module - Auth Guard', () => {
 })
 
 describe('Teams Module - CRUD Operations', () => {
-  beforeEach(() => {
-    resetTeamStore()
+  beforeAll(async () => {
+    const dummyUsers = [
+      '123e4567-e89b-12d3-a456-426614174001',
+      '123e4567-e89b-12d3-a456-426614174002',
+      '123e4567-e89b-12d3-a456-426614174003',
+      '123e4567-e89b-12d3-a456-426614174004',
+      '123e4567-e89b-12d3-a456-426614174005',
+    ]
+    for (const uid of dummyUsers) {
+      await sql`
+        INSERT INTO users (id, email, password_hash, display_name, role)
+        VALUES (${uid}, ${`test-${uid}@xatxoot.test`}, 'test-hash', 'Test Agent', 'agent')
+        ON CONFLICT (id) DO NOTHING
+      `
+    }
+  })
+
+  beforeEach(async () => {
+    await resetTeamStore()
   })
 
   it('POST /api/v1/teams should create team with valid input and default allowAutoAssign', async () => {
@@ -217,8 +235,8 @@ describe('Teams Module - CRUD Operations', () => {
 })
 
 describe('Teams Module - Team Membership Management', () => {
-  beforeEach(() => {
-    resetTeamStore()
+  beforeEach(async () => {
+    await resetTeamStore()
   })
 
   it('POST /api/v1/teams/:id/members should add agent to team', async () => {

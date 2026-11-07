@@ -19,8 +19,8 @@ describe('Analytics Engine & Reporting Module (Task 4.9 - apps/api)', () => {
 
   let app: Hono
 
-  beforeEach(() => {
-    resetAnalyticsStore()
+  beforeEach(async () => {
+    await resetAnalyticsStore()
     app = new Hono()
     app.route('/api/v1/reports', reportRoutes)
   })

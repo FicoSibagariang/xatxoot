@@ -44,8 +44,8 @@ describe('Slash Commands Module - Auth Guard', () => {
 })
 
 describe('Slash Commands Module - CRUD Operations', () => {
-  beforeEach(() => {
-    resetSlashCommandStore()
+  beforeEach(async () => {
+    await resetSlashCommandStore()
   })
 
   it('POST /api/v1/slash-commands should create a slash command and strip leading slash', async () => {
@@ -246,8 +246,8 @@ describe('Slash Commands Module - Execution Worker & Timeout & Sanitization', ()
     mockServer.stop()
   })
 
-  beforeEach(() => {
-    resetSlashCommandStore()
+  beforeEach(async () => {
+    await resetSlashCommandStore()
   })
 
   it('POST /api/v1/slash-commands/execute should execute webhook and return sanitized output', async () => {

@@ -21,9 +21,9 @@ describe('Automation Rules Evaluator & Action Executor (Task 4.11 - apps/api)', 
   let app: Hono
   let engine: AutomationRulesEngine
 
-  beforeEach(() => {
-    resetAutomationRulesStore()
-    resetTicketStore()
+  beforeEach(async () => {
+    await resetAutomationRulesStore()
+    await resetTicketStore()
     engine = new AutomationRulesEngine()
     app = new Hono()
     app.route('/api/v1/automation-rules', automationRoutes)

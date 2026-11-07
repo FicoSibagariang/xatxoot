@@ -24,7 +24,7 @@ describe('Broadcast Engine & Anti-Ban Guard (Task 4.12 - apps/api)', () => {
   let app: Hono
 
   beforeEach(async () => {
-    resetCampaignsStore()
+    await resetCampaignsStore()
     app = new Hono()
     app.route('/api/v1/campaigns', campaignRoutes)
 

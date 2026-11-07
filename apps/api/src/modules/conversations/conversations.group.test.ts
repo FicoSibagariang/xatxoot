@@ -7,8 +7,8 @@ describe('Conversations Module - WhatsApp Group Unified Architecture (Issue #288
   const inboxSales = 'inbox-sales-222'
   const groupJid = '120363209784423627@g.us'
 
-  beforeEach(() => {
-    resetConversationStore()
+  beforeEach(async () => {
+    await resetConversationStore()
   })
 
   it('should map events from two different channel inboxes in the same group to ONE single unified conversation', async () => {

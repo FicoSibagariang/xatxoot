@@ -14,8 +14,8 @@ describe('Help Center API & Public SSR (Task 4.10 - apps/api)', () => {
   const rootDir = join(import.meta.dir, '..', '..', '..', '..', '..')
   let app: Hono
 
-  beforeEach(() => {
-    resetHelpCenterStore()
+  beforeEach(async () => {
+    await resetHelpCenterStore()
     app = new Hono()
     app.route('/portal', publicPortalRoutes)
     app.route('/api/v1/portals', portalRoutes)

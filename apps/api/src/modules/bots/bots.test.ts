@@ -76,10 +76,10 @@ describe('Bot Engine Module - Auth Guards', () => {
 })
 
 describe('Bot Engine Module - CRUD Bot Flows', () => {
-  beforeEach(() => {
-    resetBotStore()
-    resetConversationStore()
-    resetTicketStore()
+  beforeEach(async () => {
+    await resetBotStore()
+    await resetConversationStore()
+    await resetTicketStore()
   })
 
   const sampleFlowDefinition: BotFlowDefinition = {
@@ -137,10 +137,10 @@ describe('Bot Engine Module - CRUD Bot Flows', () => {
 })
 
 describe('Bot Engine Module - State Machine & Question Evaluation', () => {
-  beforeEach(() => {
-    resetBotStore()
-    resetConversationStore()
-    resetTicketStore()
+  beforeEach(async () => {
+    await resetBotStore()
+    await resetConversationStore()
+    await resetTicketStore()
   })
 
   it('should execute message node, stop at question choice node, and proceed when user replies with valid choice', async () => {
@@ -265,10 +265,10 @@ describe('Bot Engine Module - State Machine & Question Evaluation', () => {
 })
 
 describe('Bot Engine Module - Asynchronous HTTP Request Node Execution', () => {
-  beforeEach(() => {
-    resetBotStore()
-    resetConversationStore()
-    resetTicketStore()
+  beforeEach(async () => {
+    await resetBotStore()
+    await resetConversationStore()
+    await resetTicketStore()
   })
 
   it('should asynchronously invoke HTTP webhook, interpolate variables, and store response', async () => {
@@ -328,11 +328,11 @@ describe('Bot Engine Module - Asynchronous HTTP Request Node Execution', () => {
 })
 
 describe('Bot Engine Module - Node Handoff to Human Agent', () => {
-  beforeEach(() => {
-    resetBotStore()
-    resetConversationStore()
-    resetTicketStore()
-    resetTeamStore()
+  beforeEach(async () => {
+    await resetBotStore()
+    await resetConversationStore()
+    await resetTicketStore()
+    await resetTeamStore()
   })
 
   it('should execute handoff node, transition ticket to open status, set team/priority, and notify human agents', async () => {
@@ -384,10 +384,10 @@ describe('Bot Engine Module - Node Handoff to Human Agent', () => {
 })
 
 describe('Bot Engine Module - HTTP Endpoints', () => {
-  beforeEach(() => {
-    resetBotStore()
-    resetConversationStore()
-    resetTicketStore()
+  beforeEach(async () => {
+    await resetBotStore()
+    await resetConversationStore()
+    await resetTicketStore()
   })
 
   it('should interact with bot flows and sessions via REST API', async () => {

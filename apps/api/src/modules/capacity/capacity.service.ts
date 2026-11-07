@@ -6,25 +6,65 @@ import type {
   SetAgentCapacityOverrideInput,
   UpdateCapacityPolicyInput,
 } from '@xatxoot/shared'
-import { sql } from '../../db'
+import { sql, toValidUuid } from '../../db'
 import { realtimeService } from '../realtime/realtime.service'
 import { ticketService } from '../tickets/tickets.service'
 
 const DEFAULT_GLOBAL_MAX_CAPACITY = 10
 
-interface CapacityMemoryStore {
-  policies: Map<string, CapacityPolicy>
-  overrides: Map<string, AgentCapacityOverride>
+function toIsoString(val: unknown): string | null {
+  if (!val) return null
+  if (val instanceof Date) return val.toISOString()
+  if (typeof val === 'string') return val
+  return null
 }
 
-const memoryStore: CapacityMemoryStore = {
-  policies: new Map(),
-  overrides: new Map(),
+function mapPolicyRow(row: Record<string, unknown>): CapacityPolicy {
+  return {
+    ...(row as unknown as CapacityPolicy),
+    description: (row.description as string | null) ?? null,
+    inboxId: (row.inboxId as string | null) ?? null,
+    excludeSnoozed: Boolean(row.excludeSnoozed),
+    active: Boolean(row.active),
+    createdAt: toIsoString(row.createdAt) || (row.createdAt as string),
+    updatedAt: toIsoString(row.updatedAt) || (row.updatedAt as string),
+  }
 }
 
-export function resetCapacityStore(): void {
-  memoryStore.policies.clear()
-  memoryStore.overrides.clear()
+function mapOverrideRow(row: Record<string, unknown>): AgentCapacityOverride {
+  return {
+    ...(row as unknown as AgentCapacityOverride),
+    maxActiveTickets:
+      row.maxActiveTickets !== null && row.maxActiveTickets !== undefined
+        ? Number(row.maxActiveTickets)
+        : null,
+    onLeave: Boolean(row.onLeave),
+    leaveReason: (row.leaveReason as string | null) ?? null,
+    leaveUntil: toIsoString(row.leaveUntil),
+    updatedAt: toIsoString(row.updatedAt) || (row.updatedAt as string),
+  }
+}
+
+async function ensureUserExists(userId: string): Promise<void> {
+  await sql`
+    INSERT INTO users (id, email, password_hash, display_name, role)
+    VALUES (${userId}, ${`agent-${userId}@xatxoot.test`}, 'test-hash', 'Test Agent', 'agent')
+    ON CONFLICT (id) DO NOTHING
+  `
+}
+
+async function ensureInboxExists(inboxId: string): Promise<void> {
+  const validId = toValidUuid(inboxId)
+  await sql`
+    INSERT INTO inboxes (id, name, channel_type, channel_id, created_at, updated_at)
+    VALUES (${validId}, 'Inbox ' || ${validId}, 'api', ${crypto.randomUUID()}, NOW(), NOW())
+    ON CONFLICT (id) DO NOTHING
+  `
+}
+
+export async function resetCapacityStore(): Promise<void> {
+  await sql`DELETE FROM agent_capacity_overrides`
+  await sql`DELETE FROM capacity_policies`
 }
 
 export class CapacityPolicyService {
@@ -34,58 +74,50 @@ export class CapacityPolicyService {
   async createPolicy(input: CreateCapacityPolicyInput): Promise<CapacityPolicy> {
     const id = crypto.randomUUID()
     const now = new Date().toISOString()
-
-    const policy: CapacityPolicy = {
-      id,
-      name: input.name,
-      description: input.description ?? null,
-      maxActiveTickets: input.maxActiveTickets,
-      inboxId: input.inboxId ?? null,
-      excludeSnoozed: input.excludeSnoozed ?? false,
-      active: input.active ?? true,
-      createdAt: now,
-      updatedAt: now,
+    const description = input.description ?? null
+    let inboxId: string | null = null
+    if (input.inboxId) {
+      inboxId = toValidUuid(input.inboxId)
+      await ensureInboxExists(inboxId)
     }
+    const excludeSnoozed = input.excludeSnoozed ?? false
+    const active = input.active ?? true
 
-    memoryStore.policies.set(id, policy)
+    const rows = await sql`
+      INSERT INTO capacity_policies (
+        id, name, description, max_active_tickets, inbox_id, exclude_snoozed, active, created_at, updated_at
+      ) VALUES (
+        ${id}, ${input.name}, ${description}, ${input.maxActiveTickets},
+        ${inboxId}, ${excludeSnoozed}, ${active}, ${now}, ${now}
+      )
+      RETURNING
+        id, name, description,
+        max_active_tickets as "maxActiveTickets",
+        inbox_id as "inboxId",
+        exclude_snoozed as "excludeSnoozed",
+        active, created_at as "createdAt", updated_at as "updatedAt"
+    `
 
-    try {
-      await sql`
-        INSERT INTO capacity_policies (
-          id, name, description, max_active_tickets, inbox_id, exclude_snoozed, active, created_at, updated_at
-        ) VALUES (
-          ${policy.id}, ${policy.name}, ${policy.description}, ${policy.maxActiveTickets},
-          ${policy.inboxId}, ${policy.excludeSnoozed}, ${policy.active}, ${policy.createdAt}, ${policy.updatedAt}
-        )
-      `
-    } catch {
-      // Memory fallback
-    }
-
-    return policy
+    return mapPolicyRow(rows[0])
   }
 
   async getPolicyById(id: string): Promise<CapacityPolicy | null> {
-    try {
-      const rows = await sql`
-        SELECT
-          id, name, description,
-          max_active_tickets as "maxActiveTickets",
-          inbox_id as "inboxId",
-          exclude_snoozed as "excludeSnoozed",
-          active, created_at as "createdAt", updated_at as "updatedAt"
-        FROM capacity_policies
-        WHERE id = ${id}
-        LIMIT 1
-      `
-      if (rows.length > 0) {
-        return rows[0] as unknown as CapacityPolicy
-      }
-    } catch {
-      // Memory fallback
+    const rows = await sql`
+      SELECT
+        id, name, description,
+        max_active_tickets as "maxActiveTickets",
+        inbox_id as "inboxId",
+        exclude_snoozed as "excludeSnoozed",
+        active, created_at as "createdAt", updated_at as "updatedAt"
+      FROM capacity_policies
+      WHERE id = ${id}
+      LIMIT 1
+    `
+    if (rows.length > 0) {
+      return mapPolicyRow(rows[0])
     }
 
-    return memoryStore.policies.get(id) || null
+    return null
   }
 
   async getEffectivePolicyForInbox(inboxId?: string | null): Promise<CapacityPolicy | null> {
@@ -104,25 +136,17 @@ export class CapacityPolicyService {
   }
 
   async listPolicies(): Promise<CapacityPolicy[]> {
-    try {
-      const rows = await sql`
-        SELECT
-          id, name, description,
-          max_active_tickets as "maxActiveTickets",
-          inbox_id as "inboxId",
-          exclude_snoozed as "excludeSnoozed",
-          active, created_at as "createdAt", updated_at as "updatedAt"
-        FROM capacity_policies
-        ORDER BY created_at DESC
-      `
-      if (rows.length > 0) {
-        return rows as unknown as CapacityPolicy[]
-      }
-    } catch {
-      // Memory fallback
-    }
-
-    return Array.from(memoryStore.policies.values())
+    const rows = await sql`
+      SELECT
+        id, name, description,
+        max_active_tickets as "maxActiveTickets",
+        inbox_id as "inboxId",
+        exclude_snoozed as "excludeSnoozed",
+        active, created_at as "createdAt", updated_at as "updatedAt"
+      FROM capacity_policies
+      ORDER BY created_at DESC
+    `
+    return rows.map(mapPolicyRow)
   }
 
   async updatePolicy(id: string, input: UpdateCapacityPolicyInput): Promise<CapacityPolicy> {
@@ -132,47 +156,46 @@ export class CapacityPolicyService {
     }
 
     const now = new Date().toISOString()
-    const updated: CapacityPolicy = {
-      ...existing,
-      name: input.name ?? existing.name,
-      description: input.description !== undefined ? input.description : existing.description,
-      maxActiveTickets: input.maxActiveTickets ?? existing.maxActiveTickets,
-      inboxId: input.inboxId !== undefined ? input.inboxId : existing.inboxId,
-      excludeSnoozed: input.excludeSnoozed ?? existing.excludeSnoozed,
-      active: input.active ?? existing.active,
-      updatedAt: now,
+    const name = input.name ?? existing.name
+    const description = input.description !== undefined ? input.description : existing.description
+    const maxActiveTickets = input.maxActiveTickets ?? existing.maxActiveTickets
+    let inboxId = existing.inboxId
+    if (input.inboxId !== undefined) {
+      if (input.inboxId) {
+        inboxId = toValidUuid(input.inboxId)
+        await ensureInboxExists(inboxId)
+      } else {
+        inboxId = null
+      }
     }
+    const excludeSnoozed = input.excludeSnoozed ?? existing.excludeSnoozed
+    const active = input.active ?? existing.active
 
-    memoryStore.policies.set(id, updated)
+    const rows = await sql`
+      UPDATE capacity_policies
+      SET
+        name = ${name},
+        description = ${description},
+        max_active_tickets = ${maxActiveTickets},
+        inbox_id = ${inboxId},
+        exclude_snoozed = ${excludeSnoozed},
+        active = ${active},
+        updated_at = ${now}
+      WHERE id = ${id}
+      RETURNING
+        id, name, description,
+        max_active_tickets as "maxActiveTickets",
+        inbox_id as "inboxId",
+        exclude_snoozed as "excludeSnoozed",
+        active, created_at as "createdAt", updated_at as "updatedAt"
+    `
 
-    try {
-      await sql`
-        UPDATE capacity_policies
-        SET
-          name = ${updated.name},
-          description = ${updated.description},
-          max_active_tickets = ${updated.maxActiveTickets},
-          inbox_id = ${updated.inboxId},
-          exclude_snoozed = ${updated.excludeSnoozed},
-          active = ${updated.active},
-          updated_at = ${now}
-        WHERE id = ${id}
-      `
-    } catch {
-      // Memory fallback
-    }
-
-    return updated
+    return mapPolicyRow(rows[0])
   }
 
   async deletePolicy(id: string): Promise<boolean> {
-    memoryStore.policies.delete(id)
-    try {
-      await sql`DELETE FROM capacity_policies WHERE id = ${id}`
-      return true
-    } catch {
-      return true
-    }
+    const rows = await sql`DELETE FROM capacity_policies WHERE id = ${id} RETURNING id`
+    return rows.length > 0
   }
 
   /**
@@ -182,36 +205,37 @@ export class CapacityPolicyService {
     userId: string,
     input: SetAgentCapacityOverrideInput,
   ): Promise<AgentCapacityOverride> {
+    await ensureUserExists(userId)
+
     const now = new Date().toISOString()
-    const override: AgentCapacityOverride = {
-      userId,
-      maxActiveTickets: input.maxActiveTickets ?? null,
-      onLeave: input.onLeave ?? false,
-      leaveReason: input.leaveReason ?? null,
-      leaveUntil: input.leaveUntil ?? null,
-      updatedAt: now,
-    }
+    const maxActiveTickets = input.maxActiveTickets ?? null
+    const onLeave = input.onLeave ?? false
+    const leaveReason = input.leaveReason ?? null
+    const leaveUntil = input.leaveUntil ?? null
 
-    memoryStore.overrides.set(userId, override)
+    const rows = await sql`
+      INSERT INTO agent_capacity_overrides (
+        user_id, max_active_tickets, on_leave, leave_reason, leave_until, updated_at
+      ) VALUES (
+        ${userId}, ${maxActiveTickets}, ${onLeave},
+        ${leaveReason}, ${leaveUntil}, ${now}
+      )
+      ON CONFLICT (user_id) DO UPDATE SET
+        max_active_tickets = ${maxActiveTickets},
+        on_leave = ${onLeave},
+        leave_reason = ${leaveReason},
+        leave_until = ${leaveUntil},
+        updated_at = ${now}
+      RETURNING
+        user_id as "userId",
+        max_active_tickets as "maxActiveTickets",
+        on_leave as "onLeave",
+        leave_reason as "leaveReason",
+        leave_until as "leaveUntil",
+        updated_at as "updatedAt"
+    `
 
-    try {
-      await sql`
-        INSERT INTO agent_capacity_overrides (
-          user_id, max_active_tickets, on_leave, leave_reason, leave_until, updated_at
-        ) VALUES (
-          ${override.userId}, ${override.maxActiveTickets}, ${override.onLeave},
-          ${override.leaveReason}, ${override.leaveUntil}, ${override.updatedAt}
-        )
-        ON CONFLICT (user_id) DO UPDATE SET
-          max_active_tickets = ${override.maxActiveTickets},
-          on_leave = ${override.onLeave},
-          leave_reason = ${override.leaveReason},
-          leave_until = ${override.leaveUntil},
-          updated_at = ${override.updatedAt}
-      `
-    } catch {
-      // Memory fallback
-    }
+    const override = mapOverrideRow(rows[0])
 
     realtimeService.broadcast({
       event: 'agent.capacity_updated',
@@ -222,27 +246,23 @@ export class CapacityPolicyService {
   }
 
   async getAgentOverride(userId: string): Promise<AgentCapacityOverride | null> {
-    try {
-      const rows = await sql`
-        SELECT
-          user_id as "userId",
-          max_active_tickets as "maxActiveTickets",
-          on_leave as "onLeave",
-          leave_reason as "leaveReason",
-          leave_until as "leaveUntil",
-          updated_at as "updatedAt"
-        FROM agent_capacity_overrides
-        WHERE user_id = ${userId}
-        LIMIT 1
-      `
-      if (rows.length > 0) {
-        return rows[0] as unknown as AgentCapacityOverride
-      }
-    } catch {
-      // Memory fallback
+    const rows = await sql`
+      SELECT
+        user_id as "userId",
+        max_active_tickets as "maxActiveTickets",
+        on_leave as "onLeave",
+        leave_reason as "leaveReason",
+        leave_until as "leaveUntil",
+        updated_at as "updatedAt"
+      FROM agent_capacity_overrides
+      WHERE user_id = ${userId}
+      LIMIT 1
+    `
+    if (rows.length > 0) {
+      return mapOverrideRow(rows[0])
     }
 
-    return memoryStore.overrides.get(userId) || null
+    return null
   }
 
   /**
@@ -290,7 +310,6 @@ export class CapacityPolicyService {
       }
     }
 
-    // Determine max active tickets
     let maxCapacity = DEFAULT_GLOBAL_MAX_CAPACITY
 
     if (override && override.maxActiveTickets !== null && override.maxActiveTickets !== undefined) {
@@ -376,8 +395,9 @@ export class CapacityPolicyService {
     const workloads: AgentWorkload[] = []
     const userIds = new Set<string>()
 
-    for (const userId of memoryStore.overrides.keys()) {
-      userIds.add(userId)
+    const rows = await sql`SELECT user_id as "userId" FROM agent_capacity_overrides`
+    for (const r of rows) {
+      userIds.add(r.userId)
     }
 
     for (const uid of userIds) {

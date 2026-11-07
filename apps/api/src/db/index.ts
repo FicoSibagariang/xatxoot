@@ -25,16 +25,49 @@ function resolveDatabaseUrl(url?: string): string {
 }
 
 export function createDb(url?: string): SQL {
-  const isTestRunner =
-    typeof (globalThis as unknown as { describe?: unknown }).describe === 'function' ||
-    process.env.NODE_ENV === 'test'
+  if (url) return new SQL(url)
+  if (process.env.TEST_DATABASE_URL) return new SQL(process.env.TEST_DATABASE_URL)
 
-  if (isTestRunner && !process.env.TEST_DATABASE_URL) {
-    return new SQL(DEFAULT_DATABASE_URL)
-  }
-
-  const connectionUrl = resolveDatabaseUrl(url)
+  const connectionUrl = resolveDatabaseUrl()
   return new SQL(connectionUrl)
+}
+
+export function toValidUuid(val?: string | null): string {
+  if (!val) return crypto.randomUUID()
+  const cleaned = val.replace(/[^0-9a-f-]/gi, '0')
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cleaned)) {
+    return cleaned
+  }
+  let hex = ''
+  for (let i = 0; i < val.length; i++) {
+    const code = val.charCodeAt(i)
+    hex += (code % 16).toString(16)
+  }
+  while (hex.length < 32) {
+    hex += '0'
+  }
+  hex = hex.slice(0, 32)
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`
+}
+
+export function parseJsonField<T>(val: unknown, fallback: T): T {
+  if (val === null || val === undefined) return fallback
+  if (typeof val === 'object') return val as T
+  if (typeof val === 'string') {
+    try {
+      return JSON.parse(val) as T
+    } catch {
+      return fallback
+    }
+  }
+  return fallback
+}
+
+export function toIsoString(val: unknown): string | null {
+  if (!val) return null
+  if (val instanceof Date) return val.toISOString()
+  if (typeof val === 'string') return val
+  return null
 }
 
 export const db: SQL = createDb()

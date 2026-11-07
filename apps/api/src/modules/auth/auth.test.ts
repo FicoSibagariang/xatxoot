@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'bun:test'
+import { beforeAll, describe, expect, it } from 'bun:test'
 import app from '../../index'
-import { hashPassword, isGoogleDomainAllowed, verifyPassword } from './auth.service'
+import { hashPassword, isGoogleDomainAllowed, resetAuthStore, verifyPassword } from './auth.service'
 
 describe('Auth Module - Password Hashing (Argon2id)', () => {
   it('should hash password using argon2id algorithm', async () => {
@@ -46,6 +46,9 @@ describe('Auth Module - Google Domain Restriction', () => {
 })
 
 describe('Auth Endpoints Integration', () => {
+  beforeAll(async () => {
+    await resetAuthStore()
+  })
   describe('POST /api/v1/auth/setup', () => {
     it('should successfully setup initial organization and first admin', async () => {
       const res = await app.request('/api/v1/auth/setup', {

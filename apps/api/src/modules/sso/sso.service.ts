@@ -12,16 +12,22 @@ import type {
 import { sql } from '../../db'
 import { generateTokens } from '../auth/auth.service'
 
-const memoryStore = {
-  providers: new Map<string, SsoProvider>(),
-  users: new Map<string, User>(),
-  auditLogs: [] as AuditLogItem[],
+export interface AuditLogItem {
+  id: string
+  userId: string | null
+  userName?: string
+  userEmail?: string
+  action: string
+  auditableType: string
+  auditableId: string | null
+  changes: Record<string, unknown>
+  ipAddress: string | null
+  createdAt: string
 }
 
-export function resetSsoStore(): void {
-  memoryStore.providers.clear()
-  memoryStore.users.clear()
-  memoryStore.auditLogs = []
+export async function resetSsoStore(): Promise<void> {
+  await sql`DELETE FROM sso_provider_extras`
+  await sql`DELETE FROM sso_providers`
 }
 
 export class SsoService {
@@ -29,100 +35,84 @@ export class SsoService {
     const id = crypto.randomUUID()
     const now = new Date().toISOString()
 
-    const provider: SsoProvider = {
-      id,
-      name: input.name,
-      providerType: input.providerType,
-      issuerUrl: input.issuerUrl,
-      clientId: input.clientId ?? input.oidcConfig?.clientId ?? null,
-      clientSecretEncrypted: input.clientSecret ?? input.oidcConfig?.clientSecret ?? null,
-      clientSecretEnc: null,
-      certData: input.certData ?? input.samlConfig?.certData ?? null,
-      ssoUrl: input.ssoUrl ?? input.samlConfig?.ssoUrl ?? null,
-      samlConfig: input.samlConfig ?? null,
-      oidcConfig: input.oidcConfig ?? null,
-      active: input.active ?? true,
-      createdAt: now,
-      updatedAt: now,
+    const clientId = input.clientId ?? input.oidcConfig?.clientId ?? null
+    const clientSecretEncrypted = input.clientSecret ?? input.oidcConfig?.clientSecret ?? null
+    const certData = input.certData ?? input.samlConfig?.certData ?? null
+    const ssoUrl = input.ssoUrl ?? input.samlConfig?.ssoUrl ?? null
+    const samlConfig = input.samlConfig ? JSON.stringify(input.samlConfig) : null
+    const oidcConfig = input.oidcConfig ? JSON.stringify(input.oidcConfig) : null
+    const active = input.active ?? true
+
+    await sql`
+      INSERT INTO sso_providers (
+        id, provider_type, issuer_url, client_id, client_secret_encrypted,
+        cert_data, active, created_at, updated_at
+      ) VALUES (
+        ${id}, ${input.providerType}, ${input.issuerUrl},
+        ${clientId}, ${clientSecretEncrypted},
+        ${certData}, ${active}, ${now}, ${now}
+      )
+    `
+
+    await sql`
+      INSERT INTO sso_provider_extras (
+        id, name, sso_url, saml_config, oidc_config
+      ) VALUES (
+        ${id}, ${input.name}, ${ssoUrl}, ${samlConfig}, ${oidcConfig}
+      )
+      ON CONFLICT (id) DO UPDATE SET
+        name = EXCLUDED.name,
+        sso_url = EXCLUDED.sso_url,
+        saml_config = EXCLUDED.saml_config,
+        oidc_config = EXCLUDED.oidc_config
+    `
+
+    const provider = await this.getProviderById(id)
+    if (!provider) {
+      throw new Error(`Failed to retrieve SSO provider: ${id}`)
     }
-
-    memoryStore.providers.set(id, provider)
-
-    try {
-      await sql`
-        INSERT INTO sso_providers (
-          id, provider_type, issuer_url, client_id, client_secret_encrypted,
-          cert_data, active, created_at, updated_at
-        ) VALUES (
-          ${provider.id}, ${provider.providerType}, ${provider.issuerUrl},
-          ${provider.clientId}, ${provider.clientSecretEncrypted},
-          ${provider.certData}, ${provider.active}, ${provider.createdAt}, ${provider.updatedAt}
-        )
-      `
-    } catch {
-      // Memory fallback
-    }
-
     return provider
   }
 
   async getProviderById(id: string): Promise<SsoProvider | null> {
-    try {
-      const rows = await sql`
-        SELECT
-          id, provider_type as "providerType", issuer_url as "issuerUrl",
-          client_id as "clientId", client_secret_encrypted as "clientSecretEncrypted",
-          cert_data as "certData", active, created_at as "createdAt", updated_at as "updatedAt"
-        FROM sso_providers
-        WHERE id = ${id}
-        LIMIT 1
-      `
-      if (rows.length > 0) {
-        const row = rows[0] as unknown as SsoProvider
-        const mem = memoryStore.providers.get(id)
-        return {
-          ...row,
-          name: mem?.name || row.providerType.toUpperCase(),
-          ssoUrl: mem?.ssoUrl ?? null,
-          samlConfig: mem?.samlConfig ?? null,
-          oidcConfig: mem?.oidcConfig ?? null,
-        }
-      }
-    } catch {
-      // Memory fallback
-    }
-
-    return memoryStore.providers.get(id) || null
+    const rows = await sql`
+      SELECT
+        p.id, COALESCE(e.name, p.provider_type) as name, p.provider_type as "providerType", p.issuer_url as "issuerUrl",
+        p.client_id as "clientId", p.client_secret_encrypted as "clientSecretEncrypted",
+        p.client_secret_enc as "clientSecretEnc", p.cert_data as "certData",
+        e.sso_url as "ssoUrl", e.saml_config as "samlConfig", e.oidc_config as "oidcConfig",
+        p.active, p.created_at as "createdAt", p.updated_at as "updatedAt"
+      FROM sso_providers p
+      LEFT JOIN sso_provider_extras e ON p.id = e.id
+      WHERE p.id = ${id}
+      LIMIT 1
+    `
+    if (!rows || rows.length === 0) return null
+    const row = rows[0]
+    return {
+      ...row,
+      samlConfig: typeof row.samlConfig === 'string' ? JSON.parse(row.samlConfig) : row.samlConfig,
+      oidcConfig: typeof row.oidcConfig === 'string' ? JSON.parse(row.oidcConfig) : row.oidcConfig,
+    } as SsoProvider
   }
 
   async listProviders(): Promise<SsoProvider[]> {
-    try {
-      const rows = await sql`
-        SELECT
-          id, provider_type as "providerType", issuer_url as "issuerUrl",
-          client_id as "clientId", client_secret_encrypted as "clientSecretEncrypted",
-          cert_data as "certData", active, created_at as "createdAt", updated_at as "updatedAt"
-        FROM sso_providers
-        ORDER BY created_at DESC
-      `
-      if (rows.length > 0) {
-        return rows.map((r) => {
-          const row = r as unknown as SsoProvider
-          const mem = memoryStore.providers.get(row.id)
-          return {
-            ...row,
-            name: mem?.name || row.providerType.toUpperCase(),
-            ssoUrl: mem?.ssoUrl ?? null,
-            samlConfig: mem?.samlConfig ?? null,
-            oidcConfig: mem?.oidcConfig ?? null,
-          }
-        })
-      }
-    } catch {
-      // Memory fallback
-    }
-
-    return Array.from(memoryStore.providers.values())
+    const rows = await sql`
+      SELECT
+        p.id, COALESCE(e.name, p.provider_type) as name, p.provider_type as "providerType", p.issuer_url as "issuerUrl",
+        p.client_id as "clientId", p.client_secret_encrypted as "clientSecretEncrypted",
+        p.client_secret_enc as "clientSecretEnc", p.cert_data as "certData",
+        e.sso_url as "ssoUrl", e.saml_config as "samlConfig", e.oidc_config as "oidcConfig",
+        p.active, p.created_at as "createdAt", p.updated_at as "updatedAt"
+      FROM sso_providers p
+      LEFT JOIN sso_provider_extras e ON p.id = e.id
+      ORDER BY p.created_at DESC
+    `
+    return (rows as unknown as Record<string, unknown>[]).map((r) => ({
+      ...r,
+      samlConfig: typeof r.samlConfig === 'string' ? JSON.parse(r.samlConfig) : r.samlConfig,
+      oidcConfig: typeof r.oidcConfig === 'string' ? JSON.parse(r.oidcConfig) : r.oidcConfig,
+    })) as SsoProvider[]
   }
 
   async updateProvider(id: string, input: UpdateSsoProviderInput): Promise<SsoProvider> {
@@ -132,54 +122,57 @@ export class SsoService {
     }
 
     const now = new Date().toISOString()
-    const updated: SsoProvider = {
-      ...existing,
-      name: input.name ?? existing.name,
-      issuerUrl: input.issuerUrl ?? existing.issuerUrl,
-      clientId: input.clientId ?? existing.clientId,
-      clientSecretEncrypted: input.clientSecret ?? existing.clientSecretEncrypted,
-      certData: input.certData ?? existing.certData,
-      ssoUrl: input.ssoUrl ?? existing.ssoUrl,
-      samlConfig: input.samlConfig
-        ? { ...existing.samlConfig, ...input.samlConfig }
-        : existing.samlConfig,
-      oidcConfig: input.oidcConfig
-        ? { ...existing.oidcConfig, ...input.oidcConfig }
-        : existing.oidcConfig,
-      active: input.active ?? existing.active,
-      updatedAt: now,
+    const name = input.name ?? existing.name
+    const issuerUrl = input.issuerUrl ?? existing.issuerUrl
+    const clientId = input.clientId ?? existing.clientId
+    const clientSecretEncrypted = input.clientSecret ?? existing.clientSecretEncrypted
+    const certData = input.certData ?? existing.certData
+    const ssoUrl = input.ssoUrl ?? existing.ssoUrl
+    const samlConfigObj = input.samlConfig
+      ? { ...existing.samlConfig, ...input.samlConfig }
+      : existing.samlConfig
+    const oidcConfigObj = input.oidcConfig
+      ? { ...existing.oidcConfig, ...input.oidcConfig }
+      : existing.oidcConfig
+    const samlConfig = samlConfigObj ? JSON.stringify(samlConfigObj) : null
+    const oidcConfig = oidcConfigObj ? JSON.stringify(oidcConfigObj) : null
+    const active = input.active ?? existing.active
+
+    await sql`
+      UPDATE sso_providers
+      SET
+        issuer_url = ${issuerUrl},
+        client_id = ${clientId},
+        client_secret_encrypted = ${clientSecretEncrypted},
+        cert_data = ${certData},
+        active = ${active},
+        updated_at = ${now}
+      WHERE id = ${id}
+    `
+
+    await sql`
+      INSERT INTO sso_provider_extras (
+        id, name, sso_url, saml_config, oidc_config
+      ) VALUES (
+        ${id}, ${name}, ${ssoUrl}, ${samlConfig}, ${oidcConfig}
+      )
+      ON CONFLICT (id) DO UPDATE SET
+        name = EXCLUDED.name,
+        sso_url = EXCLUDED.sso_url,
+        saml_config = EXCLUDED.saml_config,
+        oidc_config = EXCLUDED.oidc_config
+    `
+
+    const provider = await this.getProviderById(id)
+    if (!provider) {
+      throw new Error(`Failed to retrieve SSO provider: ${id}`)
     }
-
-    memoryStore.providers.set(id, updated)
-
-    try {
-      await sql`
-        UPDATE sso_providers
-        SET
-          provider_type = ${updated.providerType},
-          issuer_url = ${updated.issuerUrl},
-          client_id = ${updated.clientId},
-          client_secret_encrypted = ${updated.clientSecretEncrypted},
-          cert_data = ${updated.certData},
-          active = ${updated.active},
-          updated_at = ${now}
-        WHERE id = ${id}
-      `
-    } catch {
-      // Memory fallback
-    }
-
-    return updated
+    return provider
   }
 
   async deleteProvider(id: string): Promise<boolean> {
-    memoryStore.providers.delete(id)
-    try {
-      await sql`DELETE FROM sso_providers WHERE id = ${id}`
-      return true
-    } catch {
-      return true
-    }
+    const rows = await sql`DELETE FROM sso_providers WHERE id = ${id} RETURNING id`
+    return rows.length > 0
   }
 
   /**
@@ -230,7 +223,6 @@ export class SsoService {
       throw new Error('Authorization code is required')
     }
 
-    // Resolve user profile (mock / extracted from code or OIDC token payload)
     const email = `agent.${input.code.toLowerCase().replace(/[^a-z0-9]/g, '')}@company.com`
     const displayName = 'OIDC Authenticated Agent'
     const externalId = `oidc_${provider.id}_${input.code}`
@@ -264,7 +256,6 @@ export class SsoService {
     const ssoUrl = provider.ssoUrl || provider.samlConfig?.ssoUrl || provider.issuerUrl
     const params = new URLSearchParams()
 
-    // Create SAML AuthnRequest mockup/placeholder
     const authnRequestXml = `<samlp:AuthnRequest xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol" ID="_${crypto.randomUUID()}" Version="2.0" IssueInstant="${new Date().toISOString()}"/>`
     params.append('SAMLRequest', Buffer.from(authnRequestXml).toString('base64'))
 
@@ -303,14 +294,12 @@ export class SsoService {
       throw new Error('Malformed SAMLResponse XML')
     }
 
-    // Extract NameID
     const nameIdMatch =
       decodedXml.match(/<saml:NameID[^>]*>([^<]+)<\/saml:NameID>/i) ||
       decodedXml.match(/<NameID[^>]*>([^<]+)<\/NameID>/i)
 
     let email = nameIdMatch ? nameIdMatch[1].trim() : ''
 
-    // If NameID is not found or not email, try Attribute email
     if (!email || !email.includes('@')) {
       const emailAttrMatch = decodedXml.match(
         /Attribute Name="(?:email|emailAddress)"[^>]*>[\s\S]*?<(?:[a-zA-Z0-9]+:)?AttributeValue[^>]*>([^<]+)<\/(?:[a-zA-Z0-9]+:)?AttributeValue>/i,
@@ -324,7 +313,6 @@ export class SsoService {
       throw new Error('No valid NameID or email found in SAML assertion')
     }
 
-    // Extract DisplayName
     const nameMatch = decodedXml.match(
       /Attribute Name="(?:displayName|name|fullName)"[^>]*>[\s\S]*?<(?:[a-zA-Z0-9]+:)?AttributeValue[^>]*>([^<]+)<\/(?:[a-zA-Z0-9]+:)?AttributeValue>/i,
     )
@@ -369,111 +357,53 @@ export class SsoService {
   async findOrCreateSsoUser(authUser: SsoAuthUser): Promise<User> {
     const email = authUser.email.toLowerCase().trim()
 
-    // 1. Try finding in database
-    try {
-      const rows = await sql`
-        SELECT id, email, display_name as "displayName", role, availability, active, created_at as "createdAt"
-        FROM users
-        WHERE email = ${email}
-        LIMIT 1
-      `
-      if (rows.length > 0) {
-        return rows[0] as unknown as User
-      }
-    } catch {
-      // Memory fallback
+    const rows = await sql`
+      SELECT id, email, display_name as "displayName", role, availability, active, created_at as "createdAt"
+      FROM users
+      WHERE email = ${email}
+      LIMIT 1
+    `
+    if (rows.length > 0) {
+      return rows[0] as unknown as User
     }
 
-    // 2. Try finding in memory store
-    const memUser = memoryStore.users.get(email)
-    if (memUser) return memUser
-
-    // 3. Auto-provision new user as 'agent'
     const id = crypto.randomUUID()
     const now = new Date().toISOString()
-    const newUser: User = {
-      id,
-      email,
-      displayName: authUser.name || email.split('@')[0],
-      role: 'agent' as Role,
-      availability: 'online',
-      active: true,
-      createdAt: now,
-    }
+    const displayName = authUser.name || email.split('@')[0]
 
-    memoryStore.users.set(email, newUser)
+    const newRows = await sql`
+      INSERT INTO users (id, email, password_hash, display_name, role, availability, active, created_at, updated_at)
+      VALUES (${id}, ${email}, 'sso_no_password', ${displayName}, 'agent', 'online', true, ${now}, ${now})
+      RETURNING id, email, display_name as "displayName", role, availability, active, created_at as "createdAt"
+    `
 
-    try {
-      await sql`
-        INSERT INTO users (id, email, password_hash, display_name, role, availability, active, created_at)
-        VALUES (${newUser.id}, ${newUser.email}, 'sso_no_password', ${newUser.displayName}, 'agent', 'online', true, ${now})
-      `
-    } catch {
-      // Memory fallback
-    }
-
-    return newUser
+    return newRows[0] as unknown as User
   }
 
   async listAuditLogs(limit = 50): Promise<AuditLogItem[]> {
-    try {
-      const rows = await sql`
-        SELECT
-          al.id,
-          al.user_id as "userId",
-          u.display_name as "userName",
-          u.email as "userEmail",
-          al.action,
-          al.auditable_type as "auditableType",
-          al.auditable_id as "auditableId",
-          al.changes,
-          al.ip_address as "ipAddress",
-          al.created_at as "createdAt"
-        FROM audit_logs al
-        LEFT JOIN users u ON al.user_id = u.id
-        ORDER BY al.created_at DESC
-        LIMIT ${limit}
-      `
-      if (rows && rows.length > 0) {
-        return rows as unknown as AuditLogItem[]
-      }
-    } catch {
-      // Memory fallback
+    const rows = await sql`
+      SELECT
+        al.id,
+        al.user_id as "userId",
+        u.display_name as "userName",
+        u.email as "userEmail",
+        al.action,
+        al.auditable_type as "auditableType",
+        al.auditable_id as "auditableId",
+        al.changes,
+        al.ip_address as "ipAddress",
+        al.created_at as "createdAt"
+      FROM audit_logs al
+      LEFT JOIN users u ON al.user_id = u.id
+      ORDER BY al.created_at DESC
+      LIMIT ${limit}
+    `
+    if (rows && rows.length > 0) {
+      return rows as unknown as AuditLogItem[]
     }
 
-    if (memoryStore.auditLogs.length === 0) {
-      // Default initial mock logs for dev/test
-      return [
-        {
-          id: crypto.randomUUID(),
-          userId: null,
-          userName: 'Super Admin',
-          userEmail: 'admin@xatxoot.com',
-          action: 'UPDATE_SSO',
-          auditableType: 'SsoProvider',
-          auditableId: null,
-          changes: { active: true, providerType: 'saml' },
-          ipAddress: '192.168.1.10',
-          createdAt: new Date().toISOString(),
-        },
-      ]
-    }
-
-    return memoryStore.auditLogs.slice(0, limit)
+    return []
   }
-}
-
-export interface AuditLogItem {
-  id: string
-  userId: string | null
-  userName?: string
-  userEmail?: string
-  action: string
-  auditableType: string
-  auditableId: string | null
-  changes: Record<string, unknown>
-  ipAddress: string | null
-  createdAt: string
 }
 
 export const ssoService = new SsoService()

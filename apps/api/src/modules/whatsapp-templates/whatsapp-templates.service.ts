@@ -10,22 +10,28 @@ import {
   CreateWhatsAppTemplateInputSchema,
   SendWhatsAppTemplateMessageInputSchema,
 } from '@xatxoot/shared'
-import { sql } from '../../db'
+import { parseJsonField, sql, toIsoString } from '../../db'
 import { conversationService } from '../conversations/conversations.service'
 import { inboxService } from '../inboxes/inboxes.service'
 import { saveMessageToStore } from '../messages/message-store'
 import { realtimeService } from '../realtime/realtime.service'
 
-interface TemplateMemoryStore {
-  templates: Map<string, WhatsAppTemplate>
+function mapTemplateRow(row: Record<string, unknown>): WhatsAppTemplate {
+  return {
+    id: String(row.id),
+    wabaTemplateId: (row.wabaTemplateId as string | null) ?? null,
+    name: String(row.name),
+    language: String(row.language),
+    category: row.category as WhatsAppTemplate['category'],
+    status: row.status as WhatsAppTemplate['status'],
+    components: parseJsonField<WhatsAppTemplate['components']>(row.components, []),
+    createdAt: toIsoString(row.createdAt) || (row.createdAt as string),
+    updatedAt: toIsoString(row.updatedAt) || (row.updatedAt as string),
+  }
 }
 
-const memoryStore: TemplateMemoryStore = {
-  templates: new Map(),
-}
-
-export function resetWhatsAppTemplateStore(): void {
-  memoryStore.templates.clear()
+export async function resetWhatsAppTemplateStore(): Promise<void> {
+  await sql`DELETE FROM whatsapp_templates`
 }
 
 export interface SyncTemplatesOptions {
@@ -54,57 +60,40 @@ export class WhatsAppTemplateService {
     const parsed = CreateWhatsAppTemplateInputSchema.parse(input)
     const id = crypto.randomUUID()
     const now = new Date().toISOString()
+    const wabaTemplateId = parsed.wabaTemplateId ?? null
+    const language = parsed.language || 'id'
+    const status = parsed.status || 'APPROVED'
+    const components = parsed.components || []
 
-    const template: WhatsAppTemplate = {
-      id,
-      wabaTemplateId: parsed.wabaTemplateId ?? null,
-      name: parsed.name,
-      language: parsed.language || 'id',
-      category: parsed.category,
-      status: parsed.status || 'APPROVED',
-      components: parsed.components,
-      createdAt: now,
-      updatedAt: now,
-    }
+    const rows = await sql`
+      INSERT INTO whatsapp_templates (
+        id, waba_template_id, name, language, category, status, components, created_at, updated_at
+      ) VALUES (
+        ${id}, ${wabaTemplateId}, ${parsed.name}, ${language},
+        ${parsed.category}, ${status}, ${JSON.stringify(components)},
+        ${now}, ${now}
+      )
+      RETURNING
+        id, waba_template_id AS "wabaTemplateId", name, language,
+        category, status, components, created_at AS "createdAt", updated_at AS "updatedAt"
+    `
 
-    try {
-      await sql`
-        INSERT INTO whatsapp_templates (
-          id, waba_template_id, name, language, category, status, components, created_at, updated_at
-        ) VALUES (
-          ${template.id}, ${template.wabaTemplateId}, ${template.name}, ${template.language},
-          ${template.category}, ${template.status}, ${JSON.stringify(template.components)},
-          ${now}, ${now}
-        )
-      `
-    } catch {
-      // Memory fallback
-    }
-
-    memoryStore.templates.set(id, template)
-    return template
+    return mapTemplateRow(rows[0])
   }
 
   /**
    * Get template by ID
    */
   async getTemplateById(id: string): Promise<WhatsAppTemplate | null> {
-    const inMem = memoryStore.templates.get(id)
-    if (inMem) return inMem
-
-    try {
-      const rows = await sql`
-        SELECT id, waba_template_id AS "wabaTemplateId", name, language,
-               category, status, components, created_at AS "createdAt", updated_at AS "updatedAt"
-        FROM whatsapp_templates
-        WHERE id = ${id}
-        LIMIT 1
-      `
-      if (rows && rows.length > 0) {
-        return rows[0] as unknown as WhatsAppTemplate
-      }
-    } catch {
-      // Memory fallback
+    const rows = await sql`
+      SELECT id, waba_template_id AS "wabaTemplateId", name, language,
+             category, status, components, created_at AS "createdAt", updated_at AS "updatedAt"
+      FROM whatsapp_templates
+      WHERE id = ${id}
+      LIMIT 1
+    `
+    if (rows && rows.length > 0) {
+      return mapTemplateRow(rows[0])
     }
 
     return null
@@ -117,25 +106,15 @@ export class WhatsAppTemplateService {
     name: string,
     language = 'id',
   ): Promise<WhatsAppTemplate | null> {
-    for (const tpl of memoryStore.templates.values()) {
-      if (tpl.name === name && tpl.language === language) {
-        return tpl
-      }
-    }
-
-    try {
-      const rows = await sql`
-        SELECT id, waba_template_id AS "wabaTemplateId", name, language,
-               category, status, components, created_at AS "createdAt", updated_at AS "updatedAt"
-        FROM whatsapp_templates
-        WHERE name = ${name} AND language = ${language}
-        LIMIT 1
-      `
-      if (rows && rows.length > 0) {
-        return rows[0] as unknown as WhatsAppTemplate
-      }
-    } catch {
-      // Memory fallback
+    const rows = await sql`
+      SELECT id, waba_template_id AS "wabaTemplateId", name, language,
+             category, status, components, created_at AS "createdAt", updated_at AS "updatedAt"
+      FROM whatsapp_templates
+      WHERE name = ${name} AND language = ${language}
+      LIMIT 1
+    `
+    if (rows && rows.length > 0) {
+      return mapTemplateRow(rows[0])
     }
 
     return null
@@ -150,52 +129,30 @@ export class WhatsAppTemplateService {
     language?: string
     search?: string
   }): Promise<WhatsAppTemplate[]> {
-    try {
-      let query = sql`
-        SELECT id, waba_template_id AS "wabaTemplateId", name, language,
-               category, status, components, created_at AS "createdAt", updated_at AS "updatedAt"
-        FROM whatsapp_templates
-        WHERE 1 = 1
-      `
+    let query = sql`
+      SELECT id, waba_template_id AS "wabaTemplateId", name, language,
+             category, status, components, created_at AS "createdAt", updated_at AS "updatedAt"
+      FROM whatsapp_templates
+      WHERE 1 = 1
+    `
 
-      if (filters?.status) {
-        query = sql`${query} AND status = ${filters.status}`
-      }
-      if (filters?.category) {
-        query = sql`${query} AND category = ${filters.category}`
-      }
-      if (filters?.language) {
-        query = sql`${query} AND language = ${filters.language}`
-      }
-      if (filters?.search) {
-        const term = `%${filters.search}%`
-        query = sql`${query} AND name ILIKE ${term}`
-      }
-
-      query = sql`${query} ORDER BY name ASC`
-      const rows = await query
-      if (rows && rows.length > 0) {
-        return rows as unknown as WhatsAppTemplate[]
-      }
-    } catch {
-      // Memory fallback
-    }
-
-    let list = Array.from(memoryStore.templates.values())
     if (filters?.status) {
-      list = list.filter((t) => t.status === filters.status)
+      query = sql`${query} AND status = ${filters.status}`
     }
     if (filters?.category) {
-      list = list.filter((t) => t.category === filters.category)
+      query = sql`${query} AND category = ${filters.category}`
     }
     if (filters?.language) {
-      list = list.filter((t) => t.language === filters.language)
+      query = sql`${query} AND language = ${filters.language}`
     }
     if (filters?.search) {
-      const lower = filters.search.toLowerCase()
-      list = list.filter((t) => t.name.toLowerCase().includes(lower))
+      const term = `%${filters.search}%`
+      query = sql`${query} AND name ILIKE ${term}`
     }
-    return list
+
+    query = sql`${query} ORDER BY name ASC`
+    const rows = await query
+    return (rows || []).map(mapTemplateRow)
   }
 
   /**
@@ -257,70 +214,46 @@ export class WhatsAppTemplateService {
 
     for (const item of rawTemplates) {
       // Find existing template by wabaTemplateId or name+language
-      let existing = Array.from(memoryStore.templates.values()).find(
-        (t) =>
-          (t.wabaTemplateId && t.wabaTemplateId === item.id) ||
-          (t.name === item.name && t.language === item.language),
-      )
-
-      if (!existing) {
-        existing = await this.getTemplateByNameAndLanguage(item.name, item.language)
-      }
+      const existingRows = await sql`
+        SELECT id, waba_template_id AS "wabaTemplateId", name, language,
+               category, status, components, created_at AS "createdAt", updated_at AS "updatedAt"
+        FROM whatsapp_templates
+        WHERE waba_template_id = ${item.id} OR (name = ${item.name} AND language = ${item.language})
+        LIMIT 1
+      `
 
       const components = (item.components || []) as WhatsAppTemplate['components']
 
-      if (existing) {
-        existing.status = item.status as WhatsAppTemplate['status']
-        existing.category = item.category as WhatsAppTemplate['category']
-        existing.components = components
-        existing.wabaTemplateId = item.id
-        existing.updatedAt = now
-
-        try {
-          await sql`
-            UPDATE whatsapp_templates
-            SET status = ${existing.status},
-                category = ${existing.category},
-                components = ${JSON.stringify(existing.components)},
-                waba_template_id = ${existing.wabaTemplateId},
-                updated_at = ${now}
-            WHERE id = ${existing.id}
-          `
-        } catch {
-          // Memory fallback
-        }
-
-        memoryStore.templates.set(existing.id, existing)
-        syncedTemplates.push(existing)
+      if (existingRows && existingRows.length > 0) {
+        const existing = mapTemplateRow(existingRows[0])
+        const updatedRows = await sql`
+          UPDATE whatsapp_templates
+          SET status = ${item.status},
+              category = ${item.category},
+              components = ${JSON.stringify(components)},
+              waba_template_id = ${item.id},
+              updated_at = ${now}
+          WHERE id = ${existing.id}
+          RETURNING
+            id, waba_template_id AS "wabaTemplateId", name, language,
+            category, status, components, created_at AS "createdAt", updated_at AS "updatedAt"
+        `
+        syncedTemplates.push(mapTemplateRow(updatedRows[0]))
       } else {
-        const newTpl: WhatsAppTemplate = {
-          id: crypto.randomUUID(),
-          wabaTemplateId: item.id,
-          name: item.name,
-          language: item.language,
-          category: item.category as WhatsAppTemplate['category'],
-          status: item.status as WhatsAppTemplate['status'],
-          components,
-          createdAt: now,
-          updatedAt: now,
-        }
-
-        try {
-          await sql`
-            INSERT INTO whatsapp_templates (
-              id, waba_template_id, name, language, category, status, components, created_at, updated_at
-            ) VALUES (
-              ${newTpl.id}, ${newTpl.wabaTemplateId}, ${newTpl.name}, ${newTpl.language},
-              ${newTpl.category}, ${newTpl.status}, ${JSON.stringify(newTpl.components)},
-              ${now}, ${now}
-            )
-          `
-        } catch {
-          // Memory fallback
-        }
-
-        memoryStore.templates.set(newTpl.id, newTpl)
-        syncedTemplates.push(newTpl)
+        const id = crypto.randomUUID()
+        const insertedRows = await sql`
+          INSERT INTO whatsapp_templates (
+            id, waba_template_id, name, language, category, status, components, created_at, updated_at
+          ) VALUES (
+            ${id}, ${item.id}, ${item.name}, ${item.language},
+            ${item.category}, ${item.status}, ${JSON.stringify(components)},
+            ${now}, ${now}
+          )
+          RETURNING
+            id, waba_template_id AS "wabaTemplateId", name, language,
+            category, status, components, created_at AS "createdAt", updated_at AS "updatedAt"
+        `
+        syncedTemplates.push(mapTemplateRow(insertedRows[0]))
       }
     }
 
@@ -425,44 +358,44 @@ export class WhatsAppTemplateService {
     const now = new Date().toISOString()
 
     // 5. Create Message record
+    const messageId = crypto.randomUUID()
+    const content = `[WhatsApp Template: ${template.name}]`
+    const contentAttributes = {
+      templateName: template.name,
+      templateLanguage: language,
+      components: parsed.components || [],
+    }
+
+    await sql`
+      INSERT INTO messages (
+        id, conversation_id, ticket_id, sender_type, sender_id, message_type,
+        content, content_type, status, external_source_id, content_attributes, created_at, updated_at
+      ) VALUES (
+        ${messageId}, ${parsed.conversationId}, ${convDetail.activeTicket?.id || null}, 'user',
+        ${null}, 'template', ${content}, 'text',
+        'sent', ${wamid}, ${JSON.stringify(contentAttributes)},
+        ${now}, ${now}
+      )
+    `
+
     const message: Message = {
-      id: crypto.randomUUID(),
+      id: messageId,
       conversationId: parsed.conversationId,
       ticketId: convDetail.activeTicket?.id || null,
       senderType: 'user',
       senderId: null,
       messageType: 'template',
-      content: `[WhatsApp Template: ${template.name}]`,
+      content,
       contentType: 'text',
       status: 'sent',
       externalSourceId: wamid,
-      contentAttributes: {
-        templateName: template.name,
-        templateLanguage: language,
-        components: parsed.components || [],
-      },
+      contentAttributes,
       attachments: [],
       createdAt: now,
       updatedAt: now,
     }
 
     saveMessageToStore(message)
-
-    try {
-      await sql`
-        INSERT INTO messages (
-          id, conversation_id, ticket_id, sender_type, sender_id, message_type,
-          content, content_type, status, external_source_id, content_attributes, created_at, updated_at
-        ) VALUES (
-          ${message.id}, ${message.conversationId}, ${message.ticketId}, ${message.senderType},
-          ${message.senderId}, ${message.messageType}, ${message.content}, ${message.contentType},
-          ${message.status}, ${message.externalSourceId}, ${JSON.stringify(message.contentAttributes)},
-          ${now}, ${now}
-        )
-      `
-    } catch {
-      // Memory fallback
-    }
 
     realtimeService.broadcast({
       event: 'message.created',

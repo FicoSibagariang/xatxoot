@@ -5,7 +5,7 @@ import {
   type CsatSurveyMetrics,
   type Ticket,
 } from '@xatxoot/shared'
-import { sql } from '../../db'
+import { sql, toIsoString, toValidUuid } from '../../db'
 import { realtimeService } from '../realtime/realtime.service'
 
 export interface CsatInvite {
@@ -34,18 +34,76 @@ export interface SubmitSurveyParams {
   feedbackText?: string | null
 }
 
-const memoryStore = {
-  invitesByToken: new Map<string, CsatInvite>(),
-  invitesByTicketId: new Map<string, CsatInvite>(),
-  surveysByTicketId: new Map<string, CsatSurvey>(),
-  surveysById: new Map<string, CsatSurvey>(),
+function mapInviteRow(row: Record<string, unknown>): CsatInvite {
+  return {
+    id: String(row.id),
+    ticketId: String(row.ticketId),
+    contactId: (row.contactId as string | null) ?? null,
+    inboxId: (row.inboxId as string | null) ?? null,
+    token: String(row.token),
+    status: row.status as CsatInvite['status'],
+    inviteUrl: String(row.inviteUrl),
+    createdAt: toIsoString(row.createdAt) || (row.createdAt as string),
+    updatedAt: toIsoString(row.updatedAt) || (row.updatedAt as string),
+    expiresAt: toIsoString(row.expiresAt) || (row.expiresAt as string),
+  }
 }
 
-export function resetCsatStore(): void {
-  memoryStore.invitesByToken.clear()
-  memoryStore.invitesByTicketId.clear()
-  memoryStore.surveysByTicketId.clear()
-  memoryStore.surveysById.clear()
+function mapSurveyRow(row: Record<string, unknown>): CsatSurvey {
+  return {
+    id: String(row.id),
+    ticketId: String(row.ticketId),
+    contactId: (row.contactId as string | null) ?? null,
+    rating: Number(row.rating) as CsatRating,
+    feedbackText: (row.feedbackText as string | null) ?? null,
+    submittedAt: toIsoString(row.submittedAt) || (row.submittedAt as string),
+    createdAt: toIsoString(row.createdAt) || (row.createdAt as string),
+    updatedAt: toIsoString(row.updatedAt) || (row.updatedAt as string),
+  }
+}
+
+async function ensureContactExists(contactId: string): Promise<void> {
+  const validContactId = toValidUuid(contactId)
+  await sql`
+    INSERT INTO contacts (id, name, created_at, updated_at)
+    VALUES (${validContactId}, 'Contact ' || ${validContactId}, NOW(), NOW())
+    ON CONFLICT (id) DO NOTHING
+  `
+}
+
+async function ensureInboxExists(inboxId: string): Promise<void> {
+  const validInboxId = toValidUuid(inboxId)
+  await sql`
+    INSERT INTO inboxes (id, name, channel_type, channel_id, created_at, updated_at)
+    VALUES (${validInboxId}, 'Inbox ' || ${validInboxId}, 'api', ${crypto.randomUUID()}, NOW(), NOW())
+    ON CONFLICT (id) DO NOTHING
+  `
+}
+
+async function ensureTicketExists(ticketId: string): Promise<void> {
+  const validTicketId = toValidUuid(ticketId)
+  const defaultConvId = '00000000-0000-0000-0000-000000000001'
+  const defaultInboxId = '00000000-0000-0000-0000-000000000001'
+  await sql`
+    INSERT INTO inboxes (id, name, channel_type, channel_id)
+    VALUES (${defaultInboxId}, 'Default Inbox', 'api', ${crypto.randomUUID()})
+    ON CONFLICT (id) DO NOTHING
+  `
+  await sql`
+    INSERT INTO conversations (id, inbox_id)
+    VALUES (${defaultConvId}, ${defaultInboxId})
+    ON CONFLICT (id) DO NOTHING
+  `
+  await sql`
+    INSERT INTO tickets (id, conversation_id, status)
+    VALUES (${validTicketId}, ${defaultConvId}, 'open')
+    ON CONFLICT (id) DO NOTHING
+  `
+}
+
+export async function resetCsatStore(): Promise<void> {
+  await sql`DELETE FROM csat_surveys`
+  await sql`DELETE FROM csat_invites`
 }
 
 export class CsatEngine {
@@ -63,9 +121,24 @@ export class CsatService {
   }
 
   async createInvite(params: CreateInviteParams): Promise<CsatInvite> {
-    const existing = memoryStore.invitesByTicketId.get(params.ticketId)
+    const validTicketId = toValidUuid(params.ticketId)
+    const existing = await this.getInviteByTicketId(validTicketId)
     if (existing) {
       return existing
+    }
+
+    await ensureTicketExists(validTicketId)
+
+    let contactId: string | null = null
+    if (params.contactId) {
+      contactId = toValidUuid(params.contactId)
+      await ensureContactExists(contactId)
+    }
+
+    let inboxId: string | null = null
+    if (params.inboxId) {
+      inboxId = toValidUuid(params.inboxId)
+      await ensureInboxExists(inboxId)
     }
 
     const id = crypto.randomUUID()
@@ -75,22 +148,22 @@ export class CsatService {
     const expirationMs =
       params.expiresInMs !== undefined ? params.expiresInMs : DEFAULT_EXPIRATION_MS
     const expiresAt = new Date(now.getTime() + expirationMs).toISOString()
+    const inviteUrl = `/csat/${token}`
 
-    const invite: CsatInvite = {
-      id,
-      ticketId: params.ticketId,
-      contactId: params.contactId ?? null,
-      inboxId: params.inboxId ?? null,
-      token,
-      status: 'pending',
-      inviteUrl: `/csat/${token}`,
-      createdAt: now.toISOString(),
-      updatedAt: now.toISOString(),
-      expiresAt,
-    }
+    const rows = await sql`
+      INSERT INTO csat_invites (
+        id, ticket_id, contact_id, inbox_id, token, status, invite_url, expires_at, created_at, updated_at
+      ) VALUES (
+        ${id}, ${validTicketId}, ${contactId}, ${inboxId},
+        ${token}, 'pending', ${inviteUrl}, ${expiresAt}, ${now.toISOString()}, ${now.toISOString()}
+      )
+      RETURNING
+        id, ticket_id as "ticketId", contact_id as "contactId", inbox_id as "inboxId",
+        token, status, invite_url as "inviteUrl", expires_at as "expiresAt",
+        created_at as "createdAt", updated_at as "updatedAt"
+    `
 
-    memoryStore.invitesByToken.set(token, invite)
-    memoryStore.invitesByTicketId.set(params.ticketId, invite)
+    const invite = mapInviteRow(rows[0])
 
     realtimeService.broadcast({
       event: 'csat.invite.created',
@@ -101,11 +174,36 @@ export class CsatService {
   }
 
   async getInviteByToken(token: string): Promise<CsatInvite | null> {
-    return memoryStore.invitesByToken.get(token) || null
+    const rows = await sql`
+      SELECT
+        id, ticket_id as "ticketId", contact_id as "contactId", inbox_id as "inboxId",
+        token, status, invite_url as "inviteUrl", expires_at as "expiresAt",
+        created_at as "createdAt", updated_at as "updatedAt"
+      FROM csat_invites
+      WHERE token = ${token}
+      LIMIT 1
+    `
+    if (rows && rows.length > 0) {
+      return mapInviteRow(rows[0])
+    }
+    return null
   }
 
   async getInviteByTicketId(ticketId: string): Promise<CsatInvite | null> {
-    return memoryStore.invitesByTicketId.get(ticketId) || null
+    const validTicketId = toValidUuid(ticketId)
+    const rows = await sql`
+      SELECT
+        id, ticket_id as "ticketId", contact_id as "contactId", inbox_id as "inboxId",
+        token, status, invite_url as "inviteUrl", expires_at as "expiresAt",
+        created_at as "createdAt", updated_at as "updatedAt"
+      FROM csat_invites
+      WHERE ticket_id = ${validTicketId}
+      LIMIT 1
+    `
+    if (rows && rows.length > 0) {
+      return mapInviteRow(rows[0])
+    }
+    return null
   }
 
   async onTicketResolved(ticket: Ticket): Promise<CsatInvite> {
@@ -153,38 +251,32 @@ export class CsatService {
 
     const id = crypto.randomUUID()
     const submittedAtIso = now.toISOString()
-    const contactId = invite.contactId || crypto.randomUUID()
-
-    const survey: CsatSurvey = {
-      id,
-      ticketId: invite.ticketId,
-      contactId,
-      rating: parsedRating.data as CsatRating,
-      feedbackText: params.feedbackText ?? null,
-      submittedAt: submittedAtIso,
-      createdAt: submittedAtIso,
-      updatedAt: submittedAtIso,
+    let contactId = invite.contactId || null
+    if (contactId) {
+      contactId = toValidUuid(contactId)
+      await ensureContactExists(contactId)
     }
 
-    // Update invite status
-    invite.status = 'submitted'
-    invite.updatedAt = submittedAtIso
+    const surveyRows = await sql`
+      INSERT INTO csat_surveys (
+        id, ticket_id, contact_id, rating, feedback_text, submitted_at, created_at, updated_at
+      ) VALUES (
+        ${id}, ${invite.ticketId}, ${contactId}, ${parsedRating.data},
+        ${params.feedbackText ?? null}, ${submittedAtIso}, ${submittedAtIso}, ${submittedAtIso}
+      )
+      RETURNING
+        id, ticket_id as "ticketId", contact_id as "contactId", rating,
+        feedback_text as "feedbackText", submitted_at as "submittedAt",
+        created_at as "createdAt", updated_at as "updatedAt"
+    `
 
-    memoryStore.surveysById.set(id, survey)
-    memoryStore.surveysByTicketId.set(invite.ticketId, survey)
+    const survey = mapSurveyRow(surveyRows[0])
 
-    try {
-      await sql`
-        INSERT INTO csat_surveys (
-          id, ticket_id, contact_id, rating, feedback_text, submitted_at, created_at, updated_at
-        ) VALUES (
-          ${survey.id}, ${survey.ticketId}, ${survey.contactId}, ${survey.rating},
-          ${survey.feedbackText}, ${survey.submittedAt}, ${survey.createdAt}, ${survey.updatedAt}
-        )
-      `
-    } catch {
-      // Memory fallback for tests / offline mode
-    }
+    await sql`
+      UPDATE csat_invites
+      SET status = 'submitted', updated_at = ${submittedAtIso}
+      WHERE id = ${invite.id}
+    `
 
     realtimeService.broadcast({
       event: 'csat.survey.submitted',
@@ -195,54 +287,42 @@ export class CsatService {
   }
 
   async getSurveyByTicketId(ticketId: string): Promise<CsatSurvey | null> {
-    try {
-      const rows = await sql`
-        SELECT
-          id,
-          ticket_id as "ticketId",
-          contact_id as "contactId",
-          rating,
-          feedback_text as "feedbackText",
-          submitted_at as "submittedAt",
-          created_at as "createdAt",
-          updated_at as "updatedAt"
-        FROM csat_surveys
-        WHERE ticket_id = ${ticketId}
-        LIMIT 1
-      `
-      if (rows.length > 0) {
-        return rows[0] as unknown as CsatSurvey
-      }
-    } catch {
-      // Memory fallback
+    const validTicketId = toValidUuid(ticketId)
+    const rows = await sql`
+      SELECT
+        id,
+        ticket_id as "ticketId",
+        contact_id as "contactId",
+        rating,
+        feedback_text as "feedbackText",
+        submitted_at as "submittedAt",
+        created_at as "createdAt",
+        updated_at as "updatedAt"
+      FROM csat_surveys
+      WHERE ticket_id = ${validTicketId}
+      LIMIT 1
+    `
+    if (rows && rows.length > 0) {
+      return mapSurveyRow(rows[0])
     }
 
-    return memoryStore.surveysByTicketId.get(ticketId) || null
+    return null
   }
 
   async getMetrics(): Promise<CsatSurveyMetrics> {
-    let surveys = Array.from(memoryStore.surveysById.values())
-
-    try {
-      const rows = await sql`
-        SELECT
-          id,
-          ticket_id as "ticketId",
-          contact_id as "contactId",
-          rating,
-          feedback_text as "feedbackText",
-          submitted_at as "submittedAt",
-          created_at as "createdAt",
-          updated_at as "updatedAt"
-        FROM csat_surveys
-      `
-      if (rows.length > 0) {
-        surveys = rows as unknown as CsatSurvey[]
-      }
-    } catch {
-      // Use memory surveys
-    }
-
+    const rows = await sql`
+      SELECT
+        id,
+        ticket_id as "ticketId",
+        contact_id as "contactId",
+        rating,
+        feedback_text as "feedbackText",
+        submitted_at as "submittedAt",
+        created_at as "createdAt",
+        updated_at as "updatedAt"
+      FROM csat_surveys
+    `
+    const surveys = (rows || []).map(mapSurveyRow)
     const totalSurveys = surveys.length
     if (totalSurveys === 0) {
       return {

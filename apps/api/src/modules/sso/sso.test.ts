@@ -10,9 +10,9 @@ describe('SAML & OIDC Enterprise SSO Handler (Task 5.12 - apps/api)', () => {
   const rootDir = join(import.meta.dir, '..', '..', '..', '..', '..')
   let app: Hono
 
-  beforeEach(() => {
-    resetSsoStore()
-    resetAuthStore()
+  beforeEach(async () => {
+    await resetSsoStore()
+    await resetAuthStore()
     app = new Hono()
     app.route('/api/v1/sso', ssoRoutes)
   })

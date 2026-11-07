@@ -4,9 +4,9 @@ import { messageStore } from '../messages/message-store'
 import { resetTicketStore, ticketService } from './tickets.service'
 
 describe('Ticket Lifecycle Events (Issue #287 - TDD RED)', () => {
-  beforeEach(() => {
-    resetConversationStore()
-    resetTicketStore()
+  beforeEach(async () => {
+    await resetConversationStore()
+    await resetTicketStore()
   })
 
   it('ticketService.createTicket should create a ticket_opened activity message with displayId and timestamp', async () => {

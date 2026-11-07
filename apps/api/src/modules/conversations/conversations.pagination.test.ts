@@ -9,10 +9,10 @@ describe('Reverse Cursor-Based Pagination on Conversations (Issue #306 - TDD RED
   const senderPhone = '+628123456789'
 
   it('should support reverse cursor pagination with limit and before cursor in getConversationById', async () => {
-    resetConversationStore()
+    await resetConversationStore()
 
     // 1. Seed 5 messages across sequential timestamps
-    const baseTime = new Date('2026-11-06T08:00:00.000Z').getTime()
+    const baseTime = Date.now() + 1000
     let convId = ''
 
     for (let i = 1; i <= 5; i++) {
@@ -23,6 +23,7 @@ describe('Reverse Cursor-Based Pagination on Conversations (Issue #306 - TDD RED
         senderName: 'Budi Santoso',
         content: `Pesan ke-${i}`,
         externalId: `WAM_PAGINATION_${i}`,
+        createdAt: new Date(baseTime + i * 1000).toISOString(),
       })
       convId = res.conversation.id
     }
@@ -30,9 +31,6 @@ describe('Reverse Cursor-Based Pagination on Conversations (Issue #306 - TDD RED
     // Normalize all messages in the conversation to have sequential timestamps
     const allDetail = await conversationService.getConversationById(convId, { limit: 100 })
     const allMsgs = allDetail?.messages || []
-    allMsgs.forEach((msg, idx) => {
-      msg.createdAt = new Date(baseTime + (idx + 1) * 1000).toISOString()
-    })
     const totalCount = allMsgs.length
 
     // 2. Fetch initial batch with limit = 2 (should return latest 2 messages)
@@ -60,13 +58,13 @@ describe('Reverse Cursor-Based Pagination on Conversations (Issue #306 - TDD RED
   })
 
   it('GET /api/v1/conversations/:id should respect limit and before query parameters', async () => {
-    resetConversationStore()
+    await resetConversationStore()
 
     const app = new Hono()
     // Bypass auth middleware in test app
     app.route('/api/v1/conversations', conversationRoutes)
 
-    const baseTime = new Date('2026-11-06T08:00:00.000Z').getTime()
+    const baseTime = Date.now() + 1000
     let convId = ''
 
     for (let i = 1; i <= 4; i++) {
@@ -77,9 +75,9 @@ describe('Reverse Cursor-Based Pagination on Conversations (Issue #306 - TDD RED
         senderName: 'Budi Santoso',
         content: `Konten API ${i}`,
         externalId: `WAM_API_PAGINATION_${i}`,
+        createdAt: new Date(baseTime + i * 1000).toISOString(),
       })
       convId = res.conversation.id
-      res.message.createdAt = new Date(baseTime + i * 1000).toISOString()
     }
 
     // Call GET /api/v1/conversations/:id?limit=2
