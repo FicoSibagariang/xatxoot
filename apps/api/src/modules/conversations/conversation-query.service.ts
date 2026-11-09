@@ -164,8 +164,41 @@ export class ConversationQueryService {
       }
     }
 
+    const { isGroup, groupJid } = conversationGroupService.detectGroupConversation(
+      conversation as Record<string, unknown>,
+      contact,
+    )
+
+    let enrichedConversation = conversation
+    if (isGroup) {
+      enrichedConversation = {
+        ...conversation,
+        isGroup: true,
+        groupJid,
+      } as ConversationWithInbox
+    }
+
+    if (
+      isGroup ||
+      messages.some((m) =>
+        Boolean(m.isGroup || (m.contentAttributes as Record<string, unknown> | undefined)?.isGroup),
+      )
+    ) {
+      messages = messages.map((m) => {
+        const attrs = (m.contentAttributes || {}) as Record<string, unknown>
+        const msgIsGroup = Boolean(m.isGroup || attrs.isGroup || isGroup)
+        return {
+          ...m,
+          isGroup: msgIsGroup,
+          groupJid: m.groupJid || (attrs.groupJid as string | undefined) || groupJid,
+          participant: m.participant || (attrs.participant as string | undefined),
+          participantName: m.participantName || (attrs.participantName as string | undefined),
+        }
+      })
+    }
+
     return {
-      conversation,
+      conversation: enrichedConversation,
       contact,
       activeTicket,
       messages,

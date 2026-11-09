@@ -9,8 +9,8 @@ describe('Widget Public API Endpoints (Task 1.30 - apps/api)', () => {
   let inboxId: string
 
   beforeEach(async () => {
-    resetInboxStore()
-    resetConversationStore()
+    await resetInboxStore()
+    await resetConversationStore()
     realtimeService.resetSubscribers()
 
     // Setup an inbox with web_widget channel

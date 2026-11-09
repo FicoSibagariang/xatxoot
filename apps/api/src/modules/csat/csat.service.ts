@@ -207,9 +207,22 @@ export class CsatService {
   }
 
   async onTicketResolved(ticket: Ticket): Promise<CsatInvite> {
+    let contactId: string | null = (ticket as unknown as { contactId?: string }).contactId || null
+    if (!contactId && ticket.conversationId) {
+      const convRows = await sql`
+        SELECT contact_id as "contactId"
+        FROM conversations
+        WHERE id = ${ticket.conversationId}
+        LIMIT 1
+      `
+      if (convRows.length > 0 && convRows[0].contactId) {
+        contactId = String(convRows[0].contactId)
+      }
+    }
+
     return this.createInvite({
       ticketId: ticket.id,
-      contactId: (ticket as unknown as { contactId?: string }).contactId || null,
+      contactId,
     })
   }
 
@@ -252,6 +265,18 @@ export class CsatService {
     const id = crypto.randomUUID()
     const submittedAtIso = now.toISOString()
     let contactId = invite.contactId || null
+    if (!contactId && invite.ticketId) {
+      const convRows = await sql`
+        SELECT c.contact_id as "contactId"
+        FROM tickets t
+        JOIN conversations c ON t.conversation_id = c.id
+        WHERE t.id = ${invite.ticketId}
+        LIMIT 1
+      `
+      if (convRows.length > 0 && convRows[0].contactId) {
+        contactId = String(convRows[0].contactId)
+      }
+    }
     if (contactId) {
       contactId = toValidUuid(contactId)
       await ensureContactExists(contactId)
