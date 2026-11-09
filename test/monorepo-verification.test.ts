@@ -31,11 +31,18 @@ describe('Monorepo Quality Gate Verification (Phase 0 Complete)', () => {
     expect(testFiles).toContain('shared-package.test.ts')
     expect(testFiles).toContain('api-package.test.ts')
     expect(testFiles).toContain('db-connection.test.ts')
-    expect(testFiles).toContain('migration-runner.test.ts')
-    expect(testFiles).toContain('init-migration.test.ts')
     expect(testFiles).toContain('web-package.test.ts')
-    expect(testFiles).toContain('setup-page.test.ts')
-    expect(testFiles).toContain('login-page.test.ts')
-    expect(testFiles).toContain('layout-shell.test.ts')
+
+    // Modularized test suites (Issue #313)
+    const migrationFiles = readdirSync(join(rootDir, 'apps', 'api', 'migrations'))
+    expect(migrationFiles).toContain('migration-runner.test.ts')
+    expect(migrationFiles).toContain('init-migration.test.ts')
+
+    const webPageFiles = readdirSync(join(rootDir, 'apps', 'web', 'src', 'pages'))
+    expect(webPageFiles).toContain('setup-page.test.ts')
+    expect(webPageFiles).toContain('login-page.test.ts')
+
+    const webComponentFiles = readdirSync(join(rootDir, 'apps', 'web', 'src', 'components'))
+    expect(webComponentFiles).toContain('layout-shell.test.ts')
   })
 })
