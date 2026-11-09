@@ -1,9 +1,10 @@
+import type { Contact } from '@xatxoot/shared'
 import { useEffect, useState } from 'react'
 import { api } from '../../services/apiClient'
 import { Avatar, Badge, Button, Input } from '../astryx'
 import type { ConversationItem } from '../layout/types'
 
-export interface ContactItem {
+export interface ContactViewModel extends Partial<Contact> {
   id: string
   name: string
   phone?: string
@@ -20,6 +21,8 @@ export interface ContactItem {
   }
 }
 
+export type ContactItem = ContactViewModel
+
 export interface ContactsDashboardProps {
   conversations?: ConversationItem[]
   initialContacts?: ContactItem[]
@@ -27,49 +30,6 @@ export interface ContactsDashboardProps {
   onUpdateContact?: (updated: ContactItem) => Promise<void> | void
   initialEditingContact?: ContactItem | null
 }
-
-const DEFAULT_SEED_CONTACTS: ContactItem[] = [
-  {
-    id: 'contact-01',
-    name: 'Budi Santoso',
-    phone: '+6281234567890',
-    email: 'budi@example.com',
-    company: 'PT Maju Bersama',
-    tags: ['VIP', 'Customer'],
-    channel: 'whatsapp',
-    conversationId: 'conv-1',
-    activeTicket: {
-      id: 't-101',
-      ticketNumber: 'T-101',
-      status: 'open',
-    },
-  },
-  {
-    id: 'contact-02',
-    name: 'Siti Rahma',
-    phone: '+6289876543210',
-    email: 'siti@example.com',
-    company: 'CV Berkah Abadi',
-    tags: ['Lead'],
-    channel: 'website_widget',
-    conversationId: 'conv-2',
-    activeTicket: {
-      id: 't-102',
-      ticketNumber: 'T-102',
-      status: 'resolved',
-    },
-  },
-  {
-    id: 'contact-03',
-    name: 'Ahmad Fauzi',
-    phone: '+6287711223344',
-    email: 'ahmad.fauzi@corp.id',
-    company: 'Fauzi Logistics',
-    tags: ['Customer', 'Verified'],
-    channel: 'whatsapp',
-    conversationId: 'conv-3',
-  },
-]
 
 export function buildContactsFromConversations(conversations: ConversationItem[]): ContactItem[] {
   const contactMap = new Map<string, { contact: ContactItem; lastMsgTime: number }>()
@@ -168,7 +128,7 @@ export function ContactsDashboard({
       return buildContactsFromConversations(conversations)
     }
 
-    return DEFAULT_SEED_CONTACTS
+    return []
   })
 
   useEffect(() => {

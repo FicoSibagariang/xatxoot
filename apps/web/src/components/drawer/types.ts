@@ -1,4 +1,6 @@
-export interface TicketCsatData {
+import type { Contact, CsatSurveyResponse, Ticket } from '@xatxoot/shared'
+
+export interface TicketCsatData extends Partial<CsatSurveyResponse> {
   id?: string
   ticketId: string
   rating?: number
@@ -8,7 +10,7 @@ export interface TicketCsatData {
   status?: 'pending' | 'submitted' | 'expired'
 }
 
-export interface TicketHistoryItem {
+export interface TicketHistoryItem extends Partial<Ticket> {
   id: string
   ticketNumber: string
   status: 'open' | 'pending' | 'resolved' | 'snoozed'
@@ -20,7 +22,7 @@ export interface TicketHistoryItem {
   csat?: TicketCsatData | null
 }
 
-export interface ActiveTicketData {
+export interface ActiveTicketData extends Partial<Ticket> {
   id: string
   ticketNumber: string
   status: 'open' | 'pending' | 'resolved' | 'snoozed'
@@ -31,7 +33,7 @@ export interface ActiveTicketData {
   csat?: TicketCsatData | null
 }
 
-export interface ContactDrawerData {
+export interface ContactDrawerData extends Partial<Contact> {
   contactId: string
   contactName: string
   contactPhone?: string

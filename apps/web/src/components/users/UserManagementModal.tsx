@@ -1,14 +1,15 @@
+import type { Role, Inbox as SharedInbox, User, UserAvailability } from '@xatxoot/shared'
 import { CheckCircle2, Inbox, Key, Mail, Search, Shield, UserPlus, X, XCircle } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { api } from '../../services/apiClient'
 import { Avatar, Badge, Button } from '../astryx'
 
-export interface UserItem {
+export interface UserViewModel extends Partial<User> {
   id: string
   displayName: string
   email: string
-  role: string
-  availability?: string
+  role: Role | string
+  availability?: UserAvailability | string
   active: boolean
   inboxes?: Array<{
     id: string
@@ -16,8 +17,9 @@ export interface UserItem {
     channelType: string
   }>
 }
+export type UserItem = UserViewModel
 
-export interface InboxOption {
+export interface InboxOption extends Partial<SharedInbox> {
   id: string
   name: string
   channelType: string

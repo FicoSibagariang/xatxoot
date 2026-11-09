@@ -1,3 +1,5 @@
+import type { Message } from '@xatxoot/shared'
+
 export type MessageType = 'incoming' | 'outgoing' | 'activity'
 
 export type ContentType =
@@ -31,7 +33,7 @@ export interface MessageMention {
   isMe?: boolean
 }
 
-export interface TimelineMessage {
+export interface TimelineMessage extends Partial<Message> {
   id: string
   conversationId: string
   ticketId?: string

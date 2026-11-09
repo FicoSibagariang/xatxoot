@@ -1,9 +1,10 @@
+import type { Inbox } from '@xatxoot/shared'
 import { Edit2, Globe, MessageSquare, Phone, Plus, QrCode, RefreshCw, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { api } from '../../services/apiClient'
 import { Badge, Button, Input } from '../astryx'
 
-export interface ChannelItem {
+export interface ChannelItem extends Partial<Inbox> {
   id: string
   name: string
   channelType: 'whatsapp_unofficial' | 'whatsapp_cloud' | 'web_widget' | 'api' | string

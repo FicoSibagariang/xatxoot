@@ -1,8 +1,8 @@
-import type { Team } from '@xatxoot/shared'
+import type { Team, User } from '@xatxoot/shared'
 import { useState } from 'react'
 import { Avatar, Badge, Button } from '../astryx'
 
-export interface AgentUser {
+export interface AgentUser extends Partial<User> {
   id: string
   name: string
   email: string
