@@ -1,5 +1,6 @@
 import type { CreateUserInput, Role, UpdateUserInput, User } from '@xatxoot/shared'
 import { sql } from '../../db'
+import { auditUserRoleChange } from '../audit/audit.service'
 import { hashPassword } from '../auth/auth.service'
 
 export interface UserWithInboxes extends User {
@@ -137,7 +138,11 @@ export class UsersService {
     }
   }
 
-  async updateUser(id: string, input: UpdateUserInput): Promise<UserWithInboxes> {
+  async updateUser(
+    id: string,
+    input: UpdateUserInput,
+    actorId?: string | null,
+  ): Promise<UserWithInboxes> {
     const existing = await this.getUserById(id)
     if (!existing) {
       throw new Error(`User dengan ID ${id} tidak ditemukan`)
@@ -148,6 +153,10 @@ export class UsersService {
     const updatedRole = input.role !== undefined ? input.role : existing.role
     const updatedActive = input.active !== undefined ? input.active : existing.active
     const now = new Date().toISOString()
+
+    if (input.role !== undefined && input.role !== existing.role) {
+      await auditUserRoleChange(actorId ?? null, id, existing.role, updatedRole)
+    }
 
     let newPasswordHash: string | null = null
     if (input.password && input.password.trim().length >= 8) {

@@ -6,6 +6,8 @@ export interface AuthContextVariables {
   user: User
 }
 
+export { rateLimiter, resetRateLimiter } from '../../middleware/rate-limiter'
+
 export const authMiddleware: MiddlewareHandler = async (c: Context, next) => {
   const authHeader = c.req.header('Authorization')
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
