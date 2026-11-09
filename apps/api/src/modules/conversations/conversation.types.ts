@@ -6,11 +6,23 @@ import type {
   Ticket,
   TicketStatus,
 } from '@xatxoot/shared'
-import { sql, toIsoString, toValidUuid } from '../../db'
+import {
+  CONTACT_COLUMNS,
+  mapRowToContact,
+  mapRowToConversation,
+  mapRowToMessage,
+  sql,
+  toIsoString,
+  toValidUuid,
+} from '../../db'
 import { resetMessageStore } from '../messages/message-store'
 import { resetTicketStore } from '../tickets/tickets.service'
 
 export type { Contact, ContactInbox, Conversation, Message, Ticket, TicketStatus }
+
+export const mapContactRow = mapRowToContact
+export const mapConversationRow = mapRowToConversation
+export const mapMessageRow = mapRowToMessage
 
 export function parseContentAttributes(raw: unknown): Record<string, unknown> {
   if (!raw) return {}
@@ -126,44 +138,6 @@ export interface GetConversationOptions {
   before?: string
 }
 
-export function mapContactRow(row: Record<string, unknown>): Contact {
-  return {
-    id: String(row.id),
-    companyId: (row.companyId as string | null) ?? null,
-    name: String(row.name),
-    phoneNumber: (row.phoneNumber as string | null) ?? null,
-    email: (row.email as string | null) ?? null,
-    avatarUrl: (row.avatarUrl as string | null) ?? null,
-    identifier: (row.identifier as string | null) ?? null,
-    contactType: (row.contactType as Contact['contactType']) ?? 'lead',
-    customAttributes:
-      typeof row.customAttributes === 'string'
-        ? JSON.parse(row.customAttributes)
-        : (row.customAttributes as Record<string, unknown>) || {},
-    additionalAttributes:
-      typeof row.additionalAttributes === 'string'
-        ? JSON.parse(row.additionalAttributes)
-        : (row.additionalAttributes as Record<string, unknown>) || {},
-    blocked: Boolean(row.blocked),
-    createdAt: toIsoString(row.createdAt) || (row.createdAt as string),
-    updatedAt: toIsoString(row.updatedAt) || (row.updatedAt as string),
-  }
-}
-
-export function mapConversationRow(row: Record<string, unknown>): Conversation {
-  return {
-    id: String(row.id),
-    inboxId: row.inboxId ? String(row.inboxId) : '',
-    contactId: row.contactId ? String(row.contactId) : '',
-    contactInboxId: row.contactInboxId ? String(row.contactInboxId) : null,
-    activeTicketId: row.activeTicketId ? String(row.activeTicketId) : null,
-    unreadCount: Number(row.unreadCount ?? 0),
-    lastMessageAt: toIsoString(row.lastMessageAt) || (row.lastMessageAt as string),
-    createdAt: toIsoString(row.createdAt) || (row.createdAt as string),
-    updatedAt: toIsoString(row.updatedAt) || (row.updatedAt as string),
-  }
-}
-
 export function mapContactInboxRow(row: Record<string, unknown>): ContactInbox {
   return {
     id: String(row.id),
@@ -171,46 +145,6 @@ export function mapContactInboxRow(row: Record<string, unknown>): ContactInbox {
     inboxId: row.inboxId ? String(row.inboxId) : '',
     sourceId: row.sourceId ? String(row.sourceId) : '',
     hmacVerified: Boolean(row.hmacVerified),
-    createdAt: toIsoString(row.createdAt) || (row.createdAt as string),
-    updatedAt: toIsoString(row.updatedAt) || (row.updatedAt as string),
-  }
-}
-
-export function mapMessageRow(row: Record<string, unknown>): Message {
-  const attrs = parseContentAttributes(row.contentAttributes)
-  const isEcho = Boolean(attrs.echo || attrs.isEcho || attrs.source === 'whatsapp_mobile')
-  const senderName =
-    (row.senderName as string) ||
-    (attrs.senderName as string | undefined) ||
-    (isEcho ? 'WhatsApp HP' : undefined)
-  return {
-    id: String(row.id),
-    conversationId: String(row.conversationId),
-    ticketId: row.ticketId ? String(row.ticketId) : null,
-    senderType: row.senderType as Message['senderType'],
-    senderId: row.senderId ? String(row.senderId) : null,
-    senderName,
-    senderEmail: (row.senderEmail as string) || undefined,
-    isEcho,
-    messageType: row.messageType as Message['messageType'],
-    content: (row.content as string | null) ?? null,
-    contentType: row.contentType as Message['contentType'],
-    mediaUrl: (attrs.mediaUrl as string | undefined) || undefined,
-    status: row.status as Message['status'],
-    externalSourceId: row.externalSourceId ? String(row.externalSourceId) : null,
-    replyTo: attrs.replyTo as Message['replyTo'],
-    mentions: attrs.mentions as Message['mentions'],
-    isMentioningMe: attrs.isMentioningMe as boolean | undefined,
-    contentAttributes: attrs,
-    attachments: ((row.attachments as Record<string, unknown>[]) || []).map((a) => ({
-      id: String(a.id),
-      messageId: String(a.messageId || row.id),
-      fileType: a.fileType as Message['attachments'][number]['fileType'],
-      fileUrl: String(a.fileUrl),
-      fileName: (a.fileName as string | null) ?? null,
-      fileSize: (a.fileSize as number | null) ?? null,
-      createdAt: toIsoString(a.createdAt) || (a.createdAt as string),
-    })),
     createdAt: toIsoString(row.createdAt) || (row.createdAt as string),
     updatedAt: toIsoString(row.updatedAt) || (row.updatedAt as string),
   }
@@ -245,9 +179,7 @@ export async function findOrCreateContact(
   const now = new Date().toISOString()
 
   const rows = await sql`
-    SELECT id, company_id as "companyId", name, phone_number as "phoneNumber", email, avatar_url as "avatarUrl",
-           identifier, contact_type as "contactType", custom_attributes as "customAttributes",
-           additional_attributes as "additionalAttributes", blocked, created_at as "createdAt", updated_at as "updatedAt"
+    SELECT ${CONTACT_COLUMNS}
     FROM contacts
     WHERE phone_number = ${phone} OR identifier = ${dto.sourceId} OR id::text = ${dto.sourceId}
     LIMIT 1

@@ -6,7 +6,7 @@ import {
   type TicketStatus,
   TicketStatusSchema,
 } from '@xatxoot/shared'
-import { sql, toValidUuid } from '../../db'
+import { TICKET_COLUMNS, mapRowToTicket, sql, toValidUuid } from '../../db'
 import { analyticsService } from '../analytics/analytics.service'
 import { csatService } from '../csat/csat.service'
 import { saveMessageToStore } from '../messages/message-store'
@@ -32,61 +32,32 @@ export interface TicketFilter {
   conversationId?: string
 }
 
-function parseJsonField<T>(value: unknown, fallback: T): T {
-  if (value === null || value === undefined) return fallback
-  if (typeof value === 'object') return value as T
-  if (typeof value === 'string') {
-    try {
-      return JSON.parse(value) as T
-    } catch {
-      return fallback
-    }
-  }
-  return fallback
-}
-
-function toIsoString(val: unknown): string | null {
-  if (!val) return null
-  if (val instanceof Date) return val.toISOString()
-  if (typeof val === 'string') return val
-  return null
-}
-
 const rawAuthorMap = new Map<string, string>()
 const rawConvMap = new Map<string, string>()
 const rawOpenedAtMap = new Map<string, string>()
 const rawAssigneeMap = new Map<string, string>()
 
 function mapTicketRow(row: Record<string, unknown>): Ticket {
+  const mapped = mapRowToTicket(row)
   const assigneeId =
     ((row.assigneeId as string | undefined) && rawAssigneeMap.get(row.assigneeId as string)) ||
-    (row.assigneeId as string | null) ||
+    mapped.assigneeId ||
     null
 
   return {
-    ...(row as unknown as Ticket),
-    displayId: Number(row.displayId),
+    ...mapped,
     conversationId:
       ((row.conversationId as string | undefined) &&
         rawConvMap.get(row.conversationId as string)) ||
-      (row.conversationId as string),
+      mapped.conversationId,
     assigneeId,
     assignedTo: assigneeId,
-    deadlineAt: toIsoString(row.deadlineAt),
-    openedAt:
-      rawOpenedAtMap.get(row.id as string) || toIsoString(row.openedAt) || (row.openedAt as string),
-    resolvedAt: toIsoString(row.resolvedAt),
-    snoozedUntil: toIsoString(row.snoozedUntil),
-    waitingSince: toIsoString(row.waitingSince),
-    firstReplyCreatedAt: toIsoString(row.firstReplyCreatedAt),
+    openedAt: rawOpenedAtMap.get(mapped.id) || mapped.openedAt,
     internalNoteUpdatedBy:
       ((row.internalNoteUpdatedBy as string | undefined) &&
         rawAuthorMap.get(row.internalNoteUpdatedBy as string)) ||
-      (row.internalNoteUpdatedBy as string | null) ||
+      mapped.internalNoteUpdatedBy ||
       null,
-    createdAt: toIsoString(row.createdAt) || (row.createdAt as string),
-    updatedAt: toIsoString(row.updatedAt) || (row.updatedAt as string),
-    customAttributes: parseJsonField(row.customAttributes, {}),
   }
 }
 
@@ -193,16 +164,7 @@ export class TicketService {
         ${null}, ${null},
         ${JSON.stringify(dto.customAttributes || {})}, ${now}, ${now}
       )
-      RETURNING
-        id, display_id as "displayId", conversation_id as "conversationId",
-        assignee_id as "assigneeId", team_id as "teamId", status, priority,
-        snoozed_until as "snoozedUntil", waiting_since as "waitingSince",
-        deadline_at as "deadlineAt", first_reply_created_at as "firstReplyCreatedAt",
-        opened_at as "openedAt", resolved_at as "resolvedAt", internal_note as "internalNote",
-        internal_note_updated_by as "internalNoteUpdatedBy",
-        internal_note_updated_at as "internalNoteUpdatedAt",
-        custom_attributes as "customAttributes", created_at as "createdAt",
-        updated_at as "updatedAt"
+      RETURNING ${TICKET_COLUMNS}
     `
 
     const ticket = mapTicketRow(rows[0])
@@ -302,26 +264,7 @@ export class TicketService {
 
   async getTicketById(id: string): Promise<Ticket | null> {
     const rows = await sql`
-      SELECT
-        id,
-        display_id as "displayId",
-        conversation_id as "conversationId",
-        assignee_id as "assigneeId",
-        team_id as "teamId",
-        status,
-        priority,
-        snoozed_until as "snoozedUntil",
-        waiting_since as "waitingSince",
-        deadline_at as "deadlineAt",
-        first_reply_created_at as "firstReplyCreatedAt",
-        opened_at as "openedAt",
-        resolved_at as "resolvedAt",
-        internal_note as "internalNote",
-        internal_note_updated_by as "internalNoteUpdatedBy",
-        internal_note_updated_at as "internalNoteUpdatedAt",
-        custom_attributes as "customAttributes",
-        created_at as "createdAt",
-        updated_at as "updatedAt"
+      SELECT ${TICKET_COLUMNS}
       FROM tickets
       WHERE id = ${id}
       LIMIT 1
@@ -334,26 +277,7 @@ export class TicketService {
 
   async listTickets(filter?: TicketFilter): Promise<Ticket[]> {
     let query = sql`
-      SELECT
-        id,
-        display_id as "displayId",
-        conversation_id as "conversationId",
-        assignee_id as "assigneeId",
-        team_id as "teamId",
-        status,
-        priority,
-        snoozed_until as "snoozedUntil",
-        waiting_since as "waitingSince",
-        deadline_at as "deadlineAt",
-        first_reply_created_at as "firstReplyCreatedAt",
-        opened_at as "openedAt",
-        resolved_at as "resolvedAt",
-        internal_note as "internalNote",
-        internal_note_updated_by as "internalNoteUpdatedBy",
-        internal_note_updated_at as "internalNoteUpdatedAt",
-        custom_attributes as "customAttributes",
-        created_at as "createdAt",
-        updated_at as "updatedAt"
+      SELECT ${TICKET_COLUMNS}
       FROM tickets
       WHERE 1 = 1
     `
@@ -400,26 +324,7 @@ export class TicketService {
         snoozed_until = ${finalSnoozedUntil},
         updated_at = ${now}
       WHERE id = ${id}
-      RETURNING
-        id,
-        display_id as "displayId",
-        conversation_id as "conversationId",
-        assignee_id as "assigneeId",
-        team_id as "teamId",
-        status,
-        priority,
-        snoozed_until as "snoozedUntil",
-        waiting_since as "waitingSince",
-        deadline_at as "deadlineAt",
-        first_reply_created_at as "firstReplyCreatedAt",
-        opened_at as "openedAt",
-        resolved_at as "resolvedAt",
-        internal_note as "internalNote",
-        internal_note_updated_by as "internalNoteUpdatedBy",
-        internal_note_updated_at as "internalNoteUpdatedAt",
-        custom_attributes as "customAttributes",
-        created_at as "createdAt",
-        updated_at as "updatedAt"
+      RETURNING ${TICKET_COLUMNS}
     `
     const updated = mapTicketRow(rows[0])
 
@@ -539,26 +444,7 @@ export class TicketService {
         internal_note_updated_by = ${authorId},
         updated_at = ${now}
       WHERE id = ${id}
-      RETURNING
-        id,
-        display_id as "displayId",
-        conversation_id as "conversationId",
-        assignee_id as "assigneeId",
-        team_id as "teamId",
-        status,
-        priority,
-        snoozed_until as "snoozedUntil",
-        waiting_since as "waitingSince",
-        deadline_at as "deadlineAt",
-        first_reply_created_at as "firstReplyCreatedAt",
-        opened_at as "openedAt",
-        resolved_at as "resolvedAt",
-        internal_note as "internalNote",
-        internal_note_updated_by as "internalNoteUpdatedBy",
-        internal_note_updated_at as "internalNoteUpdatedAt",
-        custom_attributes as "customAttributes",
-        created_at as "createdAt",
-        updated_at as "updatedAt"
+      RETURNING ${TICKET_COLUMNS}
     `
     const updated = mapTicketRow(rows[0])
 
@@ -590,26 +476,7 @@ export class TicketService {
         assignee_id = ${validAssigneeId},
         updated_at = ${now}
       WHERE id = ${id}
-      RETURNING
-        id,
-        display_id as "displayId",
-        conversation_id as "conversationId",
-        assignee_id as "assigneeId",
-        team_id as "teamId",
-        status,
-        priority,
-        snoozed_until as "snoozedUntil",
-        waiting_since as "waitingSince",
-        deadline_at as "deadlineAt",
-        first_reply_created_at as "firstReplyCreatedAt",
-        opened_at as "openedAt",
-        resolved_at as "resolvedAt",
-        internal_note as "internalNote",
-        internal_note_updated_by as "internalNoteUpdatedBy",
-        internal_note_updated_at as "internalNoteUpdatedAt",
-        custom_attributes as "customAttributes",
-        created_at as "createdAt",
-        updated_at as "updatedAt"
+      RETURNING ${TICKET_COLUMNS}
     `
     const updated = mapTicketRow(rows[0])
 
@@ -665,26 +532,7 @@ export class TicketService {
         first_reply_created_at = ${firstReplyCreatedAt},
         updated_at = ${now}
       WHERE id = ${id}
-      RETURNING
-        id,
-        display_id as "displayId",
-        conversation_id as "conversationId",
-        assignee_id as "assigneeId",
-        team_id as "teamId",
-        status,
-        priority,
-        snoozed_until as "snoozedUntil",
-        waiting_since as "waitingSince",
-        deadline_at as "deadlineAt",
-        first_reply_created_at as "firstReplyCreatedAt",
-        opened_at as "openedAt",
-        resolved_at as "resolvedAt",
-        internal_note as "internalNote",
-        internal_note_updated_by as "internalNoteUpdatedBy",
-        internal_note_updated_at as "internalNoteUpdatedAt",
-        custom_attributes as "customAttributes",
-        created_at as "createdAt",
-        updated_at as "updatedAt"
+      RETURNING ${TICKET_COLUMNS}
     `
     const updated = mapTicketRow(rows[0])
 
@@ -709,26 +557,7 @@ export class TicketService {
         first_reply_created_at = ${now},
         updated_at = ${now}
       WHERE id = ${id}
-      RETURNING
-        id,
-        display_id as "displayId",
-        conversation_id as "conversationId",
-        assignee_id as "assigneeId",
-        team_id as "teamId",
-        status,
-        priority,
-        snoozed_until as "snoozedUntil",
-        waiting_since as "waitingSince",
-        deadline_at as "deadlineAt",
-        first_reply_created_at as "firstReplyCreatedAt",
-        opened_at as "openedAt",
-        resolved_at as "resolvedAt",
-        internal_note as "internalNote",
-        internal_note_updated_by as "internalNoteUpdatedBy",
-        internal_note_updated_at as "internalNoteUpdatedAt",
-        custom_attributes as "customAttributes",
-        created_at as "createdAt",
-        updated_at as "updatedAt"
+      RETURNING ${TICKET_COLUMNS}
     `
     const updated = mapTicketRow(rows[0])
 

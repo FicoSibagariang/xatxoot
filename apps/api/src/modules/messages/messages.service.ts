@@ -1,5 +1,5 @@
 import type { Attachment, Message, MessageContentType, MessageStatus } from '@xatxoot/shared'
-import { sql } from '../../db'
+import { MESSAGE_COLUMNS, mapRowToMessage, messageColumnsWithUser, sql } from '../../db'
 import { conversationService } from '../conversations/conversations.service'
 import { type WhatsAppUnofficialChannelData, inboxService } from '../inboxes/inboxes.service'
 import { realtimeService } from '../realtime/realtime.service'
@@ -79,26 +79,13 @@ export class MessageService {
     if (memory) return memory
 
     const rows = await sql`
-      SELECT
-        id,
-        conversation_id as "conversationId",
-        ticket_id as "ticketId",
-        sender_type as "senderType",
-        sender_id as "senderId",
-        message_type as "messageType",
-        content,
-        content_type as "contentType",
-        status,
-        external_source_id as "externalSourceId",
-        content_attributes as "contentAttributes",
-        created_at as "createdAt",
-        updated_at as "updatedAt"
+      SELECT ${MESSAGE_COLUMNS}
       FROM messages
       WHERE id = ${id}
       LIMIT 1
     `
     if (rows.length > 0) {
-      const msg = rows[0] as unknown as Message
+      const msg = mapRowToMessage(rows[0])
       saveMessageToStore(msg)
       return msg
     }
@@ -108,28 +95,14 @@ export class MessageService {
 
   async listConversationMessages(conversationId: string): Promise<Message[]> {
     const rows = await sql`
-      SELECT
-        m.id,
-        m.conversation_id as "conversationId",
-        m.ticket_id as "ticketId",
-        m.sender_type as "senderType",
-        m.sender_id as "senderId",
-        COALESCE(u.display_name, m.content_attributes->>'senderName', CASE WHEN m.sender_type = 'bot' THEN 'Bot Otomasi' ELSE NULL END) as "senderName",
-        u.email as "senderEmail",
-        m.message_type as "messageType",
-        m.content,
-        m.content_type as "contentType",
-        m.status,
-        m.external_source_id as "externalSourceId",
-        m.content_attributes as "contentAttributes",
-        m.created_at as "createdAt",
-        m.updated_at as "updatedAt"
+      SELECT ${messageColumnsWithUser('m', 'u')}
       FROM messages m
       LEFT JOIN users u ON m.sender_id = u.id
       WHERE m.conversation_id = ${conversationId}
       ORDER BY m.created_at ASC
     `
-    return ((rows || []) as unknown as Message[]).map((m) => {
+    return ((rows || []) as unknown as Record<string, unknown>[]).map((r) => {
+      const m = mapRowToMessage(r)
       const attrs = parseContentAttributes(m.contentAttributes)
       const isEcho = Boolean(
         m.isEcho || attrs.echo || attrs.isEcho || attrs.source === 'whatsapp_mobile',
@@ -158,26 +131,13 @@ export class MessageService {
     }
 
     const rows = await sql`
-      SELECT
-        id,
-        conversation_id as "conversationId",
-        ticket_id as "ticketId",
-        sender_type as "senderType",
-        sender_id as "senderId",
-        message_type as "messageType",
-        content,
-        content_type as "contentType",
-        status,
-        external_source_id as "externalSourceId",
-        content_attributes as "contentAttributes",
-        created_at as "createdAt",
-        updated_at as "updatedAt"
+      SELECT ${MESSAGE_COLUMNS}
       FROM messages
       WHERE external_source_id = ${externalId}
       LIMIT 1
     `
     if (rows.length > 0) {
-      const msg = rows[0] as unknown as Message
+      const msg = mapRowToMessage(rows[0])
       saveMessageToStore(msg)
       return msg
     }

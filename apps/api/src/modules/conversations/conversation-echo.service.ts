@@ -1,5 +1,5 @@
 import type { Conversation, Message } from '@xatxoot/shared'
-import { sql, toValidUuid } from '../../db'
+import { CONVERSATION_COLUMNS, MESSAGE_COLUMNS, sql, toValidUuid } from '../../db'
 import { saveMessageToStore } from '../messages/message-store'
 import { realtimeService } from '../realtime/realtime.service'
 import { ticketService } from '../tickets/tickets.service'
@@ -22,9 +22,7 @@ export class ConversationEchoService {
     // 1. Idempotency Check: check if message with externalId already exists
     if (payload.externalId) {
       const rows = await sql`
-        SELECT id, conversation_id as "conversationId", ticket_id as "ticketId", sender_type as "senderType", sender_id as "senderId",
-               message_type as "messageType", content, content_type as "contentType", status, external_source_id as "externalSourceId",
-               content_attributes as "contentAttributes", created_at as "createdAt", updated_at as "updatedAt"
+        SELECT ${MESSAGE_COLUMNS}
         FROM messages WHERE external_source_id = ${payload.externalId} LIMIT 1
       `
       if (rows.length > 0) {
@@ -97,9 +95,7 @@ export class ConversationEchoService {
     // 3. Find or create persistent Conversation thread
     let conversation: Conversation | null = null
     const convRows = await sql`
-      SELECT id, inbox_id as "inboxId", contact_id as "contactId", contact_inbox_id as "contactInboxId",
-             active_ticket_id as "activeTicketId", unread_count as "unreadCount", last_message_at as "lastMessageAt",
-             created_at as "createdAt", updated_at as "updatedAt"
+      SELECT ${CONVERSATION_COLUMNS}
       FROM conversations WHERE inbox_id = ${validInboxId} AND contact_id = ${contact.id} LIMIT 1
     `
     if (convRows.length > 0) {

@@ -1,26 +1,5 @@
 import type { Contact, CreateContactInput, UpdateContactInput } from '@xatxoot/shared'
-import { sql } from '../../db'
-
-function parseJsonField<T>(value: unknown, fallback: T): T {
-  if (value === null || value === undefined) return fallback
-  if (typeof value === 'object') return value as T
-  if (typeof value === 'string') {
-    try {
-      return JSON.parse(value) as T
-    } catch {
-      return fallback
-    }
-  }
-  return fallback
-}
-
-function mapContactRow(row: Record<string, unknown>): Contact {
-  return {
-    ...(row as unknown as Contact),
-    customAttributes: parseJsonField(row.customAttributes, {}),
-    additionalAttributes: parseJsonField(row.additionalAttributes, {}),
-  }
-}
+import { CONTACT_COLUMNS, mapRowToContact, sql } from '../../db'
 
 export async function resetContactStore(): Promise<void> {
   await sql`DELETE FROM contacts`
@@ -29,28 +8,22 @@ export async function resetContactStore(): Promise<void> {
 export class ContactService {
   async listContacts(): Promise<Contact[]> {
     const rows = await sql`
-      SELECT id, company_id as "companyId", name, phone_number as "phoneNumber",
-             email, avatar_url as "avatarUrl", identifier, contact_type as "contactType",
-             custom_attributes as "customAttributes", additional_attributes as "additionalAttributes",
-             blocked, created_at as "createdAt", updated_at as "updatedAt"
+      SELECT ${CONTACT_COLUMNS}
       FROM contacts
       ORDER BY updated_at DESC
     `
-    return rows.map(mapContactRow)
+    return rows.map(mapRowToContact)
   }
 
   async getContactById(id: string): Promise<Contact | null> {
     const rows = await sql`
-      SELECT id, company_id as "companyId", name, phone_number as "phoneNumber",
-             email, avatar_url as "avatarUrl", identifier, contact_type as "contactType",
-             custom_attributes as "customAttributes", additional_attributes as "additionalAttributes",
-             blocked, created_at as "createdAt", updated_at as "updatedAt"
+      SELECT ${CONTACT_COLUMNS}
       FROM contacts
       WHERE id = ${id}
       LIMIT 1
     `
     if (rows.length > 0) {
-      return mapContactRow(rows[0])
+      return mapRowToContact(rows[0])
     }
     return null
   }
@@ -79,12 +52,9 @@ export class ContactService {
         ${JSON.stringify(customAttributes)}, ${JSON.stringify(additionalAttributes)},
         ${blocked}, ${now}, ${now}
       )
-      RETURNING id, company_id as "companyId", name, phone_number as "phoneNumber",
-                email, avatar_url as "avatarUrl", identifier, contact_type as "contactType",
-                custom_attributes as "customAttributes", additional_attributes as "additionalAttributes",
-                blocked, created_at as "createdAt", updated_at as "updatedAt"
+      RETURNING ${CONTACT_COLUMNS}
     `
-    return mapContactRow(rows[0])
+    return mapRowToContact(rows[0])
   }
 
   async updateContact(id: string, updates: UpdateContactInput): Promise<Contact | null> {
@@ -125,13 +95,10 @@ export class ContactService {
         additional_attributes = ${JSON.stringify(additionalAttributes)},
         updated_at = NOW()
       WHERE id = ${id}
-      RETURNING id, company_id as "companyId", name, phone_number as "phoneNumber",
-                email, avatar_url as "avatarUrl", identifier, contact_type as "contactType",
-                custom_attributes as "customAttributes", additional_attributes as "additionalAttributes",
-                blocked, created_at as "createdAt", updated_at as "updatedAt"
+      RETURNING ${CONTACT_COLUMNS}
     `
     if (rows.length > 0) {
-      return mapContactRow(rows[0])
+      return mapRowToContact(rows[0])
     }
 
     return null
