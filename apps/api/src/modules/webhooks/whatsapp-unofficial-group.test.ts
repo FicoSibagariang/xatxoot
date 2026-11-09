@@ -9,7 +9,7 @@ describe('WhatsApp Unofficial Webhook - WhatsApp Group Handling (TDD RED)', () =
   const groupJid = '120363209784423627@g.us'
 
   beforeEach(async () => {
-    resetConversationStore()
+    await resetConversationStore()
     resetMessageStore()
 
     const { inbox } = await inboxService.createInbox({

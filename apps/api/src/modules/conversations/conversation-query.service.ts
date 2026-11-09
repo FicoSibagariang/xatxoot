@@ -1,5 +1,12 @@
 import type { Contact, Message, Ticket, TicketStatus } from '@xatxoot/shared'
-import { sql, toIsoString } from '../../db'
+import {
+  CONTACT_COLUMNS,
+  MESSAGE_COLUMNS,
+  conversationColumns,
+  messageColumnsWithUser,
+  sql,
+  toIsoString,
+} from '../../db'
 import { messageStore, saveMessageToStore } from '../messages/message-store'
 import { ticketService } from '../tickets/tickets.service'
 import { conversationGroupService } from './conversation-group.service'
@@ -22,11 +29,7 @@ export class ConversationQueryService {
     if (fromStore) return fromStore
 
     const rows = await sql`
-      SELECT id, conversation_id as "conversationId", ticket_id as "ticketId",
-             sender_type as "senderType", sender_id as "senderId",
-             message_type as "messageType", content, content_type as "contentType",
-             status, external_source_id as "externalSourceId",
-             content_attributes as "contentAttributes", created_at as "createdAt", updated_at as "updatedAt"
+      SELECT ${MESSAGE_COLUMNS}
       FROM messages
       WHERE external_source_id = ${externalId}
       LIMIT 1
@@ -44,10 +47,7 @@ export class ConversationQueryService {
     options?: GetConversationOptions,
   ): Promise<ConversationDetail | null> {
     const rows = await sql`
-      SELECT c.id, c.inbox_id as "inboxId", c.contact_id as "contactId",
-             c.contact_inbox_id as "contactInboxId", c.active_ticket_id as "activeTicketId",
-             c.unread_count as "unreadCount", c.last_message_at as "lastMessageAt",
-             c.created_at as "createdAt", c.updated_at as "updatedAt",
+      SELECT ${conversationColumns('c')},
              i.name as "inboxName", i.channel_type as "channelType"
       FROM conversations c
       LEFT JOIN inboxes i ON c.inbox_id = i.id
@@ -69,10 +69,7 @@ export class ConversationQueryService {
     let contact: Contact | null = null
     if (conversation.contactId) {
       const cRows = await sql`
-        SELECT id, company_id as "companyId", name, phone_number as "phoneNumber", email, avatar_url as "avatarUrl",
-               identifier, contact_type as "contactType", custom_attributes as "customAttributes",
-               additional_attributes as "additionalAttributes", blocked,
-               created_at as "createdAt", updated_at as "updatedAt"
+        SELECT ${CONTACT_COLUMNS}
         FROM contacts WHERE id = ${conversation.contactId} LIMIT 1
       `
       if (cRows && cRows.length > 0) {
@@ -98,15 +95,8 @@ export class ConversationQueryService {
       if (cursorRows && cursorRows.length > 0) {
         const cursorCreatedAt = cursorRows[0].createdAt
         dbMsgs = await sql`
-          SELECT m.id, m.conversation_id as "conversationId", m.ticket_id as "ticketId",
-                 t.display_id as "ticketDisplayId",
-                 m.sender_id as "senderId", m.sender_type as "senderType",
-                 COALESCE(u.display_name, m.content_attributes->>'senderName', CASE WHEN m.sender_type = 'bot' THEN 'Bot Otomasi' ELSE NULL END) as "senderName",
-                 u.email as "senderEmail",
-                 m.message_type as "messageType", m.content_type as "contentType",
-                 m.content, m.status, m.external_source_id as "externalSourceId",
-                 m.content_attributes as "contentAttributes",
-                 m.created_at as "createdAt", m.updated_at as "updatedAt"
+          SELECT ${messageColumnsWithUser('m', 'u')},
+                 t.display_id as "ticketDisplayId"
           FROM messages m
           LEFT JOIN tickets t ON m.ticket_id = t.id
           LEFT JOIN users u ON m.sender_id = u.id
@@ -118,15 +108,8 @@ export class ConversationQueryService {
       }
     } else {
       dbMsgs = await sql`
-        SELECT m.id, m.conversation_id as "conversationId", m.ticket_id as "ticketId",
-               t.display_id as "ticketDisplayId",
-               m.sender_id as "senderId", m.sender_type as "senderType",
-               COALESCE(u.display_name, m.content_attributes->>'senderName', CASE WHEN m.sender_type = 'bot' THEN 'Bot Otomasi' ELSE NULL END) as "senderName",
-               u.email as "senderEmail",
-               m.message_type as "messageType", m.content_type as "contentType",
-               m.content, m.status, m.external_source_id as "externalSourceId",
-               m.content_attributes as "contentAttributes",
-               m.created_at as "createdAt", m.updated_at as "updatedAt"
+        SELECT ${messageColumnsWithUser('m', 'u')},
+               t.display_id as "ticketDisplayId"
         FROM messages m
         LEFT JOIN tickets t ON m.ticket_id = t.id
         LEFT JOIN users u ON m.sender_id = u.id
@@ -181,8 +164,41 @@ export class ConversationQueryService {
       }
     }
 
+    const { isGroup, groupJid } = conversationGroupService.detectGroupConversation(
+      conversation as Record<string, unknown>,
+      contact,
+    )
+
+    let enrichedConversation = conversation
+    if (isGroup) {
+      enrichedConversation = {
+        ...conversation,
+        isGroup: true,
+        groupJid,
+      } as ConversationWithInbox
+    }
+
+    if (
+      isGroup ||
+      messages.some((m) =>
+        Boolean(m.isGroup || (m.contentAttributes as Record<string, unknown> | undefined)?.isGroup),
+      )
+    ) {
+      messages = messages.map((m) => {
+        const attrs = (m.contentAttributes || {}) as Record<string, unknown>
+        const msgIsGroup = Boolean(m.isGroup || attrs.isGroup || isGroup)
+        return {
+          ...m,
+          isGroup: msgIsGroup,
+          groupJid: m.groupJid || (attrs.groupJid as string | undefined) || groupJid,
+          participant: m.participant || (attrs.participant as string | undefined),
+          participantName: m.participantName || (attrs.participantName as string | undefined),
+        }
+      })
+    }
+
     return {
-      conversation,
+      conversation: enrichedConversation,
       contact,
       activeTicket,
       messages,
@@ -217,10 +233,7 @@ export class ConversationQueryService {
   > {
     const rows = filter?.inboxId
       ? await sql`
-          SELECT c.id, c.inbox_id as "inboxId", c.contact_id as "contactId",
-                 c.contact_inbox_id as "contactInboxId", c.active_ticket_id as "activeTicketId",
-                 c.unread_count as "unreadCount", c.last_message_at as "lastMessageAt",
-                 c.created_at as "createdAt", c.updated_at as "updatedAt",
+          SELECT ${conversationColumns('c')},
                  i.name as "inboxName", i.channel_type as "channelType"
           FROM conversations c
           LEFT JOIN inboxes i ON c.inbox_id = i.id
@@ -228,10 +241,7 @@ export class ConversationQueryService {
           ORDER BY c.last_message_at DESC
         `
       : await sql`
-          SELECT c.id, c.inbox_id as "inboxId", c.contact_id as "contactId",
-                 c.contact_inbox_id as "contactInboxId", c.active_ticket_id as "activeTicketId",
-                 c.unread_count as "unreadCount", c.last_message_at as "lastMessageAt",
-                 c.created_at as "createdAt", c.updated_at as "updatedAt",
+          SELECT ${conversationColumns('c')},
                  i.name as "inboxName", i.channel_type as "channelType"
           FROM conversations c
           LEFT JOIN inboxes i ON c.inbox_id = i.id
@@ -250,10 +260,7 @@ export class ConversationQueryService {
       let contact: Contact | null = null
       if (conv.contactId) {
         const cRows = await sql`
-          SELECT id, company_id as "companyId", name, phone_number as "phoneNumber", email, avatar_url as "avatarUrl",
-                 identifier, contact_type as "contactType", custom_attributes as "customAttributes",
-                 additional_attributes as "additionalAttributes", blocked,
-                 created_at as "createdAt", updated_at as "updatedAt"
+          SELECT ${CONTACT_COLUMNS}
           FROM contacts WHERE id = ${conv.contactId} LIMIT 1
         `
         if (cRows && cRows.length > 0) {
@@ -316,11 +323,7 @@ export class ConversationQueryService {
 
   async listContacts(): Promise<Contact[]> {
     const rows = await sql`
-      SELECT
-        id, company_id as "companyId", name, phone_number as "phoneNumber", email, avatar_url as "avatarUrl",
-        identifier, contact_type as "contactType", custom_attributes as "customAttributes",
-        additional_attributes as "additionalAttributes", blocked,
-        created_at as "createdAt", updated_at as "updatedAt"
+      SELECT ${CONTACT_COLUMNS}
       FROM contacts
       ORDER BY created_at DESC
     `

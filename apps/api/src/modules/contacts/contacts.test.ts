@@ -7,8 +7,8 @@ const AUTH_HEADER = {
 }
 
 describe('Contacts Module — Update & CRM API (Task /contacts)', () => {
-  beforeEach(() => {
-    resetContactStore()
+  beforeEach(async () => {
+    await resetContactStore()
   })
 
   it('GET /api/v1/contacts should reject requests without Authorization header with 401', async () => {

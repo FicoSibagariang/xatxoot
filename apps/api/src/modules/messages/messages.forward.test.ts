@@ -9,8 +9,8 @@ const AUTH_HEADER = {
 }
 
 describe('API Forward Message Processing (Issue #300 - TDD RED)', () => {
-  beforeEach(() => {
-    resetConversationStore()
+  beforeEach(async () => {
+    await resetConversationStore()
     resetMessageStore()
   })
 

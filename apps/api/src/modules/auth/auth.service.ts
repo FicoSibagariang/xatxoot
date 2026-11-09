@@ -19,7 +19,7 @@ export interface AuthResult {
 export async function resetAuthStore(): Promise<void> {
   await sql`DELETE FROM audit_logs WHERE auditable_type = 'organizations'`
   await sql`DELETE FROM user_sessions`
-  await sql`DELETE FROM users WHERE email = 'admin@acme.corp'`
+  await sql`DELETE FROM users WHERE email IN ('admin@acme.corp', 'owner@xatxoot.corp')`
   await sql`DELETE FROM organizations`
 }
 

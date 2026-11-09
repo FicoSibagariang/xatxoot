@@ -39,7 +39,7 @@ describe('AI Copilot Services (Task 5.10 - apps/api)', () => {
         conversationId: conv.id,
         ticketId: null,
         senderType: 'user',
-        senderId: 'agent-1',
+        senderId: crypto.randomUUID(),
         messageType: 'outgoing',
         content: 'Halo! Apakah muncul pesan error ukuran file melebihi 5MB?',
         contentType: 'text',

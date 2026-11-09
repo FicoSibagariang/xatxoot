@@ -36,14 +36,14 @@ describe('End-to-End (E2E) Smoke Testing Suite — Critical User Journeys (Issue
 
   describe('1. Inisialisasi Organisasi & Autentikasi Pengguna', () => {
     it('should setup initial organization singleton and owner account via POST /api/v1/auth/setup', async () => {
-      resetAuthStore()
-      resetInboxStore()
-      resetConversationStore()
-      resetMessageStore()
-      resetTicketStore()
-      resetAssignmentStore()
-      resetCsatStore()
-      resetCopilotStore()
+      await resetAuthStore()
+      await resetInboxStore()
+      await resetConversationStore()
+      await resetMessageStore()
+      await resetTicketStore()
+      await resetAssignmentStore()
+      await resetCsatStore()
+      await resetCopilotStore()
 
       const res = await app.request('/api/v1/auth/setup', {
         method: 'POST',

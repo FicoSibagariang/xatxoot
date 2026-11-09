@@ -11,7 +11,7 @@ describe('Widget Inbox Customization Synchronization (Task 1.31 - apps/api)', ()
   let inboxId: string
 
   beforeEach(async () => {
-    resetInboxStore()
+    await resetInboxStore()
 
     websiteToken = 'wt_custom_sync_99'
     const created = await inboxService.createInbox({

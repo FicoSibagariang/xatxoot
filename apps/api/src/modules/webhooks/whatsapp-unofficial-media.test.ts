@@ -8,7 +8,7 @@ describe('WhatsApp Unofficial Webhook - Media / Image Inbound (TDD RED)', () => 
   let inboxId: string
 
   beforeEach(async () => {
-    resetConversationStore()
+    await resetConversationStore()
     resetMessageStore()
 
     const { inbox } = await inboxService.createInbox({

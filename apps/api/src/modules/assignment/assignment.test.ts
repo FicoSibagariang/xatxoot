@@ -323,12 +323,12 @@ describe('Assignment Module - Round-Robin Engine (Core Logic)', () => {
 })
 
 describe('Assignment Module - Inbound Message Automation Integration', () => {
-  beforeEach(() => {
-    resetAssignmentStore()
-    resetTicketStore()
-    resetConversationStore()
-    resetInboxStore()
-    resetTeamStore()
+  beforeEach(async () => {
+    await resetAssignmentStore()
+    await resetTicketStore()
+    await resetConversationStore()
+    await resetInboxStore()
+    await resetTeamStore()
   })
 
   it('should automatically round-robin assign newly created tickets during inbound message handling when inbox auto-assign is enabled', async () => {
