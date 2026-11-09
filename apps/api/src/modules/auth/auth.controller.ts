@@ -89,9 +89,11 @@ export async function handleLogout(c: Context) {
   }
 }
 
+import { config } from '../../config'
+
 export async function handleGoogleCallback(c: Context) {
   const code = c.req.query('code')
-  const allowedDomainsEnv = process.env.GOOGLE_ALLOWED_DOMAINS
+  const allowedDomainsEnv = config.GOOGLE_ALLOWED_DOMAINS
   const allowedDomains = allowedDomainsEnv
     ? allowedDomainsEnv.split(',').map((d) => d.trim())
     : ['example.com', 'acme.corp', 'nusa.net.id']

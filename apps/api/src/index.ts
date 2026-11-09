@@ -1,4 +1,5 @@
 import { Hono } from 'hono'
+import { config } from './config'
 import { reportRoutes } from './modules/analytics/analytics.routes'
 import { assignmentRoutes } from './modules/assignment/assignment.routes'
 import { authRoutes } from './modules/auth/auth.routes'
@@ -90,8 +91,8 @@ app.route('/api/v1/sso', ssoRoutes)
 app.route('/api/v1/capacity', capacityRoutes)
 app.route('/api/v1/media', mediaRoutes)
 
-const apiPort = Number(process.env.PORT_API || process.env.PORT || 3000)
-const apiHost = process.env.HOST || '0.0.0.0'
+const apiPort = config.PORT_API
+const apiHost = config.HOST
 ;(app as unknown as { port: number; hostname: string }).port = apiPort
 ;(app as unknown as { port: number; hostname: string }).hostname = apiHost
 

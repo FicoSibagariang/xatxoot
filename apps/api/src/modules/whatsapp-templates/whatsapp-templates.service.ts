@@ -10,6 +10,7 @@ import {
   CreateWhatsAppTemplateInputSchema,
   SendWhatsAppTemplateMessageInputSchema,
 } from '@xatxoot/shared'
+import { config } from '../../config'
 import { parseJsonField, sql, toIsoString } from '../../db'
 import { conversationService } from '../conversations/conversations.service'
 import { inboxService } from '../inboxes/inboxes.service'
@@ -178,8 +179,7 @@ export class WhatsAppTemplateService {
       throw new Error('accessToken wajib diisi untuk sinkronisasi template')
     }
 
-    const baseUrl =
-      options.baseUrl || process.env.WHATSAPP_GRAPH_API_URL || 'https://graph.facebook.com'
+    const baseUrl = options.baseUrl || config.WHATSAPP_GRAPH_API_URL || 'https://graph.facebook.com'
 
     const endpoint = `${baseUrl}/v18.0/${wabaId}/message_templates`
 
@@ -296,10 +296,10 @@ export class WhatsAppTemplateService {
     }
 
     if (!phoneNumberId) {
-      phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID || 'default_phone_id'
+      phoneNumberId = config.WHATSAPP_PHONE_NUMBER_ID || 'default_phone_id'
     }
     if (!accessToken) {
-      accessToken = process.env.WHATSAPP_CLOUD_ACCESS_TOKEN || 'valid-meta-access-token'
+      accessToken = config.WHATSAPP_CLOUD_ACCESS_TOKEN || 'valid-meta-access-token'
     }
 
     // 3. Verify template is registered and APPROVED
@@ -331,7 +331,7 @@ export class WhatsAppTemplateService {
     }
 
     const baseUrl =
-      options?.baseUrl || process.env.WHATSAPP_GRAPH_API_URL || 'https://graph.facebook.com'
+      options?.baseUrl || config.WHATSAPP_GRAPH_API_URL || 'https://graph.facebook.com'
 
     const endpoint = `${baseUrl}/v18.0/${phoneNumberId}/messages`
 

@@ -1,27 +1,16 @@
-import { existsSync, readFileSync } from 'node:fs'
-import { join } from 'node:path'
 import { SQL } from 'bun'
+import { config } from '../config'
 
 export const DEFAULT_DATABASE_URL = 'postgresql://xatxoot:xatxoot_secret@localhost:5432/xatxoot_dev'
 
 export function resolveDatabaseUrl(url?: string): string {
   if (url) return url
   if (process.env.DATABASE_URL) return process.env.DATABASE_URL
-
-  const rootEnvPath = join(import.meta.dir, '..', '..', '..', '..', '.env')
-  if (existsSync(rootEnvPath)) {
-    try {
-      const content = readFileSync(rootEnvPath, 'utf-8')
-      const match = content.match(/^DATABASE_URL=(.+)$/m)
-      if (match?.[1]) {
-        return match[1].trim().replace(/^["']|["']$/g, '')
-      }
-    } catch {
-      // ignore
-    }
+  try {
+    return config.DATABASE_URL || DEFAULT_DATABASE_URL
+  } catch {
+    return DEFAULT_DATABASE_URL
   }
-
-  return DEFAULT_DATABASE_URL
 }
 
 export function createDb(url?: string): SQL {

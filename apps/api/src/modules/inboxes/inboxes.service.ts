@@ -6,6 +6,7 @@ import {
   type Inbox,
   SenderNameTypeSchema,
 } from '@xatxoot/shared'
+import { config } from '../../config'
 import { sql, toValidUuid } from '../../db'
 
 export type {
@@ -586,7 +587,7 @@ export class InboxService {
 
     const sessionId = String(channelDetails.sessionId)
     const channelId = String(channelDetails.id)
-    const gatewayPort = Number(process.env.PORT_GATEWAY || 8801)
+    const gatewayPort = Number(config.PORT_GATEWAY || 8801)
     const gatewayUrl = `http://127.0.0.1:${gatewayPort}`
 
     try {
@@ -684,7 +685,7 @@ export class InboxService {
     channel.connectionStatus = 'disconnected'
     channel.qrCode = null
 
-    const gatewayPort = Number(process.env.PORT_GATEWAY || 8801)
+    const gatewayPort = Number(config.PORT_GATEWAY || 8801)
     const gatewayUrl = `http://127.0.0.1:${gatewayPort}`
     try {
       await fetch(`${gatewayUrl}/api/sessions/${channel.sessionId}/disconnect`, {
