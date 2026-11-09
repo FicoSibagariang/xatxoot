@@ -106,8 +106,19 @@ export class ConversationService {
     return this.query.getConversationById(id, options)
   }
 
+  async getConversationDetail(
+    id: string,
+    options?: GetConversationOptions,
+  ): Promise<ConversationDetail | null> {
+    return this.query.getConversationById(id, options)
+  }
+
   async markConversationAsRead(id: string): Promise<boolean> {
     return this.query.markConversationAsRead(id)
+  }
+
+  async archiveConversation(id: string): Promise<boolean> {
+    return this.query.archiveConversation(id)
   }
 
   async listConversations(filter?: { inboxId?: string }): Promise<

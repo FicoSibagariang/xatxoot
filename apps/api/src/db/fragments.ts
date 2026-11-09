@@ -145,6 +145,7 @@ export function mapRowToContact(raw: unknown): Contact {
     customAttributes,
     additionalAttributes,
     blocked: Boolean(row.blocked),
+    deletedAt: toIsoString(row.deletedAt ?? row.deleted_at),
     createdAt: toIsoString(row.createdAt ?? row.created_at) || new Date().toISOString(),
     updatedAt: toIsoString(row.updatedAt ?? row.updated_at) || new Date().toISOString(),
   }
@@ -170,6 +171,7 @@ export function mapRowToConversation(raw: unknown): Conversation {
     inboxName: (row.inboxName ?? row.inbox_name ?? null) as string | null,
     channelType: (row.channelType ?? row.channel_type ?? null) as string | null,
     channel: (row.channel ?? row.channel_type ?? null) as string | null,
+    deletedAt: toIsoString(row.deletedAt ?? row.deleted_at),
     createdAt: toIsoString(row.createdAt ?? row.created_at) || new Date().toISOString(),
     updatedAt: toIsoString(row.updatedAt ?? row.updated_at) || new Date().toISOString(),
   }
