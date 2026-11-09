@@ -38,6 +38,9 @@ describe('Centralized Configuration & Validation (apps/api/src/config.ts)', () =
     expect(parsed.REDIS_URL).toBe('redis://localhost:6379')
     expect(parsed.NODE_ENV).toBe('development')
     expect(parsed.GOOGLE_CALLBACK_URL).toBe('http://localhost:3000/api/v1/auth/google/callback')
+    expect(parsed.S3_BUCKET).toBe('xatxoot-media')
+    expect(parsed.S3_REGION).toBe('us-east-1')
+    expect(parsed.S3_FORCE_PATH_STYLE).toBe('true')
   })
 
   it('should fail-fast and throw descriptive error when DATABASE_URL is missing or empty', () => {

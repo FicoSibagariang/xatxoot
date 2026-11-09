@@ -1,11 +1,13 @@
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { type WAMessage, downloadMediaMessage } from '@whiskeysockets/baileys'
+import { type S3StorageService, createStorageService } from '@xatxoot/shared'
 import pino from 'pino'
 
 export interface MediaManagerOptions {
   mediaDir?: string
   mediaBaseUrl?: string
+  storageService?: S3StorageService
 }
 
 export interface SavedMediaInfo {
@@ -34,10 +36,12 @@ const MIME_EXTENSION_MAP: Record<string, string> = {
 export class MediaManager {
   readonly mediaDir: string
   readonly mediaBaseUrl: string
+  readonly storageService: S3StorageService
 
   constructor(options: MediaManagerOptions = {}) {
     this.mediaDir = options.mediaDir || process.env.WA_GATEWAY_MEDIA_DIR || './data/media'
     this.mediaBaseUrl = options.mediaBaseUrl || process.env.WA_GATEWAY_MEDIA_URL || '/api/v1/media'
+    this.storageService = options.storageService || createStorageService()
 
     if (!existsSync(this.mediaDir)) {
       try {
@@ -71,9 +75,24 @@ export class MediaManager {
     mimeType: string,
   ): Promise<SavedMediaInfo> {
     const filename = this.generateFilename(sessionId, messageId, mimeType)
-    const filePath = join(this.mediaDir, filename)
 
-    writeFileSync(filePath, buffer)
+    // 1. Upload to S3 / MinIO Object Storage
+    try {
+      await this.storageService.uploadFile(filename, buffer, mimeType)
+    } catch (err) {
+      console.warn(
+        `[wa-gateway] [${sessionId}] Failed to upload media to S3 for msg ${messageId}:`,
+        (err as Error).message,
+      )
+    }
+
+    // 2. Simpan cache lokal jika direktori tersedia
+    try {
+      const filePath = join(this.mediaDir, filename)
+      writeFileSync(filePath, buffer)
+    } catch {
+      // Local disk write is non-fatal when S3 is active
+    }
 
     return {
       filename,
