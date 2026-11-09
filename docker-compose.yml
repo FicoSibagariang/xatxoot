@@ -99,6 +99,7 @@ services:
       - PORT_GATEWAY=3001
       - REDIS_URL=redis://redis:6379
       - WA_GATEWAY_SESSION_PATH=/data/baileys_auth
+      - WA_SESSION_ENCRYPTION_KEY=${WA_SESSION_ENCRYPTION_KEY:-xatxoot_dev_session_secret_32bytes}
       - S3_ENDPOINT=http://minio:9000
       - S3_REGION=us-east-1
       - S3_BUCKET=xatxoot-media

@@ -53,6 +53,8 @@ export class BaileysConnectionManager {
       await session.disconnect()
       this.sessions.delete(sessionId)
     }
+    const { deleteEncryptedSession } = await import('./baileys-encrypted-auth-adapter')
+    await deleteEncryptedSession(sessionId).catch(() => {})
   }
 
   getAllSessions(): BaileysSession[] {
