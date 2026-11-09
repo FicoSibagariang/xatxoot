@@ -107,6 +107,8 @@ export async function resetInboxStore(): Promise<void> {
   await sql`DELETE FROM conversations`
   await sql`DELETE FROM contact_inboxes`
   await sql`DELETE FROM inbox_members`
+  await sql`DELETE FROM inbox_guardrails`
+  await sql`DELETE FROM inbox_extras`
   await sql`DELETE FROM inboxes`
   await sql`DELETE FROM channels_whatsapp_cloud`
   await sql`DELETE FROM channels_whatsapp_unofficial`
@@ -421,15 +423,16 @@ export class InboxService {
 
   async listInboxes(): Promise<Inbox[]> {
     const rows = await sql`
-      SELECT id, name, channel_type as "channelType", channel_id as "channelId",
-             enable_auto_assign as "enableAutoAssign", greeting_enabled as "greetingEnabled",
-             greeting_message as "greetingMessage", working_hours_enabled as "workingHoursEnabled",
-             working_hours as "workingHours", out_of_office_message as "outOfOfficeMessage",
-             lock_to_single_conv as "lockToSingleConv", sender_name_type as "senderNameType",
-             deleted_at as "deletedAt", created_at as "createdAt", updated_at as "updatedAt"
-      FROM inboxes
-      WHERE deleted_at IS NULL
-      ORDER BY created_at DESC
+      SELECT i.id, i.name, i.channel_type as "channelType", i.channel_id as "channelId",
+             i.enable_auto_assign as "enableAutoAssign", i.greeting_enabled as "greetingEnabled",
+             i.greeting_message as "greetingMessage", i.working_hours_enabled as "workingHoursEnabled",
+             i.working_hours as "workingHours", i.out_of_office_message as "outOfOfficeMessage",
+             i.lock_to_single_conv as "lockToSingleConv", i.sender_name_type as "senderNameType",
+             ie.deleted_at as "deletedAt", i.created_at as "createdAt", i.updated_at as "updatedAt"
+      FROM inboxes i
+      LEFT JOIN inbox_extras ie ON i.id = ie.id
+      WHERE ie.deleted_at IS NULL
+      ORDER BY i.created_at DESC
     `
     return rows as Inbox[]
   }
@@ -535,7 +538,11 @@ export class InboxService {
     if (!existing) return false
 
     const now = new Date().toISOString()
-    await sql`UPDATE inboxes SET deleted_at = ${now}, updated_at = ${now} WHERE id = ${id}`
+    await sql`
+      INSERT INTO inbox_extras (id, deleted_at)
+      VALUES (${id}, ${now})
+      ON CONFLICT (id) DO UPDATE SET deleted_at = ${now}
+    `
     return true
   }
 
@@ -543,6 +550,13 @@ export class InboxService {
     const existing = await this.getInboxById(id)
     if (!existing) return false
 
+    const convRows = await sql`SELECT 1 FROM conversations WHERE inbox_id = ${id} LIMIT 1`
+    if (convRows.length > 0) {
+      throw new Error('violates foreign key constraint: inbox has existing conversations')
+    }
+
+    await sql`DELETE FROM inbox_guardrails WHERE inbox_id = ${id}`
+    await sql`DELETE FROM inbox_extras WHERE id = ${id}`
     await sql`DELETE FROM inboxes WHERE id = ${id}`
     if (existing.inbox.channelType === 'whatsapp_cloud') {
       await sql`DELETE FROM channels_whatsapp_cloud WHERE id = ${existing.inbox.channelId}`

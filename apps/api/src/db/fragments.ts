@@ -28,7 +28,6 @@ export function contactColumns(prefix = ''): ReturnType<typeof sql.unsafe> {
     ${p}custom_attributes as "customAttributes",
     ${p}additional_attributes as "additionalAttributes",
     ${p}blocked,
-    ${p}deleted_at as "deletedAt",
     ${p}created_at as "createdAt",
     ${p}updated_at as "updatedAt"
   `)
@@ -45,7 +44,6 @@ export function conversationColumns(prefix = ''): ReturnType<typeof sql.unsafe> 
     ${p}active_ticket_id as "activeTicketId",
     ${p}unread_count as "unreadCount",
     ${p}last_message_at as "lastMessageAt",
-    ${p}deleted_at as "deletedAt",
     ${p}created_at as "createdAt",
     ${p}updated_at as "updatedAt"
   `)

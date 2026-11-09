@@ -1,30 +1,34 @@
 import type { Contact, CreateContactInput, UpdateContactInput } from '@xatxoot/shared'
-import { CONTACT_COLUMNS, mapRowToContact, sql } from '../../db'
+import { CONTACT_COLUMNS, contactColumns, mapRowToContact, sql } from '../../db'
 
 export async function resetContactStore(): Promise<void> {
   await sql`DELETE FROM messages`
   await sql`DELETE FROM tickets`
   await sql`DELETE FROM conversations`
   await sql`DELETE FROM contact_inboxes`
+  await sql`DELETE FROM contact_guardrails`
+  await sql`DELETE FROM contact_extras`
   await sql`DELETE FROM contacts`
 }
 
 export class ContactService {
   async listContacts(): Promise<Contact[]> {
     const rows = await sql`
-      SELECT ${CONTACT_COLUMNS}
+      SELECT ${contactColumns('contacts')}, ce.deleted_at as "deletedAt"
       FROM contacts
-      WHERE deleted_at IS NULL
-      ORDER BY updated_at DESC
+      LEFT JOIN contact_extras ce ON contacts.id = ce.id
+      WHERE ce.deleted_at IS NULL
+      ORDER BY contacts.updated_at DESC
     `
     return rows.map(mapRowToContact)
   }
 
   async getContactById(id: string): Promise<Contact | null> {
     const rows = await sql`
-      SELECT ${CONTACT_COLUMNS}
+      SELECT ${contactColumns('contacts')}, ce.deleted_at as "deletedAt"
       FROM contacts
-      WHERE id = ${id} AND deleted_at IS NULL
+      LEFT JOIN contact_extras ce ON contacts.id = ce.id
+      WHERE contacts.id = ${id} AND ce.deleted_at IS NULL
       LIMIT 1
     `
     if (rows.length > 0) {
@@ -38,7 +42,11 @@ export class ContactService {
     if (!existing) return false
 
     const now = new Date().toISOString()
-    await sql`UPDATE contacts SET deleted_at = ${now}, updated_at = ${now} WHERE id = ${id}`
+    await sql`
+      INSERT INTO contact_extras (id, deleted_at)
+      VALUES (${id}, ${now})
+      ON CONFLICT (id) DO UPDATE SET deleted_at = ${now}
+    `
     return true
   }
 

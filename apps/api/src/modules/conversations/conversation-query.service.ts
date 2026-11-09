@@ -48,10 +48,12 @@ export class ConversationQueryService {
   ): Promise<ConversationDetail | null> {
     const rows = await sql`
       SELECT ${conversationColumns('c')},
+             ce.deleted_at as "deletedAt",
              i.name as "inboxName", i.channel_type as "channelType"
       FROM conversations c
       LEFT JOIN inboxes i ON c.inbox_id = i.id
-      WHERE c.id = ${id} AND c.deleted_at IS NULL
+      LEFT JOIN conversation_extras ce ON c.id = ce.id
+      WHERE c.id = ${id} AND ce.deleted_at IS NULL
       LIMIT 1
     `
     if (!rows || rows.length === 0) {
@@ -234,18 +236,22 @@ export class ConversationQueryService {
     const rows = filter?.inboxId
       ? await sql`
           SELECT ${conversationColumns('c')},
+                 ce.deleted_at as "deletedAt",
                  i.name as "inboxName", i.channel_type as "channelType"
           FROM conversations c
           LEFT JOIN inboxes i ON c.inbox_id = i.id
-          WHERE c.inbox_id = ${filter.inboxId} AND c.deleted_at IS NULL
+          LEFT JOIN conversation_extras ce ON c.id = ce.id
+          WHERE c.inbox_id = ${filter.inboxId} AND ce.deleted_at IS NULL
           ORDER BY c.last_message_at DESC
         `
       : await sql`
           SELECT ${conversationColumns('c')},
+                 ce.deleted_at as "deletedAt",
                  i.name as "inboxName", i.channel_type as "channelType"
           FROM conversations c
           LEFT JOIN inboxes i ON c.inbox_id = i.id
-          WHERE c.deleted_at IS NULL
+          LEFT JOIN conversation_extras ce ON c.id = ce.id
+          WHERE ce.deleted_at IS NULL
           ORDER BY c.last_message_at DESC
         `
 
@@ -352,7 +358,11 @@ export class ConversationQueryService {
     const existing = await this.getConversationById(id)
     if (!existing) return false
     const now = new Date().toISOString()
-    await sql`UPDATE conversations SET deleted_at = ${now}, updated_at = ${now} WHERE id = ${id}`
+    await sql`
+      INSERT INTO conversation_extras (id, deleted_at)
+      VALUES (${id}, ${now})
+      ON CONFLICT (id) DO UPDATE SET deleted_at = ${now}
+    `
     return true
   }
 }
