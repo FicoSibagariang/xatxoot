@@ -155,6 +155,7 @@ export const InboxSchema = z.object({
   outOfOfficeMessage: z.string().nullable().optional(),
   lockToSingleConv: z.boolean(),
   senderNameType: SenderNameTypeSchema,
+  deletedAt: z.string().or(z.date()).nullable().optional(),
   createdAt: z.string().or(z.date()),
   updatedAt: z.string().or(z.date()),
 })

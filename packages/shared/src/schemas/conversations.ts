@@ -60,6 +60,7 @@ export const ContactSchema = z.object({
   customAttributes: z.record(z.any()),
   additionalAttributes: z.record(z.any()),
   blocked: z.boolean(),
+  deletedAt: z.string().or(z.date()).nullable().optional(),
   createdAt: z.string().or(z.date()),
   updatedAt: z.string().or(z.date()),
 })
@@ -97,6 +98,7 @@ export const ConversationSchema = z.object({
   inboxName: z.string().nullable().optional(),
   channelType: z.string().nullable().optional(),
   channel: z.string().nullable().optional(),
+  deletedAt: z.string().or(z.date()).nullable().optional(),
   createdAt: z.string().or(z.date()),
   updatedAt: z.string().or(z.date()),
 })

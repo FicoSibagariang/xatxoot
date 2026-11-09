@@ -28,6 +28,7 @@ export function contactColumns(prefix = ''): ReturnType<typeof sql.unsafe> {
     ${p}custom_attributes as "customAttributes",
     ${p}additional_attributes as "additionalAttributes",
     ${p}blocked,
+    ${p}deleted_at as "deletedAt",
     ${p}created_at as "createdAt",
     ${p}updated_at as "updatedAt"
   `)
@@ -44,6 +45,7 @@ export function conversationColumns(prefix = ''): ReturnType<typeof sql.unsafe> 
     ${p}active_ticket_id as "activeTicketId",
     ${p}unread_count as "unreadCount",
     ${p}last_message_at as "lastMessageAt",
+    ${p}deleted_at as "deletedAt",
     ${p}created_at as "createdAt",
     ${p}updated_at as "updatedAt"
   `)
@@ -145,6 +147,7 @@ export function mapRowToContact(raw: unknown): Contact {
     customAttributes,
     additionalAttributes,
     blocked: Boolean(row.blocked),
+    deletedAt: toIsoString(row.deletedAt ?? row.deleted_at),
     createdAt: toIsoString(row.createdAt ?? row.created_at) || new Date().toISOString(),
     updatedAt: toIsoString(row.updatedAt ?? row.updated_at) || new Date().toISOString(),
   }
@@ -170,6 +173,7 @@ export function mapRowToConversation(raw: unknown): Conversation {
     inboxName: (row.inboxName ?? row.inbox_name ?? null) as string | null,
     channelType: (row.channelType ?? row.channel_type ?? null) as string | null,
     channel: (row.channel ?? row.channel_type ?? null) as string | null,
+    deletedAt: toIsoString(row.deletedAt ?? row.deleted_at),
     createdAt: toIsoString(row.createdAt ?? row.created_at) || new Date().toISOString(),
     updatedAt: toIsoString(row.updatedAt ?? row.updated_at) || new Date().toISOString(),
   }

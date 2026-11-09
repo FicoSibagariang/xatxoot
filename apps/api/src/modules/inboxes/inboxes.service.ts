@@ -102,6 +102,10 @@ export interface CreateInboxDto {
 }
 
 export async function resetInboxStore(): Promise<void> {
+  await sql`DELETE FROM messages`
+  await sql`DELETE FROM tickets`
+  await sql`DELETE FROM conversations`
+  await sql`DELETE FROM contact_inboxes`
   await sql`DELETE FROM inbox_members`
   await sql`DELETE FROM inboxes`
   await sql`DELETE FROM channels_whatsapp_cloud`
@@ -422,8 +426,9 @@ export class InboxService {
              greeting_message as "greetingMessage", working_hours_enabled as "workingHoursEnabled",
              working_hours as "workingHours", out_of_office_message as "outOfOfficeMessage",
              lock_to_single_conv as "lockToSingleConv", sender_name_type as "senderNameType",
-             created_at as "createdAt", updated_at as "updatedAt"
+             deleted_at as "deletedAt", created_at as "createdAt", updated_at as "updatedAt"
       FROM inboxes
+      WHERE deleted_at IS NULL
       ORDER BY created_at DESC
     `
     return rows as Inbox[]
@@ -523,6 +528,15 @@ export class InboxService {
     }
 
     return updated
+  }
+
+  async archiveInbox(id: string): Promise<boolean> {
+    const existing = await this.getInboxById(id)
+    if (!existing) return false
+
+    const now = new Date().toISOString()
+    await sql`UPDATE inboxes SET deleted_at = ${now}, updated_at = ${now} WHERE id = ${id}`
+    return true
   }
 
   async deleteInbox(id: string): Promise<boolean> {

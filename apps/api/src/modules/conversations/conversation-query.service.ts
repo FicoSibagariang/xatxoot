@@ -51,7 +51,7 @@ export class ConversationQueryService {
              i.name as "inboxName", i.channel_type as "channelType"
       FROM conversations c
       LEFT JOIN inboxes i ON c.inbox_id = i.id
-      WHERE c.id = ${id}
+      WHERE c.id = ${id} AND c.deleted_at IS NULL
       LIMIT 1
     `
     if (!rows || rows.length === 0) {
@@ -237,7 +237,7 @@ export class ConversationQueryService {
                  i.name as "inboxName", i.channel_type as "channelType"
           FROM conversations c
           LEFT JOIN inboxes i ON c.inbox_id = i.id
-          WHERE c.inbox_id = ${filter.inboxId}
+          WHERE c.inbox_id = ${filter.inboxId} AND c.deleted_at IS NULL
           ORDER BY c.last_message_at DESC
         `
       : await sql`
@@ -245,6 +245,7 @@ export class ConversationQueryService {
                  i.name as "inboxName", i.channel_type as "channelType"
           FROM conversations c
           LEFT JOIN inboxes i ON c.inbox_id = i.id
+          WHERE c.deleted_at IS NULL
           ORDER BY c.last_message_at DESC
         `
 
@@ -345,6 +346,14 @@ export class ConversationQueryService {
   }): Promise<{ message: Message } | null> {
     const { messageService } = await import('../messages/messages.service')
     return messageService.revokeMessage(params)
+  }
+
+  async archiveConversation(id: string): Promise<boolean> {
+    const existing = await this.getConversationById(id)
+    if (!existing) return false
+    const now = new Date().toISOString()
+    await sql`UPDATE conversations SET deleted_at = ${now}, updated_at = ${now} WHERE id = ${id}`
+    return true
   }
 }
 
