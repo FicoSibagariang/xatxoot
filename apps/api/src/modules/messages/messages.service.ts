@@ -1,6 +1,7 @@
 import type { Attachment, Message, MessageContentType, MessageStatus } from '@xatxoot/shared'
 import { config } from '../../config'
 import { MESSAGE_COLUMNS, mapRowToMessage, messageColumnsWithUser, sql } from '../../db'
+import { type WaOutboundJobData, waOutboundQueue } from '../../queue/wa-outbound-queue'
 import { conversationService } from '../conversations/conversations.service'
 import { type WhatsAppUnofficialChannelData, inboxService } from '../inboxes/inboxes.service'
 import { realtimeService } from '../realtime/realtime.service'
@@ -320,32 +321,7 @@ export class MessageService {
 
     messageStore.queuedBaileysJobs.push(job)
 
-    // Forward to wa-gateway HTTP endpoint asynchronously so caller is never blocked
-    const gatewayPort = Number(config.PORT_GATEWAY || 8801)
-    fetch(`http://127.0.0.1:${gatewayPort}/api/messages/send`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(params),
-      signal: AbortSignal.timeout(10000),
-    })
-      .then(async (res) => {
-        if (res.ok) {
-          const data = (await res.json()) as { success: boolean; externalMessageId?: string }
-          if (data?.externalMessageId && params.messageId) {
-            await sql`
-              UPDATE messages
-              SET external_source_id = ${data.externalMessageId}
-              WHERE id = ${params.messageId}
-            `
-          }
-        }
-      })
-      .catch((err) => {
-        console.warn(
-          '[api] Could not immediately forward message to wa-gateway:',
-          (err as Error).message,
-        )
-      })
+    await waOutboundQueue.addOutboundJob(params as WaOutboundJobData)
 
     return { jobId: params.jobId }
   }
