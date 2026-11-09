@@ -7,11 +7,13 @@
     "dev": "bun --env-file=.env --filter '*' dev",
     "build": "bun --filter '*' build",
     "test": "bun test",
+    "test:unit": "bun test packages/shared apps/wa-gateway apps/wa-simulator",
+    "test:integration": "bun test apps/api",
+    "test:e2e": "bun test test/e2e-smoke-flow.test.ts",
     "check": "biome check .",
     "lint": "biome lint .",
     "format": "biome check --write .",
-    "db:migrate": "bun --filter '@xatxoot/api' db:migrate",
-    "test:e2e": "bun test test/e2e-smoke-flow.test.ts"
+    "db:migrate": "bun --filter '@xatxoot/api' db:migrate"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4"
