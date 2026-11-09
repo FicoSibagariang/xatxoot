@@ -1,3 +1,5 @@
+import type { Conversation, Ticket, User } from '@xatxoot/shared'
+
 export type PresenceStatus = 'online' | 'busy' | 'offline'
 
 export type LayoutNavTab =
@@ -20,7 +22,7 @@ export interface WhatsAppChannelSummary {
 
 export type ChatFilter = 'all' | 'unread' | 'assigned_me' | 'unassigned'
 
-export interface LayoutUser {
+export interface LayoutUser extends Partial<User> {
   id: string
   name: string
   email: string
@@ -37,7 +39,7 @@ export interface TicketSlaSummary {
   breachedAt?: string | Date | null
 }
 
-export interface TicketSummary {
+export interface TicketSummary extends Partial<Ticket> {
   id: string
   ticketNumber: string
   status: 'open' | 'pending' | 'resolved' | 'snoozed'
@@ -51,7 +53,7 @@ export interface TicketSummary {
   internalNoteUpdatedBy?: string | null
 }
 
-export interface ConversationItem {
+export interface ConversationItem extends Partial<Conversation> {
   id: string
   contactName: string
   contactPhone?: string

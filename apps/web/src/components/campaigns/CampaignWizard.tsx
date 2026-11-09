@@ -1,3 +1,4 @@
+import type { Contact, Inbox } from '@xatxoot/shared'
 import { type ReactNode, useMemo, useState } from 'react'
 
 // ==========================================
@@ -14,7 +15,7 @@ export type CampaignStatus =
   | 'cancelled'
   | 'failed'
 
-export interface CampaignInboxOption {
+export interface CampaignInboxOption extends Partial<Inbox> {
   id: string
   name: string
   channel: string
@@ -28,7 +29,7 @@ export interface CampaignLabelOption {
   contactsCount?: number
 }
 
-export interface CampaignContactOption {
+export interface CampaignContactOption extends Partial<Contact> {
   id: string
   name: string
   phone: string
