@@ -160,6 +160,10 @@ export async function ensureInboxExists(inboxId: string): Promise<void> {
 }
 
 export async function resetConversationStore(): Promise<void> {
+  await sql`DELETE FROM conversation_guardrails`
+  await sql`DELETE FROM conversation_extras`
+  await sql`DELETE FROM contact_guardrails`
+  await sql`DELETE FROM contact_extras`
   await sql`DELETE FROM attachments`
   await sql`DELETE FROM messages`
   await sql`DELETE FROM tickets`

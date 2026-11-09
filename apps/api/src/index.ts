@@ -1,4 +1,6 @@
 import { Hono } from 'hono'
+import { cors } from 'hono/cors'
+import { secureHeaders } from 'hono/secure-headers'
 import { config } from './config'
 import { reportRoutes } from './modules/analytics/analytics.routes'
 import { assignmentRoutes } from './modules/assignment/assignment.routes'
@@ -43,6 +45,36 @@ import { whatsappTemplateRoutes } from './modules/whatsapp-templates/whatsapp-te
 import { widgetRoutes } from './modules/widget/widget.routes'
 
 const app = new Hono()
+
+const allowedOrigins = (config.CORS_ORIGINS || '')
+  .split(',')
+  .map((o) => o.trim())
+  .filter(Boolean)
+
+app.use(
+  '*',
+  cors({
+    origin: (origin) => {
+      if (!origin) return allowedOrigins[0] || 'http://localhost:5173'
+      if (allowedOrigins.includes(origin) || allowedOrigins.includes('*')) {
+        return origin
+      }
+      return null
+    },
+    allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    credentials: true,
+  }),
+)
+
+app.use(
+  '*',
+  secureHeaders({
+    contentSecurityPolicy: {
+      defaultSrc: ["'self'"],
+    },
+  }),
+)
 
 app.get('/health', (c) => {
   return c.json({ status: 'ok' })

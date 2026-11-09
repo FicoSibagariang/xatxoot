@@ -102,6 +102,10 @@ export interface CreateInboxDto {
 }
 
 export async function resetInboxStore(): Promise<void> {
+  await sql`DELETE FROM conversation_guardrails`
+  await sql`DELETE FROM conversation_extras`
+  await sql`DELETE FROM contact_guardrails`
+  await sql`DELETE FROM contact_extras`
   await sql`DELETE FROM messages`
   await sql`DELETE FROM tickets`
   await sql`DELETE FROM conversations`

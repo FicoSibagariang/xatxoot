@@ -9,6 +9,10 @@ export const envSchema = z.object({
   PORT_GATEWAY: z.coerce.number().int().positive().default(3001),
   PORT_SIMULATOR: z.coerce.number().int().positive().default(3002),
   PORT_WEB: z.coerce.number().int().positive().default(5173),
+  CORS_ORIGINS: z
+    .string()
+    .optional()
+    .default('http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173'),
   JWT_SECRET: z.string().min(1, 'JWT_SECRET is required'),
   REFRESH_TOKEN_SECRET: z
     .string()

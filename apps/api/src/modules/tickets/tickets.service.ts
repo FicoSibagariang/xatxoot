@@ -8,6 +8,7 @@ import {
 } from '@xatxoot/shared'
 import { TICKET_COLUMNS, mapRowToTicket, sql, toValidUuid } from '../../db'
 import { analyticsService } from '../analytics/analytics.service'
+import { auditTicketBulkAssign } from '../audit/audit.service'
 import { csatService } from '../csat/csat.service'
 import { saveMessageToStore } from '../messages/message-store'
 import { realtimeService } from '../realtime/realtime.service'
@@ -564,6 +565,40 @@ export class TicketService {
     analyticsService.onFirstReply(updated, updated.assigneeId).catch(() => {})
 
     return updated
+  }
+
+  async bulkAssignTickets(
+    ticketIds: string[],
+    assigneeId: string,
+    actorId?: string | null,
+    ipAddress?: string | null,
+  ): Promise<Ticket[]> {
+    if (!ticketIds || ticketIds.length === 0) {
+      return []
+    }
+
+    const validAssigneeId = toValidUuid(assigneeId)
+    await ensureUserExists(validAssigneeId)
+
+    const updatedTickets: Ticket[] = []
+    const now = new Date().toISOString()
+
+    for (const ticketId of ticketIds) {
+      const rows = await sql`
+        UPDATE tickets
+        SET
+          assignee_id = ${validAssigneeId},
+          updated_at = ${now}
+        WHERE id = ${ticketId}
+        RETURNING ${TICKET_COLUMNS}
+      `
+      if (rows && rows.length > 0) {
+        updatedTickets.push(mapTicketRow(rows[0]))
+      }
+    }
+
+    await auditTicketBulkAssign(actorId ?? null, ticketIds, assigneeId, ipAddress)
+    return updatedTickets
   }
 }
 
