@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { AnalyticsDashboard } from '../analytics'
 import type { CannedItem, CommandItem, TimelineMessage } from '../chat'
+import { ErrorBoundary } from '../common'
 import { ContactsDashboard } from '../contacts/ContactsDashboard'
 import { type ContactDrawerData, ContactDrawer as CrmContactDrawer } from '../drawer'
 import { ChatListPanel, type ChatListPanelProps, formatTicketStatus } from './ChatListPanel'
@@ -253,30 +254,36 @@ export function WhatsAppLayout({
             onResetChannelFilter={() => onChannelFilterChange('all')}
           />
 
-          {/* Kolom 3: ConversationThread */}
-          <ConversationThread
-            conversation={selectedConversation}
-            currentUser={currentUser}
-            isDrawerOpen={isDrawerOpen}
-            messages={messages}
-            hasMore={hasMore}
-            isLoadingMore={isLoadingMore}
-            onLoadMore={onLoadMore}
-            replyingToMessage={replyingToMessage}
-            onCancelReply={onCancelReply}
-            onReplyToMessage={onReplyToMessage}
-            onForwardMessage={onForwardMessage}
-            cannedResponses={cannedResponses}
-            slashCommands={slashCommands}
-            now={now}
-            onToggleDrawer={onToggleDrawer}
-            onSendMessage={onSendMessage}
-            onAssignTicket={onAssignTicket}
-            onResolveTicket={onResolveTicket}
-            onSaveInternalNote={onSaveInternalNote}
-            onRetryMessage={onRetryMessage}
-            onOpenTemplateDialog={onOpenTemplateDialog}
-          />
+          {/* Kolom 3: ConversationThread dengan ErrorBoundary Isolasi */}
+          <ErrorBoundary
+            variant="panel"
+            fallbackTitle="Gagal memuat percakapan"
+            fallbackMessage="Percakapan ini mengalami kendala rendering pesan. Daftar percakapan Anda tetap aman."
+          >
+            <ConversationThread
+              conversation={selectedConversation}
+              currentUser={currentUser}
+              isDrawerOpen={isDrawerOpen}
+              messages={messages}
+              hasMore={hasMore}
+              isLoadingMore={isLoadingMore}
+              onLoadMore={onLoadMore}
+              replyingToMessage={replyingToMessage}
+              onCancelReply={onCancelReply}
+              onReplyToMessage={onReplyToMessage}
+              onForwardMessage={onForwardMessage}
+              cannedResponses={cannedResponses}
+              slashCommands={slashCommands}
+              now={now}
+              onToggleDrawer={onToggleDrawer}
+              onSendMessage={onSendMessage}
+              onAssignTicket={onAssignTicket}
+              onResolveTicket={onResolveTicket}
+              onSaveInternalNote={onSaveInternalNote}
+              onRetryMessage={onRetryMessage}
+              onOpenTemplateDialog={onOpenTemplateDialog}
+            />
+          </ErrorBoundary>
 
           {/* Kolom 3.5: ContactDrawer (Slide-Over CRM) */}
           <ContactDrawer

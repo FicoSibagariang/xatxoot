@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { Suspense, lazy, useEffect, useState } from 'react'
 import {
   BrowserRouter,
   MemoryRouter,
@@ -10,22 +10,42 @@ import {
   useParams,
 } from 'react-router-dom'
 import type { TimelineMessage } from './components/chat'
+import { ErrorBoundary, PageSkeleton } from './components/common'
 import { WhatsAppLayout } from './components/layout'
 import type { LayoutNavTab, LayoutUser, PresenceStatus } from './components/layout/types'
 import { AppModals } from './components/modals'
 import { INITIAL_USER } from './data/mockData'
 import { useAppModals, useConversationChat } from './hooks'
-import { AiProviderSettingsPage } from './pages/AiProviderSettingsPage'
-import { AnalyticsPage } from './pages/AnalyticsPage'
-import { AutomationRulesPage } from './pages/AutomationRulesPage'
-import { CampaignsPage } from './pages/CampaignsPage'
-import { ChannelWizardPage } from './pages/ChannelWizardPage'
-import { CsatSurveyPage } from './pages/CsatSurveyPage'
-import { EnterpriseSecurityPage } from './pages/EnterpriseSecurityPage'
-import { HelpCenterPage } from './pages/HelpCenterPage'
 import { LoginPage } from './pages/LoginPage'
-import { SetupPage } from './pages/SetupPage'
+import * as syncPages from './pages/syncPages'
 import { api } from './services/apiClient'
+
+const isSSR = typeof window === 'undefined'
+// Route-based code splitting (Lazy Loading) for on-demand bundle delivery
+type SyncPageKey = keyof typeof syncPages
+const lazyPage = <K extends SyncPageKey>(
+  importer: () => Promise<Record<K, (typeof syncPages)[K]>>,
+  key: K,
+) => (isSSR ? syncPages[key] : lazy(() => importer().then((m) => ({ default: m[key] }))))
+
+const AnalyticsPage = lazyPage(() => import('./pages/AnalyticsPage'), 'AnalyticsPage')
+const AutomationRulesPage = lazyPage(
+  () => import('./pages/AutomationRulesPage'),
+  'AutomationRulesPage',
+)
+const CampaignsPage = lazyPage(() => import('./pages/CampaignsPage'), 'CampaignsPage')
+const ChannelWizardPage = lazyPage(() => import('./pages/ChannelWizardPage'), 'ChannelWizardPage')
+const CsatSurveyPage = lazyPage(() => import('./pages/CsatSurveyPage'), 'CsatSurveyPage')
+const EnterpriseSecurityPage = lazyPage(
+  () => import('./pages/EnterpriseSecurityPage'),
+  'EnterpriseSecurityPage',
+)
+const HelpCenterPage = lazyPage(() => import('./pages/HelpCenterPage'), 'HelpCenterPage')
+const AiProviderSettingsPage = lazyPage(
+  () => import('./pages/AiProviderSettingsPage'),
+  'AiProviderSettingsPage',
+)
+const SetupPage = lazyPage(() => import('./pages/SetupPage'), 'SetupPage')
 
 export interface AppProps {
   initialAuthenticated?: boolean
@@ -182,29 +202,16 @@ function AppContent({ initialAuthenticated }: { initialAuthenticated?: boolean }
   }
 
   const handleTabChange = (tab: LayoutNavTab) => {
-    switch (tab) {
-      case 'inbox':
-        navigate('/inbox')
-        break
-      case 'contacts':
-        navigate('/contacts')
-        break
-      case 'reports':
-        navigate('/analytics')
-        break
-      case 'campaigns':
-        navigate('/campaigns')
-        break
-      case 'automation':
-        navigate('/automation')
-        break
-      case 'help-center':
-        navigate('/help-center')
-        break
-      case 'settings':
-        navigate('/settings/channels')
-        break
+    const tabRoutes: Record<LayoutNavTab, string> = {
+      inbox: '/inbox',
+      contacts: '/contacts',
+      reports: '/analytics',
+      campaigns: '/campaigns',
+      automation: '/automation',
+      'help-center': '/help-center',
+      settings: '/settings/channels',
     }
+    navigate(tabRoutes[tab] || '/inbox')
   }
 
   const handleSelectConversation = (id: string | null) => {
@@ -285,7 +292,7 @@ function AppContent({ initialAuthenticated }: { initialAuthenticated?: boolean }
             }
           }}
         >
-          {children}
+          <Suspense fallback={<PageSkeleton />}>{children}</Suspense>
         </WhatsAppLayout>
 
         <AppModals
@@ -343,36 +350,35 @@ function AppContent({ initialAuthenticated }: { initialAuthenticated?: boolean }
   return (
     <Routes>
       {/* Public Pages */}
-      <Route path="/setup" element={<SetupPage onSuccess={() => navigate('/login')} />} />
+      <Route
+        path="/setup"
+        element={
+          <Suspense fallback={<PageSkeleton title="Menyiapkan Sistem..." />}>
+            <SetupPage onSuccess={() => navigate('/login')} />
+          </Suspense>
+        }
+      />
       <Route
         path="/login"
         element={
           isAuthenticated ? (
             <Navigate to="/inbox" replace />
           ) : (
-            <LoginPage
-              onSuccess={(data: unknown) => {
-                const authData = data as {
-                  user?: { id: string; email: string; displayName?: string; role?: string }
-                }
-                if (authData?.user) {
-                  setUser({
-                    id: authData.user.id,
-                    name: authData.user.displayName || authData.user.email,
-                    email: authData.user.email,
-                    role: authData.user.role || 'agent',
-                    status: 'online',
-                  })
-                }
-                setIsAuthenticated(true)
-                navigate('/inbox')
-              }}
-            />
+            <LoginPage onSuccess={handleLoginSuccess} />
           )
         }
       />
-      <Route path="/csat/:token" element={<CsatSurveyPage />} />
-      <Route path="/csat" element={<CsatSurveyPage />} />
+      {['/csat/:token', '/csat'].map((p) => (
+        <Route
+          key={p}
+          path={p}
+          element={
+            <Suspense fallback={<PageSkeleton title="Memuat Survei Kepuasan..." />}>
+              <CsatSurveyPage />
+            </Suspense>
+          }
+        />
+      ))}
 
       {/* Protected Dashboard Pages */}
       <Route
@@ -473,20 +479,17 @@ function AppContent({ initialAuthenticated }: { initialAuthenticated?: boolean }
 
 export function App({ initialAuthenticated, initialPath }: AppProps = {}) {
   const isServerOrTest = typeof window === 'undefined' || Boolean(initialPath)
-
-  if (isServerOrTest) {
-    const entry = initialPath || (initialAuthenticated === false ? '/login' : '/inbox')
-    return (
-      <MemoryRouter initialEntries={[entry]}>
-        <AppContent initialAuthenticated={initialAuthenticated} />
-      </MemoryRouter>
-    )
-  }
+  const entry = initialPath || (initialAuthenticated === false ? '/login' : '/inbox')
+  const content = <AppContent initialAuthenticated={initialAuthenticated} />
 
   return (
-    <BrowserRouter>
-      <AppContent initialAuthenticated={initialAuthenticated} />
-    </BrowserRouter>
+    <ErrorBoundary variant="root">
+      {isServerOrTest ? (
+        <MemoryRouter initialEntries={[entry]}>{content}</MemoryRouter>
+      ) : (
+        <BrowserRouter>{content}</BrowserRouter>
+      )}
+    </ErrorBoundary>
   )
 }
 
