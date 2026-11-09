@@ -1,12 +1,8 @@
-import {
-  DisconnectReason,
-  fetchLatestBaileysVersion,
-  makeWASocket,
-  useMultiFileAuthState,
-} from '@whiskeysockets/baileys'
+import { DisconnectReason, fetchLatestBaileysVersion, makeWASocket } from '@whiskeysockets/baileys'
 import pino from 'pino'
 import type { ConnectionEventHandlers, GatewayConnectionStatus } from '../types/connection'
 import type { WaInboundMessageEvent } from '../types/events'
+import { useEncryptedAuthState } from './baileys-encrypted-auth-adapter'
 import { mapDisconnectReasonToStatus } from './disconnect-handler'
 import { mediaManager } from './media-manager'
 import { extractInboundMessage } from './message-parser'
@@ -284,28 +280,17 @@ export class BaileysSession {
     this.handlers?.onStatusChange?.(this.status)
   }
 
-  async startSocket(authDir?: string): Promise<void> {
-    const sessionDir = authDir || `./data/sessions/${this.sessionId}`
-    const { state, saveCreds } = await useMultiFileAuthState(sessionDir)
+  async startSocket(_authDir?: string): Promise<void> {
+    const auth = await useEncryptedAuthState(this.sessionId)
+    const { state, saveCreds, saveMeta, clearSession } = auth
 
     if (this.channelId || this.inboxId) {
-      try {
-        const { writeFileSync, existsSync, mkdirSync } = await import('node:fs')
-        const { join } = await import('node:path')
-        if (!existsSync(sessionDir)) {
-          mkdirSync(sessionDir, { recursive: true })
-        }
-        writeFileSync(
-          join(sessionDir, 'meta.json'),
-          JSON.stringify({
-            sessionId: this.sessionId,
-            channelId: this.channelId,
-            inboxId: this.inboxId,
-          }),
-        )
-      } catch {
-        // Ignore file write errors
-      }
+      await saveMeta({
+        sessionId: this.sessionId,
+        channelId: this.channelId,
+        inboxId: this.inboxId,
+        phoneNumber: this.phoneNumber,
+      })
     }
 
     if (state.creds?.me?.id) {
@@ -409,6 +394,11 @@ export class BaileysSession {
           console.log(
             `[wa-gateway] [${this.sessionId}] [DEBUG] Connection OPEN! Authenticated as: ${sock.user?.id}`,
           )
+          if (sock.user?.id) {
+            const raw = sock.user.id.split('@')[0].split(':')[0]
+            this.phoneNumber = raw.startsWith('+') ? raw : `+${raw}`
+            await saveMeta({ phoneNumber: this.phoneNumber })
+          }
           this.emitConnected({ user: sock.user })
         }
 
@@ -421,6 +411,10 @@ export class BaileysSession {
             this.flushInterval = undefined
           }
           this.emitDisconnect(statusCode)
+
+          if (statusCode === DisconnectReason.loggedOut) {
+            await clearSession().catch(() => {})
+          }
 
           const isTemporaryQr = this.sessionId.startsWith('baileys-qr-')
           const isQrTimeout = statusCode === 408 || statusCode === DisconnectReason.timedOut

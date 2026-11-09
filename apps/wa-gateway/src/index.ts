@@ -1,5 +1,22 @@
 export { DisconnectReason } from '@whiskeysockets/baileys'
 export {
+  type AuthAdapterOptions,
+  type EncryptedAuthStorage,
+  type EncryptedAuthStateResult,
+  InMemorySessionStorage,
+  RedisSessionStorage,
+  type SessionMetadata,
+  decryptData,
+  deleteEncryptedSession,
+  encryptData,
+  listEncryptedSessions,
+  useEncryptedAuthState,
+} from './services/baileys-encrypted-auth-adapter'
+export {
+  deriveKey,
+  getDefaultEncryptionKey,
+} from './services/session-crypto'
+export {
   BaileysConnectionManager,
   baileysConnectionManager,
   type CreateSessionParams,
@@ -114,45 +131,25 @@ if (isDirectRun) {
         console.warn('[wa-gateway] Failed to purge expired raw dumps:', err)
       })
 
-    // Auto-resume existing authenticated sessions
-    const sessionsDir = './data/sessions'
-    if (existsSync(sessionsDir)) {
-      try {
-        const entries = readdirSync(sessionsDir, { withFileTypes: true })
-        for (const entry of entries) {
-          if (entry.isDirectory()) {
-            const credsPath = join(sessionsDir, entry.name, 'creds.json')
-            if (existsSync(credsPath)) {
-              const sessionId = entry.name
-              const metaPath = join(sessionsDir, entry.name, 'meta.json')
-              let channelId: string | undefined
-              let inboxId: string | undefined
-              if (existsSync(metaPath)) {
-                try {
-                  const meta = JSON.parse(readFileSync(metaPath, 'utf8'))
-                  channelId = meta.channelId
-                  inboxId = meta.inboxId
-                } catch {
-                  // Ignore corrupted meta.json
-                }
-              }
-              console.log(
-                `[wa-gateway] Resuming authenticated session: ${sessionId} (channel: ${channelId || 'unknown'})`,
-              )
-              const session = await baileysConnectionManager.createSession({
-                sessionId,
-                channelId,
-                inboxId,
-              })
-              session.startSocket().catch((err) => {
-                console.error(`[wa-gateway] Failed to auto-resume session ${sessionId}:`, err)
-              })
-            }
-          }
-        }
-      } catch (err) {
-        console.error('[wa-gateway] Failed to scan sessions dir:', err)
+    // Auto-resume existing authenticated sessions from encrypted session store
+    try {
+      const { listEncryptedSessions } = await import('./services/baileys-encrypted-auth-adapter')
+      const activeSessions = await listEncryptedSessions()
+      for (const meta of activeSessions) {
+        console.log(
+          `[wa-gateway] Resuming authenticated session from encrypted store: ${meta.sessionId} (channel: ${meta.channelId || 'unknown'})`,
+        )
+        const session = await baileysConnectionManager.createSession({
+          sessionId: meta.sessionId,
+          channelId: meta.channelId,
+          inboxId: meta.inboxId,
+        })
+        session.startSocket().catch((err) => {
+          console.error(`[wa-gateway] Failed to auto-resume session ${meta.sessionId}:`, err)
+        })
       }
+    } catch (err) {
+      console.warn('[wa-gateway] Failed to load sessions from encrypted store:', err)
     }
   })
 }
