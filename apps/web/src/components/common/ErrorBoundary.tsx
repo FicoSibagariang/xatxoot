@@ -66,10 +66,10 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       if (variant === 'root') {
         return (
           <div
-            className="min-h-screen w-full bg-[#111b21] text-[#e9edef] flex flex-col items-center justify-center p-6 select-none"
+            className="min-h-screen w-full bg-wa-rail-bg text-wa-border flex flex-col items-center justify-center p-6 select-none"
             data-testid="error-boundary-root"
           >
-            <div className="max-w-md w-full bg-[#202c33] border border-[#313d45] rounded-xl p-8 shadow-2xl text-center flex flex-col items-center">
+            <div className="max-w-md w-full bg-wa-surface-dark border border-wa-hover-dark rounded-xl p-8 shadow-2xl text-center flex flex-col items-center">
               <div className="w-16 h-16 rounded-full bg-rose-500/10 border border-rose-500/20 flex items-center justify-center mb-5 text-rose-400">
                 <svg
                   className="w-8 h-8"
@@ -88,15 +88,15 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
                 </svg>
               </div>
 
-              <h2 className="text-xl font-semibold text-[#e9edef] mb-2">
+              <h2 className="text-xl font-semibold text-wa-border mb-2">
                 {fallbackTitle || 'Terjadi Kesalahan pada Aplikasi'}
               </h2>
-              <p className="text-sm text-[#8696a0] mb-6 leading-relaxed">
+              <p className="text-sm text-wa-subtle mb-6 leading-relaxed">
                 {fallbackMessage ||
                   'Aplikasi mengalami kendala tak terduga saat memuat antarmuka. Anda dapat mencoba memuat ulang halaman untuk memulihkan sesi.'}
               </p>
 
-              <div className="w-full bg-[#111b21] p-3 rounded-lg text-xs font-mono text-rose-300 text-left mb-6 overflow-x-auto border border-[#2a3942]">
+              <div className="w-full bg-wa-rail-bg p-3 rounded-lg text-xs font-mono text-rose-300 text-left mb-6 overflow-x-auto border border-wa-hover-dark">
                 {errorMsg}
               </div>
 
@@ -110,14 +110,14 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
                       this.resetErrorBoundary()
                     }
                   }}
-                  className="flex-1 bg-[#00a884] hover:bg-[#008f70] active:scale-[0.98] text-[#111b21] font-medium py-2.5 px-4 rounded-lg transition-all shadow-md focus:outline-none focus:ring-2 focus:ring-[#00a884]/50"
+                  className="flex-1 bg-wa-teal-primary hover:bg-wa-teal-hover active:scale-[0.98] text-wa-text-primary font-medium py-2.5 px-4 rounded-lg transition-all shadow-md focus:outline-none focus:ring-2 focus:ring-wa-teal-primary/50"
                 >
                   Muat Ulang Halaman
                 </button>
                 <button
                   type="button"
                   onClick={this.resetErrorBoundary}
-                  className="px-4 py-2.5 rounded-lg border border-[#313d45] text-[#8696a0] hover:text-[#e9edef] hover:bg-[#2a3942] transition-colors font-medium text-sm"
+                  className="px-4 py-2.5 rounded-lg border border-wa-hover-dark text-wa-subtle hover:text-wa-border hover:bg-wa-hover-dark transition-colors font-medium text-sm"
                 >
                   Coba Lagi
                 </button>
@@ -149,7 +149,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       // Default: panel variant (contoh untuk panel chat / panel conversation)
       return (
         <div
-          className="h-full w-full min-h-[300px] flex flex-col items-center justify-center p-8 bg-[#0c1317] text-[#8696a0] text-center"
+          className="h-full w-full min-h-[300px] flex flex-col items-center justify-center p-8 bg-wa-rail-bg text-wa-subtle text-center"
           data-testid="error-boundary-panel"
         >
           <div className="w-14 h-14 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mb-4 text-amber-400">
@@ -170,10 +170,10 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
             </svg>
           </div>
 
-          <h3 className="text-base font-medium text-[#e9edef] mb-1">
+          <h3 className="text-base font-medium text-wa-border mb-1">
             {fallbackTitle || 'Terjadi kesalahan pada komponen'}
           </h3>
-          <p className="text-xs text-[#8696a0] max-w-sm mb-5 leading-relaxed">
+          <p className="text-xs text-wa-subtle max-w-sm mb-5 leading-relaxed">
             {fallbackMessage ||
               'Bagian ini mengalami kendala rendering. Komponen lain di aplikasi tetap dapat digunakan secara normal.'}
           </p>
@@ -181,7 +181,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
           <button
             type="button"
             onClick={this.resetErrorBoundary}
-            className="inline-flex items-center gap-2 bg-[#202c33] hover:bg-[#2a3942] border border-[#313d45] text-[#00a884] hover:text-[#25d366] text-xs font-medium py-2 px-4 rounded-lg transition-colors shadow-sm"
+            className="inline-flex items-center gap-2 bg-wa-surface-dark hover:bg-wa-hover-dark border border-wa-hover-dark text-wa-teal-primary hover:text-wa-badge-unread text-xs font-medium py-2 px-4 rounded-lg transition-colors shadow-sm"
           >
             <svg
               className="w-3.5 h-3.5"

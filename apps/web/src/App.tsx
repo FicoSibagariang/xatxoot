@@ -17,50 +17,35 @@ import { AppModals } from './components/modals'
 import { INITIAL_USER } from './data/mockData'
 import { useAppModals, useConversationChat } from './hooks'
 import { LoginPage } from './pages/LoginPage'
+import * as syncPages from './pages/syncPages'
 import { api } from './services/apiClient'
 
-import * as syncPages from './pages/syncPages'
-
 const isSSR = typeof window === 'undefined'
-
 // Route-based code splitting (Lazy Loading) for on-demand bundle delivery
-const AnalyticsPage = isSSR
-  ? syncPages.AnalyticsPage
-  : lazy(() => import('./pages/AnalyticsPage').then((m) => ({ default: m.AnalyticsPage })))
-const AutomationRulesPage = isSSR
-  ? syncPages.AutomationRulesPage
-  : lazy(() =>
-      import('./pages/AutomationRulesPage').then((m) => ({ default: m.AutomationRulesPage })),
-    )
-const CampaignsPage = isSSR
-  ? syncPages.CampaignsPage
-  : lazy(() => import('./pages/CampaignsPage').then((m) => ({ default: m.CampaignsPage })))
-const ChannelWizardPage = isSSR
-  ? syncPages.ChannelWizardPage
-  : lazy(() => import('./pages/ChannelWizardPage').then((m) => ({ default: m.ChannelWizardPage })))
-const CsatSurveyPage = isSSR
-  ? syncPages.CsatSurveyPage
-  : lazy(() => import('./pages/CsatSurveyPage').then((m) => ({ default: m.CsatSurveyPage })))
-const EnterpriseSecurityPage = isSSR
-  ? syncPages.EnterpriseSecurityPage
-  : lazy(() =>
-      import('./pages/EnterpriseSecurityPage').then((m) => ({
-        default: m.EnterpriseSecurityPage,
-      })),
-    )
-const HelpCenterPage = isSSR
-  ? syncPages.HelpCenterPage
-  : lazy(() => import('./pages/HelpCenterPage').then((m) => ({ default: m.HelpCenterPage })))
-const AiProviderSettingsPage = isSSR
-  ? syncPages.AiProviderSettingsPage
-  : lazy(() =>
-      import('./pages/AiProviderSettingsPage').then((m) => ({
-        default: m.AiProviderSettingsPage,
-      })),
-    )
-const SetupPage = isSSR
-  ? syncPages.SetupPage
-  : lazy(() => import('./pages/SetupPage').then((m) => ({ default: m.SetupPage })))
+type SyncPageKey = keyof typeof syncPages
+const lazyPage = <K extends SyncPageKey>(
+  importer: () => Promise<Record<K, (typeof syncPages)[K]>>,
+  key: K,
+) => (isSSR ? syncPages[key] : lazy(() => importer().then((m) => ({ default: m[key] }))))
+
+const AnalyticsPage = lazyPage(() => import('./pages/AnalyticsPage'), 'AnalyticsPage')
+const AutomationRulesPage = lazyPage(
+  () => import('./pages/AutomationRulesPage'),
+  'AutomationRulesPage',
+)
+const CampaignsPage = lazyPage(() => import('./pages/CampaignsPage'), 'CampaignsPage')
+const ChannelWizardPage = lazyPage(() => import('./pages/ChannelWizardPage'), 'ChannelWizardPage')
+const CsatSurveyPage = lazyPage(() => import('./pages/CsatSurveyPage'), 'CsatSurveyPage')
+const EnterpriseSecurityPage = lazyPage(
+  () => import('./pages/EnterpriseSecurityPage'),
+  'EnterpriseSecurityPage',
+)
+const HelpCenterPage = lazyPage(() => import('./pages/HelpCenterPage'), 'HelpCenterPage')
+const AiProviderSettingsPage = lazyPage(
+  () => import('./pages/AiProviderSettingsPage'),
+  'AiProviderSettingsPage',
+)
+const SetupPage = lazyPage(() => import('./pages/SetupPage'), 'SetupPage')
 
 export interface AppProps {
   initialAuthenticated?: boolean
@@ -217,29 +202,16 @@ function AppContent({ initialAuthenticated }: { initialAuthenticated?: boolean }
   }
 
   const handleTabChange = (tab: LayoutNavTab) => {
-    switch (tab) {
-      case 'inbox':
-        navigate('/inbox')
-        break
-      case 'contacts':
-        navigate('/contacts')
-        break
-      case 'reports':
-        navigate('/analytics')
-        break
-      case 'campaigns':
-        navigate('/campaigns')
-        break
-      case 'automation':
-        navigate('/automation')
-        break
-      case 'help-center':
-        navigate('/help-center')
-        break
-      case 'settings':
-        navigate('/settings/channels')
-        break
+    const tabRoutes: Record<LayoutNavTab, string> = {
+      inbox: '/inbox',
+      contacts: '/contacts',
+      reports: '/analytics',
+      campaigns: '/campaigns',
+      automation: '/automation',
+      'help-center': '/help-center',
+      settings: '/settings/channels',
     }
+    navigate(tabRoutes[tab] || '/inbox')
   }
 
   const handleSelectConversation = (id: string | null) => {
@@ -392,43 +364,21 @@ function AppContent({ initialAuthenticated }: { initialAuthenticated?: boolean }
           isAuthenticated ? (
             <Navigate to="/inbox" replace />
           ) : (
-            <LoginPage
-              onSuccess={(data: unknown) => {
-                const authData = data as {
-                  user?: { id: string; email: string; displayName?: string; role?: string }
-                }
-                if (authData?.user) {
-                  setUser({
-                    id: authData.user.id,
-                    name: authData.user.displayName || authData.user.email,
-                    email: authData.user.email,
-                    role: authData.user.role || 'agent',
-                    status: 'online',
-                  })
-                }
-                setIsAuthenticated(true)
-                navigate('/inbox')
-              }}
-            />
+            <LoginPage onSuccess={handleLoginSuccess} />
           )
         }
       />
-      <Route
-        path="/csat/:token"
-        element={
-          <Suspense fallback={<PageSkeleton title="Memuat Survei Kepuasan..." />}>
-            <CsatSurveyPage />
-          </Suspense>
-        }
-      />
-      <Route
-        path="/csat"
-        element={
-          <Suspense fallback={<PageSkeleton title="Memuat Survei Kepuasan..." />}>
-            <CsatSurveyPage />
-          </Suspense>
-        }
-      />
+      {['/csat/:token', '/csat'].map((p) => (
+        <Route
+          key={p}
+          path={p}
+          element={
+            <Suspense fallback={<PageSkeleton title="Memuat Survei Kepuasan..." />}>
+              <CsatSurveyPage />
+            </Suspense>
+          }
+        />
+      ))}
 
       {/* Protected Dashboard Pages */}
       <Route
@@ -529,19 +479,15 @@ function AppContent({ initialAuthenticated }: { initialAuthenticated?: boolean }
 
 export function App({ initialAuthenticated, initialPath }: AppProps = {}) {
   const isServerOrTest = typeof window === 'undefined' || Boolean(initialPath)
+  const entry = initialPath || (initialAuthenticated === false ? '/login' : '/inbox')
+  const content = <AppContent initialAuthenticated={initialAuthenticated} />
 
   return (
     <ErrorBoundary variant="root">
       {isServerOrTest ? (
-        <MemoryRouter
-          initialEntries={[initialPath || (initialAuthenticated === false ? '/login' : '/inbox')]}
-        >
-          <AppContent initialAuthenticated={initialAuthenticated} />
-        </MemoryRouter>
+        <MemoryRouter initialEntries={[entry]}>{content}</MemoryRouter>
       ) : (
-        <BrowserRouter>
-          <AppContent initialAuthenticated={initialAuthenticated} />
-        </BrowserRouter>
+        <BrowserRouter>{content}</BrowserRouter>
       )}
     </ErrorBoundary>
   )
