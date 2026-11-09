@@ -51,7 +51,7 @@ export type AutomationRuleActionType = z.infer<typeof AutomationRuleActionTypeSc
 
 export const AutomationRuleActionSchema = z.object({
   actionName: AutomationRuleActionTypeSchema,
-  actionParams: z.record(z.any()).optional(),
+  actionParams: z.record(z.string(), z.any()).optional(),
 })
 export type AutomationRuleAction = z.infer<typeof AutomationRuleActionSchema>
 

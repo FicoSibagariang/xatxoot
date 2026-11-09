@@ -51,7 +51,7 @@ export type QuestionNode = z.infer<typeof QuestionNodeSchema>
 export const HttpNodeDataSchema = z.object({
   url: z.string().url('URL endpoint harus berupa URL valid'),
   method: z.enum(['GET', 'POST', 'PUT', 'PATCH', 'DELETE']).default('GET'),
-  headers: z.record(z.string()).optional().default({}),
+  headers: z.record(z.string(), z.string()).optional().default({}),
   body: z.string().nullable().optional(),
   responseVariable: z.string().min(1, 'Nama variabel penyimpan respons wajib diisi'),
   timeoutMs: z.number().int().positive().optional().default(5000),
@@ -144,7 +144,7 @@ export const BotFlowDefinitionSchema = z.object({
   startNodeId: z.string().min(1, 'Start node ID wajib diisi'),
   nodes: z.array(BotNodeSchema).min(1, 'Minimal satu node diperlukan'),
   edges: z.array(BotEdgeSchema).default([]),
-  variables: z.record(z.any()).optional().default({}),
+  variables: z.record(z.string(), z.any()).optional().default({}),
 })
 export type BotFlowDefinition = z.infer<typeof BotFlowDefinitionSchema>
 
@@ -189,7 +189,7 @@ export const BotSessionSchema = z.object({
   flowId: z.string().uuid(),
   currentNodeId: z.string().nullable().optional(),
   status: BotSessionStatusSchema,
-  contextData: z.record(z.any()),
+  contextData: z.record(z.string(), z.any()),
   createdAt: z.string().or(z.date()),
   updatedAt: z.string().or(z.date()),
 })

@@ -31,7 +31,7 @@ export const CreateTicketInputSchema = z.object({
   internalNote: z.string().nullable().optional(),
   snoozedUntil: z.string().or(z.date()).nullable().optional(),
   deadlineAt: z.string().or(z.date()).nullable().optional(),
-  customAttributes: z.record(z.any()).default({}),
+  customAttributes: z.record(z.string(), z.any()).default({}),
 })
 export type CreateTicketInput = z.infer<typeof CreateTicketInputSchema>
 
@@ -63,7 +63,7 @@ export const TicketSchema = z.object({
   internalNote: z.string().nullable().optional(),
   internalNoteUpdatedBy: z.string().uuid().nullable().optional(),
   internalNoteUpdatedAt: z.string().or(z.date()).nullable().optional(),
-  customAttributes: z.record(z.any()),
+  customAttributes: z.record(z.string(), z.any()),
   createdAt: z.string().or(z.date()),
   updatedAt: z.string().or(z.date()),
 })
@@ -161,7 +161,7 @@ export type ExecuteSlashCommandInput = z.infer<typeof ExecuteSlashCommandInputSc
 export const SlashCommandExecutionResponseSchema = z.object({
   content: z.string(),
   format: z.enum(['text', 'markdown', 'json']).default('text'),
-  metadata: z.record(z.any()).default({}),
+  metadata: z.record(z.string(), z.any()).default({}),
 })
 export type SlashCommandExecutionResponse = z.infer<typeof SlashCommandExecutionResponseSchema>
 

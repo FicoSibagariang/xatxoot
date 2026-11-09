@@ -3,26 +3,24 @@
 # Node.js 20 LTS Alpine Runtime for Baileys Socket & Noise Protocol Stability
 # ==============================================================================
 
-# Stage 1: Dependency Preparation
-FROM node:20-alpine AS builder
+# Stage 1: Build & Compile TypeScript Ahead-of-Time (AOT)
+FROM oven/bun:1-alpine AS builder
 
 WORKDIR /app
 
-# Install build dependencies if needed
-RUN apk add --no-cache python3 make g++
-
-# Copy root & package manifests
+# Copy root monorepo manifests
 COPY package.json bun.lock ./
-COPY packages/shared/package.json ./packages/shared/
-COPY apps/wa-gateway/package.json ./apps/wa-gateway/
+COPY packages/shared ./packages/shared
+COPY apps/wa-gateway ./apps/wa-gateway
 
-# Install dependencies using npm
-RUN npm install --prefix apps/wa-gateway
+# Install dependencies and compile Ahead-of-Time (AOT) bundle
+RUN bun install --frozen-lockfile
+RUN bun build apps/wa-gateway/src/index.ts --target=node --outfile=apps/wa-gateway/dist/index.js
 
-# Stage 2: Minimal Production Runner
+# Stage 2: Minimal Production Runner (Node.js 20 LTS Alpine)
 FROM node:20-alpine AS runner
 
-WORKDIR /app
+WORKDIR /app/apps/wa-gateway
 
 ENV NODE_ENV=production
 ENV PORT=3001
@@ -31,10 +29,10 @@ ENV WA_GATEWAY_SESSION_PATH=/data/baileys_auth
 # Create directory for persistent Baileys session storage
 RUN mkdir -p /data/baileys_auth && chown -R node:node /data/baileys_auth
 
-# Copy application source & dependencies
-COPY --from=builder /app/apps/wa-gateway/node_modules ./apps/wa-gateway/node_modules
-COPY packages/shared ./packages/shared
-COPY apps/wa-gateway ./apps/wa-gateway
+# Copy application manifests & compiled AOT JavaScript
+COPY --from=builder /app/package.json /app/package.json
+COPY --from=builder /app/apps/wa-gateway/package.json ./package.json
+COPY --from=builder /app/apps/wa-gateway/dist ./dist
 
 # Set ownership to node non-root user
 RUN chown -R node:node /app
@@ -44,5 +42,5 @@ USER node
 
 EXPOSE 3001
 
-# Run Baileys gateway service using tsx
-CMD ["npx", "tsx", "apps/wa-gateway/src/index.ts"]
+# Run compiled Ahead-of-Time JavaScript via node
+CMD ["node", "dist/index.js"]
