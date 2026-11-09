@@ -30,7 +30,28 @@ services:
       - xatxoot-network
 
   # ----------------------------------------------------------------------------
-  # 2. Core REST API & WebSocket Server (Hono on Bun)
+  # 2a. Database Migration Job (One-off / Init Container to avoid race conditions)
+  # ----------------------------------------------------------------------------
+  api-migrate:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: xatxoot-api-migrate
+    restart: "no"
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-xatxoot_prod}:${POSTGRES_PASSWORD:-change_this_password}@postgres:5432/${POSTGRES_DB:-xatxoot_prod}
+    command: ["bun", "run", "--cwd", "apps/api", "db:migrate"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - xatxoot-network
+
+  # ----------------------------------------------------------------------------
+  # 2b. Core REST API & WebSocket Server (Hono on Bun)
   # ----------------------------------------------------------------------------
   api:
     build:
@@ -56,6 +77,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      api-migrate:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
       minio:

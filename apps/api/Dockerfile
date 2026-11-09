@@ -45,5 +45,5 @@ USER bun
 
 EXPOSE 3000
 
-# Run automatic database migrations then start Hono API server
-CMD ["sh", "-c", "bun run --cwd apps/api db:migrate && bun run --cwd apps/api src/index.ts"]
+# Start Hono API server (database migrations are decoupled to dedicated init service)
+CMD ["bun", "run", "--cwd", "apps/api", "src/index.ts"]

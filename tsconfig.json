@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "strict": false,
+    "noImplicitAny": false,
+    "strictNullChecks": false,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "paths": {
+      "@xatxoot/shared": ["./packages/shared/src/index.ts"],
+      "@xatxoot/shared/*": ["./packages/shared/src/*"]
+    }
+  },
+  "include": ["packages/shared/src/index.ts"]
+}

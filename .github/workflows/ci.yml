@@ -1,0 +1,104 @@
+name: Continuous Integration
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Job 1: Biome lint & format validation
+  lint:
+    name: Biome Lint & Format Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install Dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Run Biome Validation
+        run: bun run check
+
+  # Job 2: TypeScript Strict Type Validation
+  typecheck:
+    name: TypeScript Strict Type Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install Dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Run TypeScript Strict Check
+        run: bun run tsc --noEmit
+
+  # Job 3: Automated Test Suite with PostgreSQL & Redis Services
+  test:
+    name: Automated Test Suite
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: xatxoot_test
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: xatxoot_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      NODE_ENV: test
+      PORT: 3000
+      DATABASE_URL: postgresql://xatxoot_test:test_password@localhost:5432/xatxoot_test
+      REDIS_URL: redis://localhost:6379
+      JWT_SECRET: test_jwt_secret_key_minimum_32_chars_long
+      WA_SESSION_ENCRYPTION_KEY: xatxoot_test_session_secret_32bytes
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install Dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Run Database Migrations
+        run: bun run db:migrate
+
+      - name: Run Automated Tests
+        run: bun test

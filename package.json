@@ -13,9 +13,12 @@
     "check": "biome check .",
     "lint": "biome lint .",
     "format": "biome check --write .",
+    "typecheck": "tsc --noEmit",
     "db:migrate": "bun --filter '@xatxoot/api' db:migrate"
   },
   "devDependencies": {
-    "@biomejs/biome": "^1.9.4"
+    "@biomejs/biome": "^1.9.4",
+    "bun-types": "^1.4.4",
+    "typescript": "^5"
   }
 }

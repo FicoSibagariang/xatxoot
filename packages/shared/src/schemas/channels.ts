@@ -54,6 +54,7 @@ export const WhatsAppCloudChannelSchema = z.object({
   updatedAt: z.string().or(z.date()),
 })
 export type WhatsAppCloudChannel = z.infer<typeof WhatsAppCloudChannelSchema>
+export type WhatsAppCloudChannelData = WhatsAppCloudChannel
 
 // 2. WhatsApp Unofficial Channel Schemas
 export const CreateWhatsAppUnofficialChannelInputSchema = z.object({
@@ -132,7 +133,7 @@ export const CreateInboxInputSchema = z.object({
   greetingEnabled: z.boolean().default(false),
   greetingMessage: z.string().nullable().optional(),
   workingHoursEnabled: z.boolean().default(false),
-  workingHours: z.record(z.any()).default({}),
+  workingHours: z.record(z.string(), z.any()).default({}),
   outOfOfficeMessage: z.string().nullable().optional(),
   lockToSingleConv: z.boolean().default(false),
   senderNameType: SenderNameTypeSchema.default('friendly'),
@@ -151,7 +152,7 @@ export const InboxSchema = z.object({
   greetingEnabled: z.boolean(),
   greetingMessage: z.string().nullable().optional(),
   workingHoursEnabled: z.boolean(),
-  workingHours: z.record(z.any()),
+  workingHours: z.record(z.string(), z.any()),
   outOfOfficeMessage: z.string().nullable().optional(),
   lockToSingleConv: z.boolean(),
   senderNameType: SenderNameTypeSchema,

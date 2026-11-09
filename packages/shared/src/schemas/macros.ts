@@ -23,7 +23,7 @@ export type MacroActionType = z.infer<typeof MacroActionTypeSchema>
 
 export const MacroActionInputSchema = z.object({
   actionType: MacroActionTypeSchema,
-  actionPayload: z.record(z.any()).default({}),
+  actionPayload: z.record(z.string(), z.any()).default({}),
   position: z.number().int().nonnegative().default(0),
 })
 export type MacroActionInput = z.infer<typeof MacroActionInputSchema>
@@ -32,7 +32,7 @@ export const MacroActionSchema = z.object({
   id: z.string().uuid(),
   macroId: z.string().uuid(),
   actionType: MacroActionTypeSchema,
-  actionPayload: z.record(z.any()),
+  actionPayload: z.record(z.string(), z.any()),
   position: z.number().int().nonnegative(),
   createdAt: z.string().or(z.date()),
 })
@@ -117,7 +117,7 @@ export const WhatsAppTemplateComponentSchema = z.object({
   type: WhatsAppTemplateComponentTypeSchema,
   format: WhatsAppTemplateHeaderFormatSchema.optional(),
   text: z.string().optional(),
-  example: z.record(z.any()).optional(),
+  example: z.record(z.string(), z.any()).optional(),
   buttons: z.array(WhatsAppTemplateButtonSchema).optional(),
 })
 export type WhatsAppTemplateComponent = z.infer<typeof WhatsAppTemplateComponentSchema>

@@ -12,7 +12,7 @@ export const CreateCompanyInputSchema = z.object({
   name: z.string().min(1, 'Nama perusahaan wajib diisi'),
   domain: z.string().nullable().optional(),
   description: z.string().nullable().optional(),
-  customAttributes: z.record(z.any()).default({}),
+  customAttributes: z.record(z.string(), z.any()).default({}),
 })
 export type CreateCompanyInput = z.infer<typeof CreateCompanyInputSchema>
 
@@ -24,7 +24,7 @@ export const CompanySchema = z.object({
   name: z.string(),
   domain: z.string().nullable().optional(),
   description: z.string().nullable().optional(),
-  customAttributes: z.record(z.any()),
+  customAttributes: z.record(z.string(), z.any()),
   createdAt: z.string().or(z.date()),
   updatedAt: z.string().or(z.date()),
 })
@@ -39,8 +39,8 @@ export const CreateContactInputSchema = z.object({
   avatarUrl: z.string().url().nullable().optional().or(z.literal('')),
   identifier: z.string().nullable().optional(),
   contactType: ContactTypeSchema.default('lead'),
-  customAttributes: z.record(z.any()).default({}),
-  additionalAttributes: z.record(z.any()).default({}),
+  customAttributes: z.record(z.string(), z.any()).default({}),
+  additionalAttributes: z.record(z.string(), z.any()).default({}),
   blocked: z.boolean().default(false),
 })
 export type CreateContactInput = z.infer<typeof CreateContactInputSchema>
@@ -57,8 +57,8 @@ export const ContactSchema = z.object({
   avatarUrl: z.string().nullable().optional(),
   identifier: z.string().nullable().optional(),
   contactType: ContactTypeSchema,
-  customAttributes: z.record(z.any()),
-  additionalAttributes: z.record(z.any()),
+  customAttributes: z.record(z.string(), z.any()),
+  additionalAttributes: z.record(z.string(), z.any()),
   blocked: z.boolean(),
   deletedAt: z.string().or(z.date()).nullable().optional(),
   createdAt: z.string().or(z.date()),
@@ -140,7 +140,7 @@ export const AttachmentInputSchema = z.object({
   thumbUrl: z.string().url().nullable().optional(),
   fileSize: z.number().nonnegative().default(0),
   fileName: z.string().nullable().optional(),
-  metadata: z.record(z.any()).default({}),
+  metadata: z.record(z.string(), z.any()).default({}),
 })
 export type AttachmentInput = z.infer<typeof AttachmentInputSchema>
 
@@ -152,7 +152,7 @@ export const AttachmentSchema = z.object({
   thumbUrl: z.string().nullable().optional(),
   fileSize: z.number().nonnegative(),
   fileName: z.string().nullable().optional(),
-  metadata: z.record(z.any()),
+  metadata: z.record(z.string(), z.any()),
   createdAt: z.string().or(z.date()),
 })
 export type Attachment = z.infer<typeof AttachmentSchema>
@@ -177,7 +177,7 @@ export const CreateMessageInputSchema = z.object({
   contentType: MessageContentTypeSchema.default('text'),
   status: MessageStatusSchema.default('sent'),
   externalSourceId: z.string().nullable().optional(),
-  contentAttributes: z.record(z.any()).default({}),
+  contentAttributes: z.record(z.string(), z.any()).default({}),
   attachments: z.array(AttachmentInputSchema).default([]),
 })
 export type CreateMessageInput = z.infer<typeof CreateMessageInputSchema>
@@ -208,7 +208,7 @@ export const MessageSchema = z.object({
   contentType: MessageContentTypeSchema,
   status: MessageStatusSchema,
   externalSourceId: z.string().nullable().optional(),
-  contentAttributes: z.record(z.any()),
+  contentAttributes: z.record(z.string(), z.any()),
   attachments: z.array(AttachmentSchema).optional(),
   createdAt: z.string().or(z.date()),
   updatedAt: z.string().or(z.date()),
