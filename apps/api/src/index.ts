@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { secureHeaders } from 'hono/secure-headers'
 import { config } from './config'
+import { requestIdMiddleware } from './middleware/request-id'
 import { reportRoutes } from './modules/analytics/analytics.routes'
 import { assignmentRoutes } from './modules/assignment/assignment.routes'
 import { authRoutes } from './modules/auth/auth.routes'
@@ -19,6 +20,7 @@ import { conversationRoutes } from './modules/conversations/conversations.routes
 import { copilotRoutes } from './modules/copilot/copilot.routes'
 import { csatRoutes } from './modules/csat/csat.routes'
 import { emailRoutes } from './modules/email/email.routes'
+import { healthService } from './modules/health/health.service'
 import {
   articleRoutes,
   categoryRoutes,
@@ -29,6 +31,7 @@ import { inboxRoutes } from './modules/inboxes/inboxes.routes'
 import { mediaRoutes } from './modules/media/media.routes'
 import { messageRoutes } from './modules/messages/messages.routes'
 import { metaSocialRoutes } from './modules/meta-social/meta-social.routes'
+import { metricsRegistry } from './modules/metrics/metrics.service'
 import { ragRoutes } from './modules/rag/rag.routes'
 import { realtimeRoutes } from './modules/realtime/realtime.routes'
 import { slaRoutes } from './modules/sla/sla.routes'
@@ -46,6 +49,8 @@ import { widgetRoutes } from './modules/widget/widget.routes'
 
 const app = new Hono()
 
+app.use('*', requestIdMiddleware)
+
 const allowedOrigins = (config.CORS_ORIGINS || '')
   .split(',')
   .map((o) => o.trim())
@@ -62,7 +67,8 @@ app.use(
       return null
     },
     allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    allowHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'x-request-id'],
+    exposeHeaders: ['x-request-id'],
     credentials: true,
   }),
 )
@@ -76,12 +82,37 @@ app.use(
   }),
 )
 
-app.get('/health', (c) => {
-  return c.json({ status: 'ok' })
+// Liveness probe: proses server internal hidup
+app.get('/livez', (c) => {
+  return c.json(healthService.getLiveness())
 })
 
-app.get('/healthz', (c) => {
-  return c.json({ status: 'ok' })
+// Readiness probe: kesiapan dependensi eksternal (PostgreSQL & Redis)
+app.get('/readyz', async (c) => {
+  const result = await healthService.getReadiness()
+  return c.json(result, result.statusCode)
+})
+
+// Prometheus metrics endpoint
+app.get('/metrics', async () => {
+  const metrics = await metricsRegistry.generateMetrics()
+  return new Response(metrics, {
+    headers: {
+      'Content-Type': 'text/plain; version=0.0.4; charset=utf-8',
+      'Cache-Control': 'no-cache',
+    },
+  })
+})
+
+// Backward compatibility health check endpoints
+app.get('/health', async (c) => {
+  const result = await healthService.getReadiness()
+  return c.json(result, result.statusCode)
+})
+
+app.get('/healthz', async (c) => {
+  const result = await healthService.getReadiness()
+  return c.json(result, result.statusCode)
 })
 
 app.route('/api/v1/auth', authRoutes)
