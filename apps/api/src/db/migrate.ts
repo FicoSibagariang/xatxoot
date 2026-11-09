@@ -4,6 +4,7 @@ import type { SQL } from 'bun'
 import { db as defaultDb } from './index'
 
 export const DEFAULT_MIGRATIONS_DIR = join(import.meta.dir, '..', '..', 'migrations')
+export const MIGRATION_LOCK_ID = 8372641
 
 export interface MigrationRunnerOptions {
   db?: SQL
@@ -65,30 +66,90 @@ export async function runMigrations(options: MigrationRunnerOptions = {}): Promi
   const sql = options.db || defaultDb
   const dir = options.migrationsDir || DEFAULT_MIGRATIONS_DIR
 
-  const { pending } = await getMigrationStatus(options)
-  if (pending.length === 0) {
-    return []
+  let lockAcquired = false
+  try {
+    await sql`SELECT pg_advisory_lock(${MIGRATION_LOCK_ID});`
+    lockAcquired = true
+  } catch {
+    // If database or mock does not support pg_advisory_lock, proceed gracefully
   }
 
-  const newlyApplied: string[] = []
-
-  for (const file of pending) {
-    const filePath = join(dir, file)
-
-    if (typeof sql.file === 'function') {
-      await sql.file(filePath)
-    } else {
-      const content = await Bun.file(filePath).text()
-      if (typeof sql.unsafe === 'function') {
-        await sql.unsafe(content)
-      }
+  try {
+    const { pending } = await getMigrationStatus(options)
+    if (pending.length === 0) {
+      return []
     }
 
-    await sql`INSERT INTO schema_migrations (version) VALUES (${file});`
-    newlyApplied.push(file)
-  }
+    const newlyApplied: string[] = []
 
-  return newlyApplied
+    for (const file of pending) {
+      const filePath = join(dir, file)
+
+      if (typeof sql.begin === 'function') {
+        // Bun SQL native transactional callback (auto ROLLBACK on error, auto COMMIT on success)
+        await sql.begin(async (tx: unknown) => {
+          const transactionSql = tx as typeof sql
+          if (typeof transactionSql.file === 'function') {
+            await transactionSql.file(filePath)
+          } else {
+            const content = await Bun.file(filePath).text()
+            if (typeof transactionSql.unsafe === 'function') {
+              await transactionSql.unsafe(content)
+            } else {
+              await transactionSql`${content}`
+            }
+          }
+          await transactionSql`INSERT INTO schema_migrations (version) VALUES (${file});`
+        })
+      } else {
+        // Fallback explicit transaction block
+        if (typeof sql.unsafe === 'function') {
+          await sql.unsafe('BEGIN;')
+        } else {
+          await sql`BEGIN;`
+        }
+
+        try {
+          if (typeof sql.file === 'function') {
+            await sql.file(filePath)
+          } else {
+            const content = await Bun.file(filePath).text()
+            if (typeof sql.unsafe === 'function') {
+              await sql.unsafe(content)
+            } else {
+              await sql`${content}`
+            }
+          }
+          await sql`INSERT INTO schema_migrations (version) VALUES (${file});`
+
+          if (typeof sql.unsafe === 'function') {
+            await sql.unsafe('COMMIT;')
+          } else {
+            await sql`COMMIT;`
+          }
+        } catch (fileErr) {
+          if (typeof sql.unsafe === 'function') {
+            await sql.unsafe('ROLLBACK;')
+          } else {
+            await sql`ROLLBACK;`
+          }
+          throw fileErr
+        }
+      }
+
+      newlyApplied.push(file)
+    }
+
+    return newlyApplied
+  } finally {
+    if (lockAcquired) {
+      try {
+        await sql`SELECT pg_advisory_unlock(${MIGRATION_LOCK_ID});`
+      } catch {
+        // ignore
+      }
+    }
+  }
 }
 
 if (import.meta.main) {

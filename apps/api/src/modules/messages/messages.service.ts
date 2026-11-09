@@ -1,4 +1,5 @@
 import type { Attachment, Message, MessageContentType, MessageStatus } from '@xatxoot/shared'
+import { config } from '../../config'
 import { MESSAGE_COLUMNS, mapRowToMessage, messageColumnsWithUser, sql } from '../../db'
 import { conversationService } from '../conversations/conversations.service'
 import { type WhatsAppUnofficialChannelData, inboxService } from '../inboxes/inboxes.service'
@@ -320,7 +321,7 @@ export class MessageService {
     messageStore.queuedBaileysJobs.push(job)
 
     // Forward to wa-gateway HTTP endpoint asynchronously so caller is never blocked
-    const gatewayPort = Number(process.env.PORT_GATEWAY || 8801)
+    const gatewayPort = Number(config.PORT_GATEWAY || 8801)
     fetch(`http://127.0.0.1:${gatewayPort}/api/messages/send`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

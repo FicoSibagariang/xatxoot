@@ -1,11 +1,12 @@
 import { existsSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { Hono } from 'hono'
+import { config } from '../../config'
 
 export const mediaRoutes = new Hono()
 
 const MEDIA_DIRS = [
-  process.env.MEDIA_DIR,
+  config.MEDIA_DIR,
   resolve(process.cwd(), 'data/media'),
   resolve(process.cwd(), '../data/media'),
   resolve(process.cwd(), '../../data/media'),

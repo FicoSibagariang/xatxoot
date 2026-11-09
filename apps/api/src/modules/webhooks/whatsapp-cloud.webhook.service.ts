@@ -1,14 +1,14 @@
 import { createHmac, timingSafeEqual } from 'node:crypto'
+import { config } from '../../config'
 import { sql } from '../../db'
 
 export const DEFAULT_META_APP_SECRET =
-  process.env.META_APP_SECRET && !process.env.META_APP_SECRET.startsWith('replace_with_')
-    ? process.env.META_APP_SECRET
+  config.META_APP_SECRET && !config.META_APP_SECRET.startsWith('replace_with_')
+    ? config.META_APP_SECRET
     : 'meta_test_app_secret_1234567890'
 export const DEFAULT_META_VERIFY_TOKEN =
-  process.env.META_WEBHOOK_VERIFY_TOKEN &&
-  !process.env.META_WEBHOOK_VERIFY_TOKEN.startsWith('replace_with_')
-    ? process.env.META_WEBHOOK_VERIFY_TOKEN
+  config.META_WEBHOOK_VERIFY_TOKEN && !config.META_WEBHOOK_VERIFY_TOKEN.startsWith('replace_with_')
+    ? config.META_WEBHOOK_VERIFY_TOKEN
     : 'meta_verify_token_super_secret_123'
 
 // Idempotency cache for processed WhatsApp message IDs (wamid)
