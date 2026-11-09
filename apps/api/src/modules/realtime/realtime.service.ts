@@ -82,6 +82,10 @@ export class RealtimeService {
     return this.subscribers.size
   }
 
+  getActiveConnectionCount(): number {
+    return this.subscribers.size
+  }
+
   closeAllSubscribers(): void {
     for (const sub of this.subscribers) {
       sub.close()
