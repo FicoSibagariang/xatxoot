@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { Suspense, lazy, useEffect, useState } from 'react'
 import {
   BrowserRouter,
   MemoryRouter,
@@ -10,22 +10,57 @@ import {
   useParams,
 } from 'react-router-dom'
 import type { TimelineMessage } from './components/chat'
+import { ErrorBoundary, PageSkeleton } from './components/common'
 import { WhatsAppLayout } from './components/layout'
 import type { LayoutNavTab, LayoutUser, PresenceStatus } from './components/layout/types'
 import { AppModals } from './components/modals'
 import { INITIAL_USER } from './data/mockData'
 import { useAppModals, useConversationChat } from './hooks'
-import { AiProviderSettingsPage } from './pages/AiProviderSettingsPage'
-import { AnalyticsPage } from './pages/AnalyticsPage'
-import { AutomationRulesPage } from './pages/AutomationRulesPage'
-import { CampaignsPage } from './pages/CampaignsPage'
-import { ChannelWizardPage } from './pages/ChannelWizardPage'
-import { CsatSurveyPage } from './pages/CsatSurveyPage'
-import { EnterpriseSecurityPage } from './pages/EnterpriseSecurityPage'
-import { HelpCenterPage } from './pages/HelpCenterPage'
 import { LoginPage } from './pages/LoginPage'
-import { SetupPage } from './pages/SetupPage'
 import { api } from './services/apiClient'
+
+import * as syncPages from './pages/syncPages'
+
+const isSSR = typeof window === 'undefined'
+
+// Route-based code splitting (Lazy Loading) for on-demand bundle delivery
+const AnalyticsPage = isSSR
+  ? syncPages.AnalyticsPage
+  : lazy(() => import('./pages/AnalyticsPage').then((m) => ({ default: m.AnalyticsPage })))
+const AutomationRulesPage = isSSR
+  ? syncPages.AutomationRulesPage
+  : lazy(() =>
+      import('./pages/AutomationRulesPage').then((m) => ({ default: m.AutomationRulesPage })),
+    )
+const CampaignsPage = isSSR
+  ? syncPages.CampaignsPage
+  : lazy(() => import('./pages/CampaignsPage').then((m) => ({ default: m.CampaignsPage })))
+const ChannelWizardPage = isSSR
+  ? syncPages.ChannelWizardPage
+  : lazy(() => import('./pages/ChannelWizardPage').then((m) => ({ default: m.ChannelWizardPage })))
+const CsatSurveyPage = isSSR
+  ? syncPages.CsatSurveyPage
+  : lazy(() => import('./pages/CsatSurveyPage').then((m) => ({ default: m.CsatSurveyPage })))
+const EnterpriseSecurityPage = isSSR
+  ? syncPages.EnterpriseSecurityPage
+  : lazy(() =>
+      import('./pages/EnterpriseSecurityPage').then((m) => ({
+        default: m.EnterpriseSecurityPage,
+      })),
+    )
+const HelpCenterPage = isSSR
+  ? syncPages.HelpCenterPage
+  : lazy(() => import('./pages/HelpCenterPage').then((m) => ({ default: m.HelpCenterPage })))
+const AiProviderSettingsPage = isSSR
+  ? syncPages.AiProviderSettingsPage
+  : lazy(() =>
+      import('./pages/AiProviderSettingsPage').then((m) => ({
+        default: m.AiProviderSettingsPage,
+      })),
+    )
+const SetupPage = isSSR
+  ? syncPages.SetupPage
+  : lazy(() => import('./pages/SetupPage').then((m) => ({ default: m.SetupPage })))
 
 export interface AppProps {
   initialAuthenticated?: boolean
@@ -285,7 +320,7 @@ function AppContent({ initialAuthenticated }: { initialAuthenticated?: boolean }
             }
           }}
         >
-          {children}
+          <Suspense fallback={<PageSkeleton />}>{children}</Suspense>
         </WhatsAppLayout>
 
         <AppModals
@@ -343,7 +378,14 @@ function AppContent({ initialAuthenticated }: { initialAuthenticated?: boolean }
   return (
     <Routes>
       {/* Public Pages */}
-      <Route path="/setup" element={<SetupPage onSuccess={() => navigate('/login')} />} />
+      <Route
+        path="/setup"
+        element={
+          <Suspense fallback={<PageSkeleton title="Menyiapkan Sistem..." />}>
+            <SetupPage onSuccess={() => navigate('/login')} />
+          </Suspense>
+        }
+      />
       <Route
         path="/login"
         element={
@@ -371,8 +413,22 @@ function AppContent({ initialAuthenticated }: { initialAuthenticated?: boolean }
           )
         }
       />
-      <Route path="/csat/:token" element={<CsatSurveyPage />} />
-      <Route path="/csat" element={<CsatSurveyPage />} />
+      <Route
+        path="/csat/:token"
+        element={
+          <Suspense fallback={<PageSkeleton title="Memuat Survei Kepuasan..." />}>
+            <CsatSurveyPage />
+          </Suspense>
+        }
+      />
+      <Route
+        path="/csat"
+        element={
+          <Suspense fallback={<PageSkeleton title="Memuat Survei Kepuasan..." />}>
+            <CsatSurveyPage />
+          </Suspense>
+        }
+      />
 
       {/* Protected Dashboard Pages */}
       <Route
@@ -474,19 +530,20 @@ function AppContent({ initialAuthenticated }: { initialAuthenticated?: boolean }
 export function App({ initialAuthenticated, initialPath }: AppProps = {}) {
   const isServerOrTest = typeof window === 'undefined' || Boolean(initialPath)
 
-  if (isServerOrTest) {
-    const entry = initialPath || (initialAuthenticated === false ? '/login' : '/inbox')
-    return (
-      <MemoryRouter initialEntries={[entry]}>
-        <AppContent initialAuthenticated={initialAuthenticated} />
-      </MemoryRouter>
-    )
-  }
-
   return (
-    <BrowserRouter>
-      <AppContent initialAuthenticated={initialAuthenticated} />
-    </BrowserRouter>
+    <ErrorBoundary variant="root">
+      {isServerOrTest ? (
+        <MemoryRouter
+          initialEntries={[initialPath || (initialAuthenticated === false ? '/login' : '/inbox')]}
+        >
+          <AppContent initialAuthenticated={initialAuthenticated} />
+        </MemoryRouter>
+      ) : (
+        <BrowserRouter>
+          <AppContent initialAuthenticated={initialAuthenticated} />
+        </BrowserRouter>
+      )}
+    </ErrorBoundary>
   )
 }
 
